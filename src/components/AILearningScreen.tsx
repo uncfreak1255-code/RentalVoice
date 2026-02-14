@@ -1,0 +1,1475 @@
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, AppState, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppStore } from '@/lib/store';
+import {
+  ArrowLeft,
+  Brain,
+  TrendingUp,
+  CheckCircle,
+  Edit3,
+  RefreshCw,
+  Sparkles,
+  BarChart3,
+  Trash2,
+  Home,
+  ChevronRight,
+  Download,
+  Calendar,
+  Clock,
+  AlertCircle,
+  X,
+  Database,
+  Pause,
+  Play,
+  Square,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  CloudOff,
+  Smartphone,
+  Moon,
+  Zap,
+} from 'lucide-react-native';
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { analyzeConversationsForStyle, calculateLearningProgress, analyzeHostawayHistory, mergeAnalysisWithProfile } from '@/lib/ai-learning';
+import { historySyncManager, formatTimeRemaining, type SyncProgress, type HostawayConversation, type HostawayMessage } from '@/lib/history-sync';
+import {
+  backgroundSyncManager,
+  isBackgroundFetchAvailable,
+  formatBackgroundSyncStatus,
+  type BackgroundSyncProgress,
+  type BackgroundSyncState,
+} from '@/lib/background-fetch-service';
+import {
+  aiTrainingService,
+  formatTrainingStatus,
+  getTrainingSummary,
+  type TrainingState,
+  type TrainingResult,
+} from '@/lib/ai-training-service';
+import { colors, spacing, typography, radius } from '@/lib/design-tokens';
+
+interface AILearningScreenProps {
+  onBack: () => void;
+}
+
+export function AILearningScreen({ onBack }: AILearningScreenProps) {
+  const learningEntries = useAppStore((s) => s.learningEntries);
+  const conversations = useAppStore((s) => s.conversations);
+  const properties = useAppStore((s) => s.properties);
+  const hostStyleProfiles = useAppStore((s) => s.hostStyleProfiles);
+  const aiLearningProgress = useAppStore((s) => s.aiLearningProgress);
+  const updateHostStyleProfile = useAppStore((s) => s.updateHostStyleProfile);
+  const updateAILearningProgress = useAppStore((s) => s.updateAILearningProgress);
+  const resetAILearning = useAppStore((s) => s.resetAILearning);
+
+  // History sync state
+  const historySyncStatus = useAppStore((s) => s.historySyncStatus);
+  const updateHistorySyncStatus = useAppStore((s) => s.updateHistorySyncStatus);
+  const setHistoryDateRange = useAppStore((s) => s.setHistoryDateRange);
+  const accountId = useAppStore((s) => s.settings.accountId);
+  const apiKey = useAppStore((s) => s.settings.apiKey);
+
+  const [isTraining, setIsTraining] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [showDateRangeModal, setShowDateRangeModal] = useState(false);
+  const [dateRangeMonths, setDateRangeMonths] = useState<string>('24');
+  const [showErrorLog, setShowErrorLog] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+
+  // Background sync state
+  const [backgroundSyncState, setBackgroundSyncState] = useState<BackgroundSyncState | null>(null);
+  const [backgroundSyncProgress, setBackgroundSyncProgress] = useState<BackgroundSyncProgress | null>(null);
+  const [backgroundFetchAvailable, setBackgroundFetchAvailable] = useState<boolean | null>(null);
+  const [backgroundFetchStatusText, setBackgroundFetchStatusText] = useState<string>('');
+
+  // AI Training state
+  const [trainingState, setTrainingState] = useState<TrainingState | null>(null);
+  const [showTrainingComplete, setShowTrainingComplete] = useState(false);
+  const [lastTrainingResult, setLastTrainingResult] = useState<TrainingResult | null>(null);
+
+  // Store reference to fetched data for manual training
+  const [fetchedHistoryData, setFetchedHistoryData] = useState<{
+    conversations: HostawayConversation[];
+    messages: Record<number, HostawayMessage[]>;
+  } | null>(null);
+
+  // Animated rotation for loading spinner
+  const spinValue = useSharedValue(0);
+
+  useEffect(() => {
+    if (historySyncStatus.isSyncing) {
+      spinValue.value = withRepeat(
+        withTiming(360, { duration: 1000, easing: Easing.linear }),
+        -1,
+        false
+      );
+    } else {
+      spinValue.value = 0;
+    }
+  }, [historySyncStatus.isSyncing, spinValue]);
+
+  const spinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinValue.value}deg` }],
+  }));
+
+  // Initialize sync manager and set up callbacks
+  useEffect(() => {
+    historySyncManager.loadState().then(() => {
+      const state = historySyncManager.getState();
+      if (state.phase !== 'idle' && state.phase !== 'complete') {
+        updateHistorySyncStatus({
+          canResume: historySyncManager.canResume(),
+          syncPhase: state.phase,
+          processedConversations: state.processedConversations,
+          processedMessages: state.processedMessages,
+        });
+      }
+    });
+
+    // Set up progress callback
+    historySyncManager.onProgress((progress) => {
+      setSyncProgress(progress);
+      updateHistorySyncStatus({
+        isSyncing: progress.phase !== 'idle' && progress.phase !== 'complete' && progress.phase !== 'error',
+        isPaused: historySyncManager.getState().isPaused,
+        syncPhase: progress.phase,
+        syncProgress: progress.percentage,
+        processedConversations: progress.processedConversations,
+        processedMessages: progress.processedMessages,
+        estimatedTimeRemaining: progress.estimatedTimeRemaining,
+        currentBatch: progress.currentBatch,
+        totalBatches: progress.totalBatches,
+        errorCount: progress.errorCount,
+        canResume: historySyncManager.canResume(),
+      });
+    });
+
+    // Set up error callback
+    historySyncManager.onError((error) => {
+      updateHistorySyncStatus({
+        syncError: error.message,
+        errorLog: [...historySyncStatus.errorLog, error],
+      });
+    });
+
+    // Set up completion callback
+    historySyncManager.onComplete((stats) => {
+      updateHistorySyncStatus({
+        isSyncing: false,
+        syncPhase: 'complete',
+        syncProgress: 100,
+        lastFullSync: new Date(),
+        totalConversationsSynced: stats.conversations,
+        totalMessagesSynced: stats.messages,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    });
+
+    // Set up data callback for AI learning - NOW WITH AUTO-TRAINING
+    historySyncManager.onData((conversations, messagesByConversation) => {
+      // Store data for potential manual re-training
+      setFetchedHistoryData({
+        conversations: conversations as HostawayConversation[],
+        messages: messagesByConversation as Record<number, HostawayMessage[]>,
+      });
+
+      updateHistorySyncStatus({ syncPhase: 'analyzing' });
+
+      // Trigger automatic AI training after successful fetch
+      console.log('[AI Learning] Starting auto-training after history fetch...');
+
+      const existingProfile = hostStyleProfiles['global'];
+
+      aiTrainingService.autoTrainOnFetch(
+        conversations as HostawayConversation[],
+        messagesByConversation as Record<number, HostawayMessage[]>,
+        existingProfile
+      ).then((result) => {
+        if (result.success) {
+          // Update host style profile with trained data
+          updateHostStyleProfile('global', result.styleProfile);
+
+          // Update learning progress
+          updateAILearningProgress({
+            totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+            lastTrainingDate: new Date(),
+          });
+
+          setLastTrainingResult(result);
+          setShowTrainingComplete(true);
+
+          console.log(`[AI Learning] Auto-training complete: ${result.stats.hostMessagesAnalyzed} messages, ${result.stats.patternsIndexed} patterns indexed`);
+        }
+      }).catch((error) => {
+        console.error('[AI Learning] Auto-training failed:', error);
+      });
+    });
+  }, []);
+
+  // Initialize background sync manager and check availability
+  useEffect(() => {
+    // Check background fetch availability
+    isBackgroundFetchAvailable().then(({ available, statusText }) => {
+      setBackgroundFetchAvailable(available);
+      setBackgroundFetchStatusText(statusText);
+    });
+
+    // Load background sync state
+    backgroundSyncManager.loadState().then((state) => {
+      setBackgroundSyncState(state);
+      setBackgroundSyncProgress(backgroundSyncManager.getProgress());
+    });
+
+    // Subscribe to background sync progress
+    const unsubscribe = backgroundSyncManager.onProgress((progress) => {
+      setBackgroundSyncProgress(progress);
+    });
+
+    // Set up data callback for background sync completion - WITH AUTO-TRAINING
+    backgroundSyncManager.onData((conversations, messagesByConversation) => {
+      // Store data for potential manual re-training
+      setFetchedHistoryData({
+        conversations: conversations as HostawayConversation[],
+        messages: messagesByConversation as Record<number, HostawayMessage[]>,
+      });
+
+      // Trigger automatic AI training after successful background fetch
+      console.log('[AI Learning] Starting auto-training after background sync...');
+
+      const existingProfile = hostStyleProfiles['global'];
+
+      aiTrainingService.autoTrainOnFetch(
+        conversations as HostawayConversation[],
+        messagesByConversation as Record<number, HostawayMessage[]>,
+        existingProfile
+      ).then((result) => {
+        if (result.success) {
+          // Update host style profile with trained data
+          updateHostStyleProfile('global', result.styleProfile);
+
+          // Update learning progress
+          updateAILearningProgress({
+            totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+            lastTrainingDate: new Date(),
+          });
+
+          setLastTrainingResult(result);
+          setShowTrainingComplete(true);
+
+          console.log(`[AI Learning] Background auto-training complete: ${result.stats.hostMessagesAnalyzed} messages, ${result.stats.patternsIndexed} patterns indexed`);
+        }
+      }).catch((error) => {
+        console.error('[AI Learning] Background auto-training failed:', error);
+      });
+    });
+
+    backgroundSyncManager.onComplete((stats) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Refresh state after completion
+      backgroundSyncManager.loadState().then((state) => {
+        setBackgroundSyncState(state);
+      });
+    });
+
+    // Handle app state changes for foreground/background transitions
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // Refresh background sync state when returning to foreground
+        backgroundSyncManager.loadState().then((state) => {
+          setBackgroundSyncState(state);
+          setBackgroundSyncProgress(backgroundSyncManager.getProgress());
+        });
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      unsubscribe();
+      subscription.remove();
+    };
+  }, [dateRangeMonths, hostStyleProfiles, updateHostStyleProfile, updateAILearningProgress, aiLearningProgress.totalMessagesAnalyzed]);
+
+  // Subscribe to AI training progress
+  useEffect(() => {
+    // Load initial training state
+    aiTrainingService.loadState().then(() => {
+      setTrainingState(aiTrainingService.getState());
+    });
+
+    // Subscribe to progress updates
+    const unsubscribeProgress = aiTrainingService.onProgress((state) => {
+      setTrainingState(state);
+      setIsTraining(state.isTraining);
+
+      // Update spinner based on training state
+      if (state.isTraining) {
+        spinValue.value = withRepeat(
+          withTiming(360, { duration: 1000, easing: Easing.linear }),
+          -1,
+          false
+        );
+      }
+    });
+
+    // Subscribe to completion
+    const unsubscribeComplete = aiTrainingService.onComplete((result) => {
+      setLastTrainingResult(result);
+      if (result.success) {
+        setShowTrainingComplete(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    });
+
+    return () => {
+      unsubscribeProgress();
+      unsubscribeComplete();
+    };
+  }, [spinValue]);
+
+  // Calculate current learning stats
+  const learningStats = useMemo(() => {
+    return calculateLearningProgress(learningEntries);
+  }, [learningEntries]);
+
+  // Get host messages count
+  const hostMessagesCount = useMemo(() => {
+    return conversations.reduce((count, conv) => {
+      return count + conv.messages.filter((m) => m.sender === 'host').length;
+    }, 0);
+  }, [conversations]);
+
+  // Format date for display
+  const formatDate = useCallback((date: Date | null) => {
+    if (!date) return 'Never';
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, []);
+
+  // Start/Resume history fetch using the new sync manager
+  const handleStartSync = useCallback(async (resume: boolean = false) => {
+    if (!accountId || !apiKey) {
+      Alert.alert('Not Connected', 'Please connect your Hostaway account first.');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    updateHistorySyncStatus({
+      isSyncing: true,
+      isPaused: false,
+      syncPhase: 'conversations',
+      syncProgress: 0,
+      syncError: null,
+    });
+
+    const months = parseInt(dateRangeMonths, 10) || 12;
+
+    await historySyncManager.start(accountId, apiKey, {
+      dateRangeMonths: months,
+      resume,
+    });
+  }, [accountId, apiKey, dateRangeMonths, updateHistorySyncStatus]);
+
+  // Pause sync
+  const handlePauseSync = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    historySyncManager.pause();
+    updateHistorySyncStatus({ isPaused: true });
+  }, [updateHistorySyncStatus]);
+
+  // Resume from pause
+  const handleResumeSync = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    historySyncManager.resume();
+    updateHistorySyncStatus({ isPaused: false });
+  }, [updateHistorySyncStatus]);
+
+  // Cancel sync
+  const handleCancelSync = useCallback(() => {
+    Alert.alert(
+      'Cancel Sync',
+      'Are you sure you want to cancel? Progress will be saved and you can resume later.',
+      [
+        { text: 'Keep Syncing', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            historySyncManager.cancel();
+            updateHistorySyncStatus({
+              isSyncing: false,
+              isPaused: false,
+              syncPhase: 'idle',
+              canResume: historySyncManager.canResume(),
+            });
+          },
+        },
+      ]
+    );
+  }, [updateHistorySyncStatus]);
+
+  // Clear sync state and start fresh
+  const handleClearAndRestart = useCallback(async () => {
+    await historySyncManager.clearState();
+    updateHistorySyncStatus({
+      canResume: false,
+      processedConversations: 0,
+      processedMessages: 0,
+      syncProgress: 0,
+    });
+    handleStartSync(false);
+  }, [handleStartSync, updateHistorySyncStatus]);
+
+  // Background sync handlers
+  const handleEnableBackgroundSync = useCallback(async () => {
+    if (!backgroundFetchAvailable) {
+      Alert.alert(
+        'Background Fetch Unavailable',
+        backgroundFetchStatusText || 'Background App Refresh is not available. Please enable it in Settings > General > Background App Refresh.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const months = parseInt(dateRangeMonths, 10) || 12;
+
+    const success = await backgroundSyncManager.enable({
+      dateRangeMonths: months,
+      startImmediately: true,
+    });
+
+    if (success) {
+      const state = await backgroundSyncManager.loadState();
+      setBackgroundSyncState(state);
+      setBackgroundSyncProgress(backgroundSyncManager.getProgress());
+
+      Alert.alert(
+        'Background Sync Enabled',
+        'History fetch will continue even when the app is in the background. You can close the app and check back later.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert('Error', 'Failed to enable background sync. Please make sure you are connected to Hostaway.');
+    }
+  }, [backgroundFetchAvailable, backgroundFetchStatusText, dateRangeMonths]);
+
+  const handleDisableBackgroundSync = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await backgroundSyncManager.disable();
+    const state = await backgroundSyncManager.loadState();
+    setBackgroundSyncState(state);
+    setBackgroundSyncProgress(null);
+  }, []);
+
+  const handleResumeBackgroundSyncInForeground = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Resume sync in foreground for faster completion
+    await backgroundSyncManager.resumeInForeground();
+    const state = await backgroundSyncManager.loadState();
+    setBackgroundSyncState(state);
+    setBackgroundSyncProgress(backgroundSyncManager.getProgress());
+  }, []);
+
+  const handleClearBackgroundSync = useCallback(async () => {
+    Alert.alert(
+      'Clear Background Sync',
+      'This will clear all background sync progress. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            await backgroundSyncManager.clearState();
+            const state = await backgroundSyncManager.loadState();
+            setBackgroundSyncState(state);
+            setBackgroundSyncProgress(null);
+          },
+        },
+      ]
+    );
+  }, []);
+
+  const handleTrainModel = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // If we have fetched history data, use the advanced training service
+    if (fetchedHistoryData && fetchedHistoryData.conversations.length > 0) {
+      setIsTraining(true);
+
+      try {
+        const existingProfile = hostStyleProfiles['global'];
+        const result = await aiTrainingService.manualTrain(
+          fetchedHistoryData.conversations,
+          fetchedHistoryData.messages,
+          existingProfile
+        );
+
+        if (result.success) {
+          updateHostStyleProfile('global', result.styleProfile);
+          updateAILearningProgress({
+            totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+            totalEditsLearned: learningEntries.filter((e) => e.wasEdited).length,
+            totalApprovalsLearned: learningEntries.filter((e) => e.wasApproved).length,
+            accuracyScore: learningStats.accuracyScore,
+            lastTrainingDate: new Date(),
+          });
+
+          setLastTrainingResult(result);
+          setShowTrainingComplete(true);
+        }
+      } catch (error) {
+        console.error('Training error:', error);
+        Alert.alert('Training Error', 'An error occurred during training. Please try again.');
+      } finally {
+        setIsTraining(false);
+      }
+      return;
+    }
+
+    // Fallback to basic local conversation analysis if no history data
+    setIsTraining(true);
+    updateAILearningProgress({ isTraining: true, trainingProgress: 0 });
+
+    try {
+      // Simulate training progress
+      for (let i = 0; i <= 100; i += 10) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        updateAILearningProgress({ trainingProgress: i });
+      }
+
+      // Analyze global style
+      const globalProfile = analyzeConversationsForStyle(conversations);
+      updateHostStyleProfile('global', globalProfile);
+
+      // Analyze per-property styles
+      for (const property of properties) {
+        const propertyProfile = analyzeConversationsForStyle(conversations, property.id);
+        if (propertyProfile.samplesAnalyzed && propertyProfile.samplesAnalyzed > 0) {
+          updateHostStyleProfile(property.id, propertyProfile);
+        }
+      }
+
+      updateAILearningProgress({
+        isTraining: false,
+        trainingProgress: 100,
+        totalMessagesAnalyzed: hostMessagesCount,
+        totalEditsLearned: learningEntries.filter((e) => e.wasEdited).length,
+        totalApprovalsLearned: learningEntries.filter((e) => e.wasApproved).length,
+        accuracyScore: learningStats.accuracyScore,
+        lastTrainingDate: new Date(),
+      });
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('Training error:', error);
+      updateAILearningProgress({ isTraining: false });
+    } finally {
+      setIsTraining(false);
+    }
+  };
+
+  const handleResetLearning = () => {
+    Alert.alert(
+      'Reset AI Learning',
+      'This will erase all learned patterns and style preferences. The AI will start fresh. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            resetAILearning();
+          },
+        },
+      ]
+    );
+  };
+
+  const globalProfile = hostStyleProfiles['global'];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
+      <LinearGradient
+        colors={['#1E293B', '#0F172A']}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 150 }}
+      />
+
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* Training Complete Notification */}
+        {showTrainingComplete && lastTrainingResult && (
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            style={{ marginHorizontal: spacing['4'], marginBottom: spacing['4'], backgroundColor: '#22C55E20', borderWidth: 1, borderColor: '#22C55E30', borderRadius: radius['2xl'], padding: spacing['4'] }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing['2'] }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 40, height: 40, borderRadius: radius.full, backgroundColor: '#22C55E30', alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] }}>
+                  <Zap size={20} color="#22C55E" />
+                </View>
+                <View>
+                  <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.semibold, fontSize: 16 }}>AI Fully Trained!</Text>
+                  <Text style={{ color: '#22C55EB0', fontSize: 12 }}>Now answers accurately in your voice</Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setShowTrainingComplete(false)}
+                style={{ padding: 8 }}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              >
+                <X size={18} color="#22C55E" />
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing['2'], paddingTop: spacing['2'], borderTopWidth: 1, borderTopColor: '#22C55E20' }}>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.bold, fontSize: 18 }}>
+                  {lastTrainingResult.stats.hostMessagesAnalyzed.toLocaleString()}
+                </Text>
+                <Text style={{ color: '#22C55E99', fontSize: 12 }}>Messages Analyzed</Text>
+              </View>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.bold, fontSize: 18 }}>
+                  {lastTrainingResult.stats.patternsIndexed.toLocaleString()}
+                </Text>
+                <Text style={{ color: '#22C55E99', fontSize: 12 }}>Patterns Indexed</Text>
+              </View>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.bold, fontSize: 18 }}>
+                  {Math.round(lastTrainingResult.stats.trainingDurationMs / 1000)}s
+                </Text>
+                <Text style={{ color: '#22C55E99', fontSize: 12 }}>Training Time</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Auto-Training Progress Banner */}
+        {trainingState?.isAutoTraining && trainingState.isTraining && (
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            style={{ marginBottom: 16, backgroundColor: '#A855F720', borderWidth: 1, borderColor: '#A855F730', borderRadius: 12, padding: 12, marginHorizontal: 16 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Animated.View style={spinStyle}>
+                <RefreshCw size={16} color="#A855F7" />
+              </Animated.View>
+              <Text style={{ color: '#C084FC', fontWeight: '500', fontSize: 14, marginLeft: 8 }}>
+                Auto-training on your history...
+              </Text>
+              <Text style={{ color: '#C084FCB0', fontSize: 14, marginLeft: 'auto' }}>
+                {trainingState.progress}%
+              </Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
+              <View
+                style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%' }}
+                style={{ width: `${trainingState.progress}%` }}
+              />
+            </View>
+            <Text style={{ color: '#C084FC99', fontSize: 12, marginTop: 8 }}>
+              {formatTrainingStatus(trainingState)}
+            </Text>
+          </Animated.View>
+        )}
+
+        {/* Header */}
+        <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable
+            onPress={onBack}
+            style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: 'rgba(30,41,59,0.5)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <ArrowLeft size={20} color="#FFFFFF" />
+          </Pressable>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>AI Learning</Text>
+        </Animated.View>
+
+        <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false}>
+          {/* Learning Status Card */}
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400)}
+            style={{ borderRadius: 16, padding: 20, marginBottom: 24, backgroundColor: '#A855F720' }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ width: 48, height: 48, borderRadius: 9999, backgroundColor: '#A855F720', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                <Brain size={24} color="#A855F7" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 18 }}>Style Learning</Text>
+                <Text style={{ color: '#94A3B8', fontSize: 14 }}>
+                  {learningStats.totalAnalyzed > 0
+                    ? `Learning from ${learningStats.totalAnalyzed} interactions`
+                    : 'Ready to learn your communication style'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Accuracy Meter */}
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: '#94A3B8', fontSize: 14 }}>AI Accuracy</Text>
+                <Text style={{ color: '#C084FC', fontWeight: '600' }}>
+                  {learningStats.accuracyScore}%
+                </Text>
+              </View>
+              <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
+                <View
+                  style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%' }}
+                  style={{ width: `${learningStats.accuracyScore}%` }}
+                />
+              </View>
+            </View>
+
+            {/* Training Button */}
+            <Pressable
+              onPress={handleTrainModel}
+              disabled={isTraining || (trainingState?.isTraining ?? false)}
+              style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: isTraining || trainingState?.isTraining ? '#334155' : '#A855F7', opacity: pressed ? 0.8 : 1 })}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {isTraining || trainingState?.isTraining ? (
+                  <>
+                    <Animated.View style={spinStyle}>
+                      <RefreshCw size={18} color="#A855F7" />
+                    </Animated.View>
+                    <Text style={{ color: '#C084FC', fontWeight: '600', marginLeft: 8 }}>
+                      Training... {trainingState?.progress ?? aiLearningProgress.trainingProgress}%
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} color="#FFFFFF" />
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>Train on Messages</Text>
+                  </>
+                )}
+              </View>
+            </Pressable>
+
+            {/* Training Summary */}
+            {trainingState?.hasCompletedInitialTraining && !isTraining && (
+              <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
+                {getTrainingSummary(trainingState)}
+              </Text>
+            )}
+          </Animated.View>
+
+          {/* Stats Grid */}
+          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              Learning Statistics
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              <View style={{ width: '50%', paddingRight: 8, marginBottom: 12 }}>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <BarChart3 size={16} color="#14B8A6" />
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Messages Analyzed</Text>
+                  </View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
+                    {aiLearningProgress.totalMessagesAnalyzed || hostMessagesCount}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ width: '50%', paddingLeft: 8, marginBottom: 12 }}>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <TrendingUp size={16} color="#A855F7" />
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Approval Rate</Text>
+                  </View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>{learningStats.approvalRate}%</Text>
+                </View>
+              </View>
+
+              <View style={{ width: '50%', paddingRight: 8 }}>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <CheckCircle size={16} color="#22C55E" />
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Direct Approvals</Text>
+                  </View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
+                    {learningEntries.filter((e) => e.wasApproved && !e.wasEdited).length}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ width: '50%', paddingLeft: 8 }}>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Edit3 size={16} color="#F59E0B" />
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Edits Learned</Text>
+                  </View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
+                    {learningEntries.filter((e) => e.wasEdited).length}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Historical Data Fetch Section */}
+          <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              Historical Data Training
+            </Text>
+            <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: '#14B8A620', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <Database size={20} color="#14B8A6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>Fetch Message History</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>
+                    Import all past conversations for comprehensive AI training
+                  </Text>
+                </View>
+              </View>
+
+              {/* Sync Status */}
+              {historySyncStatus.lastFullSync && (
+                <View style={{ backgroundColor: 'rgba(51,65,85,0.5)', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 12 }}>Last synced</Text>
+                    <Text style={{ color: '#CBD5E1', fontSize: 12 }}>
+                      {formatDate(historySyncStatus.lastFullSync)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 12 }}>Data imported</Text>
+                    <Text style={{ color: '#2DD4BF', fontSize: 12, fontWeight: '500' }}>
+                      {historySyncStatus.totalConversationsSynced} conversations, {historySyncStatus.totalMessagesSynced} messages
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Error Display */}
+              {historySyncStatus.syncError && !historySyncStatus.isSyncing && (
+                <View style={{ backgroundColor: '#EF444410', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
+                  <AlertCircle size={16} color="#EF4444" />
+                  <Text style={{ color: '#F87171', fontSize: 14, marginLeft: 8, flex: 1 }}>{historySyncStatus.syncError}</Text>
+                </View>
+              )}
+
+              {/* Enhanced Progress Bar during sync */}
+              {historySyncStatus.isSyncing && (
+                <View style={{ marginBottom: 12 }}>
+                  {/* Phase and Progress */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 12 }}>
+                      {historySyncStatus.isPaused
+                        ? 'Paused'
+                        : historySyncStatus.syncPhase === 'conversations'
+                        ? 'Fetching conversations...'
+                        : historySyncStatus.syncPhase === 'messages'
+                        ? `Fetching messages (${historySyncStatus.processedConversations}/${syncProgress?.totalConversations || '?'})...`
+                        : 'Analyzing patterns...'}
+                    </Text>
+                    <Text style={{ color: '#2DD4BF', fontSize: 12, fontWeight: '500' }}>{historySyncStatus.syncProgress}%</Text>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden', marginBottom: 8 }}>
+                    <View
+                      style={{ height: '100%', borderRadius: 9999, backgroundColor: historySyncStatus.isPaused ? '#F97316' : '#14B8A6', width: `${historySyncStatus.syncProgress}%` }}
+                    />
+                  </View>
+
+                  {/* Stats Row */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: '#64748B', fontSize: 12 }}>
+                      {historySyncStatus.processedMessages} messages fetched
+                    </Text>
+                    <Text style={{ color: '#64748B', fontSize: 12 }}>
+                      {formatTimeRemaining(historySyncStatus.estimatedTimeRemaining)}
+                    </Text>
+                  </View>
+
+                  {/* Batch Info */}
+                  {historySyncStatus.currentBatch > 0 && (
+                    <Text style={{ color: '#475569', fontSize: 12, marginBottom: 8 }}>
+                      Batch {historySyncStatus.currentBatch} of {historySyncStatus.totalBatches}
+                    </Text>
+                  )}
+
+                  {/* Error Count */}
+                  {historySyncStatus.errorCount > 0 && (
+                    <Pressable
+                      onPress={() => setShowErrorLog(!showErrorLog)}
+                      style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+                    >
+                      <AlertTriangle size={12} color="#F59E0B" />
+                      <Text style={{ color: '#FB923C', fontSize: 12, marginLeft: 4 }}>
+                        {historySyncStatus.errorCount} errors (tap to {showErrorLog ? 'hide' : 'view'})
+                      </Text>
+                      {showErrorLog ? (
+                        <ChevronUp size={12} color="#F59E0B" />
+                      ) : (
+                        <ChevronDown size={12} color="#F59E0B" />
+                      )}
+                    </Pressable>
+                  )}
+
+                  {/* Error Log */}
+                  {showErrorLog && historySyncStatus.errorLog.length > 0 && (
+                    <View style={{ backgroundColor: 'rgba(51,65,85,0.5)', borderRadius: 8, padding: 8, marginBottom: 8, maxHeight: 96 }}>
+                      <ScrollView nestedScrollEnabled>
+                        {historySyncStatus.errorLog.slice(-5).map((err, i) => (
+                          <Text key={i} style={{ color: '#FB923CB0', fontSize: 12, marginBottom: 4 }}>
+                            [{err.phase}] {err.message}
+                          </Text>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Control Buttons */}
+                  <View style={{ flexDirection: 'row' }}>
+                    {historySyncStatus.isPaused ? (
+                      <Pressable
+                        onPress={handleResumeSync}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#14B8A6', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
+                        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      >
+                        <Play size={14} color="#FFFFFF" />
+                        <Text style={{ color: '#FFFFFF', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Resume</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={handlePauseSync}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F59E0B20', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
+                        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      >
+                        <Pause size={14} color="#F59E0B" />
+                        <Text style={{ color: '#FB923C', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Pause</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      onPress={handleCancelSync}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF444410', borderRadius: 8, paddingVertical: 8 }}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                    >
+                      <Square size={14} color="#EF4444" />
+                      <Text style={{ color: '#F87171', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Resume Previous Sync Option */}
+              {!historySyncStatus.isSyncing && historySyncStatus.canResume && (
+                <View style={{ borderRadius: 12, padding: 12, marginBottom: 12, backgroundColor: '#F59E0B10' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <AlertTriangle size={16} color="#F59E0B" />
+                    <Text style={{ color: '#FB923C', fontWeight: '500', fontSize: 14, marginLeft: 8 }}>Previous sync incomplete</Text>
+                  </View>
+                  <Text style={{ color: '#94A3B8', fontSize: 12, marginBottom: 12 }}>
+                    {historySyncStatus.processedConversations} conversations processed. Resume or start fresh?
+                  </Text>
+                  <View style={{ flexDirection: 'row' }}>
+                    <Pressable
+                      onPress={() => handleStartSync(true)}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#14B8A6', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                    >
+                      <Play size={14} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Resume</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleClearAndRestart}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#334155', borderRadius: 8, paddingVertical: 8 }}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                    >
+                      <RefreshCw size={14} color="#94A3B8" />
+                      <Text style={{ color: '#CBD5E1', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Start Fresh</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Date Range Setting */}
+              <Pressable
+                onPress={() => setShowDateRangeModal(true)}
+                disabled={historySyncStatus.isSyncing}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(51,65,85,0.3)', borderRadius: 12, padding: 12, marginBottom: 12, opacity: historySyncStatus.isSyncing ? 0.5 : pressed ? 0.7 : 1 })}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Calendar size={16} color="#94A3B8" />
+                  <Text style={{ color: '#CBD5E1', fontSize: 14, marginLeft: 8 }}>Date Range</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ color: '#94A3B8', fontSize: 14, marginRight: 8 }}>Last {dateRangeMonths} months</Text>
+                  <ChevronRight size={16} color="#64748B" />
+                </View>
+              </Pressable>
+
+              {/* Fetch Button - Only show when not syncing and no resume needed */}
+              {!historySyncStatus.isSyncing && !historySyncStatus.canResume && (
+                <Pressable
+                  onPress={() => handleStartSync(false)}
+                  disabled={!accountId}
+                  style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: !accountId ? '#334155' : '#14B8A6', opacity: pressed ? 0.8 : 1 })}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {!accountId ? (
+                      <>
+                        <AlertCircle size={18} color="#64748B" />
+                        <Text style={{ color: '#64748B', fontWeight: '600', marginLeft: 8 }}>Connect Hostaway First</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Download size={18} color="#FFFFFF" />
+                        <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>
+                          {historySyncStatus.lastFullSync ? 'Fetch More History' : 'Import All History'}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </Pressable>
+              )}
+
+              {/* Privacy Note */}
+              <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
+                Only anonymized patterns are stored - no personal data is saved
+              </Text>
+            </View>
+          </Animated.View>
+
+          {/* Background Sync Section */}
+          <Animated.View entering={FadeInDown.delay(275).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              Background Sync
+            </Text>
+            <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: '#A855F720', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <Moon size={20} color="#A855F7" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>Continue in Background</Text>
+                  <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>
+                    Sync history even when the app is closed
+                  </Text>
+                </View>
+              </View>
+
+              {/* Background Fetch Status */}
+              <View style={{ backgroundColor: 'rgba(51,65,85,0.5)', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ color: '#94A3B8', fontSize: 12 }}>System Status</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {backgroundFetchAvailable === null ? (
+                      <Text style={{ color: '#64748B', fontSize: 12 }}>Checking...</Text>
+                    ) : backgroundFetchAvailable ? (
+                      <>
+                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#22C55E', marginRight: 6 }} />
+                        <Text style={{ color: '#4ADE80', fontSize: 12 }}>Available</Text>
+                      </>
+                    ) : (
+                      <>
+                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#F97316', marginRight: 6 }} />
+                        <Text style={{ color: '#FB923C', fontSize: 12 }}>Limited</Text>
+                      </>
+                    )}
+                  </View>
+                </View>
+                {!backgroundFetchAvailable && backgroundFetchStatusText && (
+                  <Text style={{ color: '#64748B', fontSize: 12 }}>{backgroundFetchStatusText}</Text>
+                )}
+              </View>
+
+              {/* Background Sync Progress */}
+              {backgroundSyncState?.isEnabled && backgroundSyncProgress && (
+                <View style={{ backgroundColor: '#A855F710', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      {backgroundSyncProgress.isRunning ? (
+                        <Animated.View style={spinStyle}>
+                          <RefreshCw size={14} color="#A855F7" />
+                        </Animated.View>
+                      ) : (
+                        <Moon size={14} color="#A855F7" />
+                      )}
+                      <Text style={{ color: '#C084FC', fontWeight: '500', fontSize: 14, marginLeft: 8 }}>
+                        {backgroundSyncProgress.isRunning ? 'Syncing...' : 'Waiting for background run'}
+                      </Text>
+                    </View>
+                    <Text style={{ color: '#C084FC', fontSize: 12, fontWeight: '500' }}>
+                      {backgroundSyncProgress.percentage}%
+                    </Text>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden', marginBottom: 8 }}>
+                    <View
+                      style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%' }}
+                      style={{ width: `${backgroundSyncProgress.percentage}%` }}
+                    />
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: '#64748B', fontSize: 12 }}>
+                      {backgroundSyncProgress.processedConversations} conversations, {backgroundSyncProgress.processedMessages} messages
+                    </Text>
+                    {backgroundSyncProgress.lastRunTime && (
+                      <Text style={{ color: '#64748B', fontSize: 12 }}>
+                        Last: {new Date(backgroundSyncProgress.lastRunTime).toLocaleTimeString()}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Status message */}
+                  {backgroundSyncState && (
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 8 }}>
+                      {formatBackgroundSyncStatus(backgroundSyncState)}
+                    </Text>
+                  )}
+
+                  {/* Control Buttons */}
+                  <View style={{ flexDirection: 'row', marginTop: 12 }}>
+                    <Pressable
+                      onPress={handleResumeBackgroundSyncInForeground}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#A855F7', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                    >
+                      <Smartphone size={14} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Speed Up</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleDisableBackgroundSync}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF444410', borderRadius: 8, paddingVertical: 8 }}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                    >
+                      <Square size={14} color="#EF4444" />
+                      <Text style={{ color: '#F87171', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Stop</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Background Sync Complete */}
+              {backgroundSyncState?.phase === 'complete' && (
+                <View style={{ backgroundColor: '#22C55E10', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
+                  <CheckCircle size={16} color="#22C55E" />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={{ color: '#4ADE80', fontWeight: '500', fontSize: 14 }}>Background sync complete!</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginTop: 2 }}>
+                      {backgroundSyncState.processedMessages} messages analyzed
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={handleClearBackgroundSync}
+                    style={{ padding: 8 }}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                  >
+                    <X size={16} color="#64748B" />
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Enable Background Sync Button */}
+              {!backgroundSyncState?.isEnabled && backgroundSyncState?.phase !== 'complete' && (
+                <Pressable
+                  onPress={handleEnableBackgroundSync}
+                  disabled={!accountId || !backgroundFetchAvailable}
+                  style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: !accountId || !backgroundFetchAvailable ? '#334155' : '#A855F7', opacity: pressed ? 0.8 : 1 })}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {!accountId ? (
+                      <>
+                        <AlertCircle size={18} color="#64748B" />
+                        <Text style={{ color: '#64748B', fontWeight: '600', marginLeft: 8 }}>Connect Hostaway First</Text>
+                      </>
+                    ) : !backgroundFetchAvailable ? (
+                      <>
+                        <CloudOff size={18} color="#64748B" />
+                        <Text style={{ color: '#64748B', fontWeight: '600', marginLeft: 8 }}>Background Fetch Unavailable</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Moon size={18} color="#FFFFFF" />
+                        <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>Enable Background Sync</Text>
+                      </>
+                    )}
+                  </View>
+                </Pressable>
+              )}
+
+              {/* Info about background sync */}
+              <View style={{ backgroundColor: 'rgba(51,65,85,0.3)', borderRadius: 12, padding: 12, marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Clock size={14} color="#94A3B8" />
+                  <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8, flex: 1 }}>
+                    Background sync runs periodically (every 15-30 min on iOS) to fetch history in small chunks.
+                    Use "Speed Up" to process faster while the app is open.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+
+          {/* Learned Style Profile */}
+          {globalProfile && globalProfile.samplesAnalyzed > 0 && (
+            <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                Your Communication Style
+              </Text>
+              <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+                {/* Formality */}
+                <View style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 14 }}>Formality</Text>
+                    <Text style={{ color: '#CBD5E1', fontSize: 14 }}>
+                      {globalProfile.formalityLevel > 60
+                        ? 'Professional'
+                        : globalProfile.formalityLevel < 40
+                        ? 'Casual'
+                        : 'Balanced'}
+                    </Text>
+                  </View>
+                  <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
+                    <View
+                      style={{ backgroundColor: '#14B8A6', borderRadius: 9999, height: '100%' }}
+                      style={{ width: `${globalProfile.formalityLevel}%` }}
+                    />
+                  </View>
+                </View>
+
+                {/* Warmth */}
+                <View style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 14 }}>Warmth</Text>
+                    <Text style={{ color: '#CBD5E1', fontSize: 14 }}>
+                      {globalProfile.warmthLevel > 60
+                        ? 'Very Warm'
+                        : globalProfile.warmthLevel < 40
+                        ? 'Reserved'
+                        : 'Friendly'}
+                    </Text>
+                  </View>
+                  <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
+                    <View
+                      style={{ backgroundColor: '#F97316', borderRadius: 9999, height: '100%' }}
+                      style={{ width: `${globalProfile.warmthLevel}%` }}
+                    />
+                  </View>
+                </View>
+
+                {/* Emoji Usage */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderColor: '#334155' }}>
+                  <Text style={{ color: '#94A3B8', fontSize: 14 }}>Uses Emojis</Text>
+                  <Text style={{ color: '#CBD5E1', fontSize: 14 }}>
+                    {globalProfile.usesEmojis ? 'Yes' : 'No'}
+                  </Text>
+                </View>
+
+                {/* Avg Length */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderColor: '#334155' }}>
+                  <Text style={{ color: '#94A3B8', fontSize: 14 }}>Avg Response Length</Text>
+                  <Text style={{ color: '#CBD5E1', fontSize: 14 }}>
+                    ~{globalProfile.averageResponseLength} words
+                  </Text>
+                </View>
+
+                {/* Common Phrases */}
+                {globalProfile.commonPhrases.length > 0 && (
+                  <View style={{ paddingTop: 12, borderTopWidth: 1, borderColor: '#334155' }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 14, marginBottom: 8 }}>Common Phrases</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                      {globalProfile.commonPhrases.slice(0, 5).map((phrase, i) => (
+                        <View key={i} style={{ backgroundColor: '#334155', borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 4, marginRight: 8, marginBottom: 8 }}>
+                          <Text style={{ color: '#CBD5E1', fontSize: 12 }}>{phrase}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Per-Property Profiles */}
+          {properties.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(400).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                Property-Specific Styles
+              </Text>
+              <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, overflow: 'hidden' }}>
+                {properties.map((property, index) => {
+                  const profile = hostStyleProfiles[property.id];
+                  return (
+                    <Pressable
+                      key={property.id}
+                      onPress={() =>
+                        setSelectedPropertyId(
+                          selectedPropertyId === property.id ? null : property.id
+                        )
+                      }
+                      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, ...(index < properties.length - 1 ? { borderBottomWidth: 1, borderBottomColor: 'rgba(51,65,85,0.5)' } : {}), opacity: pressed ? 0.7 : 1 })}
+                    >
+                      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#334155', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                        <Home size={20} color="#94A3B8" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>{property.name}</Text>
+                        <Text style={{ color: '#64748B', fontSize: 14, marginTop: 2 }}>
+                          {profile?.samplesAnalyzed
+                            ? `${profile.samplesAnalyzed} messages analyzed`
+                            : 'Not yet trained'}
+                        </Text>
+                      </View>
+                      <ChevronRight size={18} color="#64748B" />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Reset Button */}
+          <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ marginBottom: 32 }}>
+            <Pressable
+              onPress={handleResetLearning}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF444410', borderRadius: 16, paddingVertical: 16 }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+            >
+              <Trash2 size={18} color="#EF4444" />
+              <Text style={{ color: '#EF4444', fontWeight: '500', marginLeft: 8 }}>Reset All Learning Data</Text>
+            </Pressable>
+          </Animated.View>
+
+          {/* Info */}
+          <Animated.View
+            entering={FadeInDown.delay(600).duration(400)}
+            style={{ borderRadius: 12, padding: 16, marginBottom: 32, backgroundColor: 'rgba(30,41,59,0.3)' }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '500', marginBottom: 8 }}>How AI Learning Works</Text>
+            <Text style={{ color: '#94A3B8', fontSize: 14, lineHeight: 20 }}>
+              The AI analyzes your past messages to learn your unique communication style.
+              When you approve or edit AI suggestions, it learns from those interactions to
+              better match your tone, vocabulary, and preferences over time.
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* Date Range Modal */}
+      <Modal
+        visible={showDateRangeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateRangeModal(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}
+          onPress={() => setShowDateRangeModal(false)}
+        >
+          <Pressable
+            style={{ width: '100%', backgroundColor: '#1E293B', borderRadius: 16, padding: 20 }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '600' }}>Select Date Range</Text>
+              <Pressable
+                onPress={() => setShowDateRangeModal(false)}
+                style={{ width: 32, height: 32, borderRadius: 9999, backgroundColor: '#334155', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={16} color="#94A3B8" />
+              </Pressable>
+            </View>
+
+            <Text style={{ color: '#94A3B8', fontSize: 14, marginBottom: 16 }}>
+              Choose how far back to fetch message history for AI training.
+            </Text>
+
+            {/* Preset Options */}
+            <View style={{ flexDirection: 'row', marginBottom: 16, flexWrap: 'wrap' }}>
+              {['3', '6', '12', '24', 'all'].map((months) => (
+                <Pressable
+                  key={months}
+                  onPress={() => {
+                    if (months === 'all') {
+                      setDateRangeMonths('120');
+                      setHistoryDateRange(null, null);
+                    } else {
+                      setDateRangeMonths(months);
+                      const start = new Date();
+                      start.setMonth(start.getMonth() - parseInt(months, 10));
+                      setHistoryDateRange(start, null);
+                    }
+                    Haptics.selectionAsync();
+                  }}
+                  style={({ pressed }) => ({ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 9999, marginRight: 8, marginBottom: 8, backgroundColor: (months === 'all' && dateRangeMonths === '120') || dateRangeMonths === months ? '#14B8A6' : '#334155', opacity: pressed ? 0.7 : 1 })}
+                >
+                  <Text
+                    style={{ fontWeight: '500', color: (months === 'all' && dateRangeMonths === '120') || dateRangeMonths === months ? '#FFFFFF' : '#CBD5E1' }}
+                  >
+                    {months === 'all' ? 'All Time' : `${months} months`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Custom Input */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: '#94A3B8', fontSize: 14, marginBottom: 8 }}>Or enter custom months:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TextInput
+                  value={dateRangeMonths}
+                  onChangeText={(text) => {
+                    const num = text.replace(/[^0-9]/g, '');
+                    setDateRangeMonths(num);
+                    if (num) {
+                      const months = parseInt(num, 10);
+                      const start = new Date();
+                      start.setMonth(start.getMonth() - months);
+                      setHistoryDateRange(start, null);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  placeholder="12"
+                  placeholderTextColor="#64748B"
+                  style={{ flex: 1, backgroundColor: '#334155', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, color: '#FFFFFF', fontSize: 16 }}
+                />
+                <Text style={{ color: '#94A3B8', marginLeft: 12 }}>months</Text>
+              </View>
+            </View>
+
+            {/* Info */}
+            <View style={{ backgroundColor: 'rgba(51,65,85,0.5)', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <Clock size={16} color="#94A3B8" />
+                <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8, flex: 1 }}>
+                  Fetching more history will take longer but provides better AI training data.
+                  Large datasets are processed efficiently in batches.
+                </Text>
+              </View>
+            </View>
+
+            {/* Done Button */}
+            <Pressable
+              onPress={() => setShowDateRangeModal(false)}
+              style={{ backgroundColor: '#14B8A6', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Done</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
