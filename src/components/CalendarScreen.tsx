@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -142,7 +143,6 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
-  const [scrollX, setScrollX] = useState(0);
 
   // Refs for synchronized scrolling
   const headerScrollRef = useRef<ScrollView>(null);
@@ -165,18 +165,9 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
     return properties;
   }, [properties, viewMode, selectedListingId]);
 
-  // Synchronized scroll handler
+  // Synchronized scroll handler (empty for now to avoid event loop freezing)
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const x = event.nativeEvent.contentOffset.x;
-    setScrollX(x);
-
-    // Sync header scroll
-    headerScrollRef.current?.scrollTo({ x, animated: false });
-
-    // Sync all listing row scrolls
-    Object.values(listingScrollRefs.current).forEach(ref => {
-      ref?.scrollTo({ x, animated: false });
-    });
+    // Disabled to improve performance
   }, []);
 
   // Load calendar data
@@ -654,34 +645,45 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
           </View>
 
           {/* Scrollable Listing Rows */}
-          <ScrollView
-            style={{ flex: 1 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={handleRefresh}
-                tintColor="#14B8A6"
-                colors={['#14B8A6']}
-              />
-            }
-          >
+          <View style={{ flex: 1 }}>
             {displayedListings.length > 0 ? (
-              displayedListings.map((listing) => (
-                <ListingCalendarRow
-                  key={listing.id}
-                  listing={listing}
-                  dates={dates}
-                  entries={getEntriesForListing(listing.id)}
-                  onEntryPress={handleEntryPress}
-                  scrollRef={(ref) => {
-                    listingScrollRefs.current[listing.id] = ref;
-                  }}
-                  onScroll={handleScroll}
-                  allEntries={entries}
-                />
-              ))
+              <FlatList
+                data={displayedListings}
+                keyExtractor={(listing) => listing.id}
+                windowSize={5}
+                maxToRenderPerBatch={5}
+                initialNumToRender={8}
+                removeClippedSubviews={false}
+                ListFooterComponent={<View style={{ height: 100 }} />}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={handleRefresh}
+                    tintColor="#14B8A6"
+                    colors={['#14B8A6']}
+                  />
+                }
+                renderItem={({ item: listing }) => (
+                  <ListingCalendarRow
+                    listing={listing}
+                    dates={dates}
+                    entries={getEntriesForListing(listing.id)}
+                    onEntryPress={handleEntryPress}
+                    scrollRef={(ref) => {
+                      listingScrollRefs.current[listing.id] = ref;
+                    }}
+                    onScroll={handleScroll}
+                    allEntries={entries}
+                  />
+                )}
+              />
             ) : (
-              <View style={{ padding: 40, alignItems: 'center' }}>
+              <ScrollView 
+                contentContainerStyle={{ flex: 1, padding: 40, alignItems: 'center' }}
+                refreshControl={
+                  <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#14B8A6" colors={['#14B8A6']} />
+                }
+              >
                 <Home size={48} color="#D1D5DB" />
                 <Text style={{ fontSize: 16, fontWeight: '600', color: '#6B7280', marginTop: 16 }}>
                   No listings found
@@ -689,10 +691,9 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 <Text style={{ fontSize: 14, color: '#9CA3AF', marginTop: 8, textAlign: 'center' }}>
                   Connect your Hostaway account to see your listings
                 </Text>
-              </View>
+              </ScrollView>
             )}
-            <View style={{ height: 100 }} />
-          </ScrollView>
+          </View>
         </View>
 
         {/* Reservation Detail Slide-out */}
@@ -804,8 +805,6 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
           style={{ flex: 1 }}
         >
           <View style={{ flexDirection: 'row', height: '100%' }}>

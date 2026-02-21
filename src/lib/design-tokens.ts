@@ -5,65 +5,65 @@
  * All values follow a 4px grid system.
  */
 
-// ─── Colors ──────────────────────────────────────────────────
+// ─── Colors (Light Mode — Airbnb-inspired) ──────────────────
 export const colors = {
-  // Background layers (darkest → lightest for elevation)
+  // Background layers (lightest → subtle elevation)
   bg: {
-    base: '#0A0F1A',     // Deepest background
-    card: '#111827',      // Card/surface level
-    elevated: '#1E293B',  // Elevated surfaces (modals, sheets)
-    hover: '#334155',     // Hover/pressed state
-    subtle: '#0F172A',    // Subtle contrast from base
+    base: '#FFFFFF',      // Pure white base
+    card: '#FFFFFF',      // Cards on white
+    elevated: '#F8FAFC',  // Elevated surfaces (modals, sheets)
+    hover: '#F1F5F9',     // Hover/pressed state
+    subtle: '#F8FAFC',    // Subtle contrast from base
   },
 
   // Brand
   primary: {
     DEFAULT: '#14B8A6',   // Teal — main brand
     light: '#2DD4BF',     // Hover/active variant
-    muted: '#14B8A620',   // 12% opacity background
-    soft: '#14B8A640',    // 25% opacity
+    muted: '#14B8A615',   // Subtle teal background
+    soft: '#14B8A625',    // Light teal background
   },
 
   accent: {
     DEFAULT: '#F97316',   // Orange — CTA, attention
     light: '#FB923C',
-    muted: '#F9731620',
-    soft: '#F9731640',
+    muted: '#F9731615',
+    soft: '#F9731625',
   },
 
   danger: {
     DEFAULT: '#EF4444',
     light: '#F87171',
-    muted: '#EF444420',
-    soft: '#EF444440',
+    muted: '#EF444415',
+    soft: '#EF444425',
   },
 
   success: {
     DEFAULT: '#22C55E',
     light: '#4ADE80',
-    muted: '#22C55E20',
+    muted: '#22C55E15',
   },
 
   warning: {
     DEFAULT: '#EAB308',
     light: '#FACC15',
-    muted: '#EAB30820',
+    muted: '#EAB30815',
   },
 
   // Text
   text: {
-    primary: '#F8FAFC',    // Headings, important text
-    secondary: '#CBD5E1',  // Body text
-    muted: '#94A3B8',      // Captions, hints
-    disabled: '#475569',   // Disabled/placeholder
-    inverse: '#0F172A',    // Text on light backgrounds
+    primary: '#1E293B',    // Near-black headings
+    secondary: '#475569',  // Body text
+    muted: '#64748B',      // Captions, hints
+    disabled: '#94A3B8',   // Disabled/placeholder
+    inverse: '#FFFFFF',    // Text on dark backgrounds
   },
 
   // Borders
   border: {
-    subtle: '#1E293B',     // Dividers
-    DEFAULT: '#334155',    // Input borders
-    strong: '#475569',     // Focused borders
+    subtle: '#F1F5F9',     // Faint dividers
+    DEFAULT: '#E2E8F0',    // Input borders
+    strong: '#CBD5E1',     // Focused borders
   },
 
   // Platform-specific accent colors
@@ -78,10 +78,77 @@ export const colors = {
   status: {
     online: '#22C55E',
     away: '#EAB308',
-    offline: '#64748B',
+    offline: '#94A3B8',
     urgent: '#EF4444',
   },
 } as const;
+
+// ─── Dark Mode Colors (preserved for future use) ────────────
+export const darkColors = {
+  bg: {
+    base: '#0A0F1A',
+    card: '#111827',
+    elevated: '#1E293B',
+    hover: '#334155',
+    subtle: '#0F172A',
+  },
+  primary: colors.primary,
+  accent: colors.accent,
+  danger: colors.danger,
+  success: colors.success,
+  warning: colors.warning,
+  text: {
+    primary: '#F8FAFC',
+    secondary: '#CBD5E1',
+    muted: '#94A3B8',
+    disabled: '#475569',
+    inverse: '#0F172A',
+  },
+  border: {
+    subtle: '#1E293B',
+    DEFAULT: '#334155',
+    strong: '#475569',
+  },
+  platform: colors.platform,
+  status: colors.status,
+} as const;
+
+// ─── Light Mode Colors ──────────────────────────────────────
+export const lightColors = {
+  bg: {
+    base: '#F8FAFC',
+    card: '#FFFFFF',
+    elevated: '#F1F5F9',
+    hover: '#E2E8F0',
+    subtle: '#F1F5F9',
+  },
+  primary: colors.primary,
+  accent: colors.accent,
+  danger: colors.danger,
+  success: colors.success,
+  warning: colors.warning,
+  text: {
+    primary: '#0F172A',
+    secondary: '#334155',
+    muted: '#64748B',
+    disabled: '#94A3B8',
+    inverse: '#F8FAFC',
+  },
+  border: {
+    subtle: '#E2E8F0',
+    DEFAULT: '#CBD5E1',
+    strong: '#94A3B8',
+  },
+  platform: colors.platform,
+  status: colors.status,
+} as const;
+
+export type ThemeMode = 'dark' | 'light' | 'system';
+
+export function getThemeColors(mode: ThemeMode, systemIsDark: boolean = true) {
+  if (mode === 'system') return systemIsDark ? colors : lightColors;
+  return mode === 'dark' ? colors : lightColors;
+}
 
 // ─── Spacing (4px grid) ──────────────────────────────────────
 export const spacing = {
@@ -159,6 +226,33 @@ export const radius = {
 // ─── Elevation / Shadows ─────────────────────────────────────
 export const elevation = {
   none: {},
+  // Premium Layout Shadows (Layered for depth)
+  shadows: {
+    premium: {
+      sm: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+      },
+      md: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.05,
+        shadowRadius: 24,
+        elevation: 4,
+      },
+      lg: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.08,
+        shadowRadius: 32,
+        elevation: 8,
+      }
+    }
+  },
+  // Legacy
   sm: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
@@ -202,6 +296,12 @@ export const animation = {
     easeOut: 'cubic-bezier(0.16, 1, 0.3, 1)',
     easeIn: 'cubic-bezier(0.55, 0.055, 0.675, 0.19)',
     spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  },
+  // Reanimated Spring configs for tactile physics
+  spring: {
+    bouncy: { stiffness: 200, damping: 15, mass: 1 }, // Playful (e.g., success checkmarks)
+    subtle: { stiffness: 300, damping: 22, mass: 1 }, // Standard UI elements (cards, buttons)
+    snappy: { stiffness: 400, damping: 28, mass: 1 }, // Fast interactions (toggles, chips)
   },
 } as const;
 

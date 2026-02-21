@@ -107,7 +107,7 @@ export function QuickReplyTemplatesScreen({ onBack }: QuickReplyTemplatesScreenP
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={[st.row, { paddingHorizontal: spacing['4'], paddingVertical: spacing['3'] }]}>
-          <Pressable onPress={onBack} style={({ pressed }) => [st.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color="#FFFFFF" /></Pressable>
+          <Pressable onPress={onBack} style={({ pressed }) => [st.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
           <View style={{ flex: 1 }}><Text style={st.title}>Quick Reply Templates</Text><Text style={{ color: colors.text.muted, fontSize: 14 }}>{templates.length} templates</Text></View>
         </Animated.View>
 

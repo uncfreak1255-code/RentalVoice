@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useAppStore, Issue } from '@/lib/store';
-import { ArrowLeft, AlertTriangle, Wrench, Sparkles, Volume2, Key, HelpCircle, Plus, Filter, Check, Clock, AlertCircle, X, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle, Wrench, Sparkles, Volume2, Key, HelpCircle, Plus, Filter, Check, Clock, AlertCircle, X, ChevronDown, Bug, Zap, FileWarning, DollarSign } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';
@@ -22,12 +22,17 @@ const categoryIcons: Record<IssueCategory, React.ReactNode> = {
   amenity: <AlertTriangle size={18} color="#EAB308" />,
   noise: <Volume2 size={18} color="#8B5CF6" />,
   access: <Key size={18} color="#EC4899" />,
+  lease_violation: <FileWarning size={18} color="#EF4444" />,
+  rent_delinquency: <DollarSign size={18} color="#F97316" />,
+  pest: <Bug size={18} color="#A855F7" />,
+  utility: <Zap size={18} color="#06B6D4" />,
   other: <HelpCircle size={18} color="#64748B" />,
 };
 
 const categoryLabels: Record<IssueCategory, string> = {
   maintenance: 'Maintenance', cleanliness: 'Cleanliness', amenity: 'Amenity',
-  noise: 'Noise', access: 'Access', other: 'Other',
+  noise: 'Noise', access: 'Access', lease_violation: 'Lease Violation',
+  rent_delinquency: 'Late Rent', pest: 'Pest', utility: 'Utility', other: 'Other',
 };
 
 const priorityColors: Record<IssuePriority, string> = { low: '#22C55E', medium: '#EAB308', high: '#F97316', urgent: '#EF4444' };
@@ -109,7 +114,7 @@ export function IssueTrackerScreen({ onBack }: IssueTrackerScreenProps) {
         <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['3'] }}>
           <View style={it.rowBetween}>
             <View style={it.rowCenter}>
-              <Pressable onPress={onBack} style={({ pressed }) => [it.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color="#FFFFFF" /></Pressable>
+              <Pressable onPress={onBack} style={({ pressed }) => [it.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
               <Text style={it.title}>Issue Tracker</Text>
             </View>
             <Pressable onPress={() => setShowCreateModal(true)} style={({ pressed }) => [it.addBtn, { opacity: pressed ? 0.8 : 1 }]}><Plus size={22} color="#FFFFFF" /></Pressable>

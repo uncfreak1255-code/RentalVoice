@@ -40,7 +40,7 @@ export interface OrgMember {
 // PMS Connections (Unified Interface)
 // ============================================================
 
-export type PMSProvider = 'hostaway' | 'guesty' | 'hospitable';
+export type PMSProvider = 'hostaway' | 'guesty' | 'lodgify' | 'hospitable';
 
 export interface PMSConnection {
   id: string;
@@ -207,12 +207,64 @@ export interface AuthResponse {
 }
 
 // ============================================================
-// Plan Limits
+// Plan Limits (aligned with competitive_growth_strategy.md)
 // ============================================================
 
-export const PLAN_LIMITS: Record<PlanTier, { maxProperties: number; maxDraftsPerMonth: number; managedAI: boolean; teamMembers: number }> = {
-  starter: { maxProperties: 3, maxDraftsPerMonth: 500, managedAI: false, teamMembers: 1 },
-  professional: { maxProperties: 10, maxDraftsPerMonth: 2000, managedAI: true, teamMembers: 1 },
-  business: { maxProperties: 30, maxDraftsPerMonth: 5000, managedAI: true, teamMembers: 5 },
-  enterprise: { maxProperties: Infinity, maxDraftsPerMonth: Infinity, managedAI: true, teamMembers: Infinity },
+export interface PlanLimits {
+  maxProperties: number;
+  maxDraftsPerMonth: number;
+  managedAI: boolean;
+  teamMembers: number;
+  autopilot: boolean;
+  aiModel: string;             // default AI model for this tier
+  overageDraftCost: number;    // USD per extra draft beyond limit
+  extraPropertyCost: number;   // USD per extra property/mo beyond included
+  styleLearning: 'basic' | 'full' | 'full_custom';
+}
+
+export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
+  starter: {
+    maxProperties: 2,
+    maxDraftsPerMonth: 100,
+    managedAI: false,
+    teamMembers: 1,
+    autopilot: false,
+    aiModel: 'gpt-4o-mini',
+    overageDraftCost: 0,       // no overage — hard cap on free tier
+    extraPropertyCost: 0,      // cannot add extra properties on free
+    styleLearning: 'basic',
+  },
+  professional: {
+    maxProperties: 10,
+    maxDraftsPerMonth: 1000,
+    managedAI: true,
+    teamMembers: 3,
+    autopilot: true,
+    aiModel: 'gpt-4o',
+    overageDraftCost: 0.02,    // $0.02 per extra draft
+    extraPropertyCost: 5,      // $5/prop/mo beyond 10
+    styleLearning: 'full',
+  },
+  business: {
+    maxProperties: 50,
+    maxDraftsPerMonth: 5000,
+    managedAI: true,
+    teamMembers: Infinity,
+    autopilot: true,
+    aiModel: 'gpt-4o',
+    overageDraftCost: 0.01,    // $0.01 per extra draft
+    extraPropertyCost: 3,      // $3/prop/mo beyond 50
+    styleLearning: 'full_custom',
+  },
+  enterprise: {
+    maxProperties: Infinity,
+    maxDraftsPerMonth: Infinity,
+    managedAI: true,
+    teamMembers: Infinity,
+    autopilot: true,
+    aiModel: 'gpt-4o',
+    overageDraftCost: 0,
+    extraPropertyCost: 0,
+    styleLearning: 'full_custom',
+  },
 };

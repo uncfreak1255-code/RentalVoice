@@ -128,7 +128,7 @@ export function LanguageSettingsScreen({ onBack }: LanguageSettingsScreenProps) 
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={ls.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [ls.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <ArrowLeft size={20} color="#FFFFFF" />
+            <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
           <Text style={ls.title}>Language & Cultural Tone</Text>
         </Animated.View>

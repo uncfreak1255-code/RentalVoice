@@ -26,6 +26,7 @@ export function AnalyticsDashboard({ onBack }: AnalyticsDashboardProps) {
   const learningEntries = useAppStore((s) => s.learningEntries);
   const issues = useAppStore((s) => s.issues);
   const conversations = useAppStore((s) => s.conversations);
+  const trackedUpsellOffers = useAppStore((s) => s.trackedUpsellOffers);
 
   const handleTimeRange = (range: TimeRange) => {
     Haptics.selectionAsync();
@@ -63,6 +64,33 @@ export function AnalyticsDashboard({ onBack }: AnalyticsDashboardProps) {
       totalLearnings: learningEntries.length,
     };
   }, [learningEntries]);
+
+  const revenueBreakdown = useMemo(() => {
+    const byType: Record<string, { count: number; revenue: number }> = {
+      early_checkin: { count: 0, revenue: 0 },
+      late_checkout: { count: 0, revenue: 0 },
+      gap_night: { count: 0, revenue: 0 },
+      custom: { count: 0, revenue: 0 },
+    };
+    const byStatus: Record<string, number> = { sent: 0, accepted: 0, paid: 0, declined: 0, expired: 0 };
+    let paidTotal = 0;
+
+    for (const offer of trackedUpsellOffers) {
+      const t = offer.offerType || 'custom';
+      byType[t] = byType[t] || { count: 0, revenue: 0 };
+      byType[t].count++;
+      if (offer.status === 'paid' || offer.status === 'accepted') {
+        byType[t].revenue += offer.price || 0;
+        paidTotal += offer.price || 0;
+      }
+      byStatus[offer.status] = (byStatus[offer.status] || 0) + 1;
+    }
+
+    const totalOffers = trackedUpsellOffers.length;
+    const conversionRate = totalOffers > 0 ? Math.round(((byStatus.accepted + byStatus.paid) / totalOffers) * 100) : 0;
+
+    return { byType, byStatus, paidTotal, totalOffers, conversionRate };
+  }, [trackedUpsellOffers]);
 
   const renderStatCard = (icon: React.ReactNode, label: string, value: string | number, subtitle?: string, color: string = '#F97316') => (
     <View style={ad.statCard}>
@@ -227,6 +255,74 @@ export function AnalyticsDashboard({ onBack }: AnalyticsDashboardProps) {
                 <View style={[ad.rowBetween, { marginBottom: spacing['2'] }]}><Text style={ad.muted}>Est. cost savings</Text><Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.medium }}>${Math.round(metrics.timeSavedHours * 25)}</Text></View>
                 <View style={ad.rowBetween}><Text style={ad.muted}>Upsell revenue</Text><Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.medium }}>${analytics.upsellRevenue}</Text></View>
               </View>
+            </View>
+          </Animated.View>
+
+          {/* Revenue Analytics Card */}
+          <Animated.View entering={FadeInDown.duration(300).delay(550)} style={ad.sectionWrap}>
+            <Text style={ad.sectionTitle}>Revenue Analytics</Text>
+            <View style={ad.card}>
+              <View style={[ad.rowCenter, { marginBottom: spacing['4'] }]}>
+                <DollarSign size={20} color="#22C55E" />
+                <Text style={[ad.white, { marginLeft: spacing['2'] }]}>Upsell Pipeline</Text>
+              </View>
+
+              {/* Revenue Summary Row */}
+              <View style={[ad.rowBetween, { marginBottom: spacing['4'] }]}>
+                <View>
+                  <Text style={{ fontSize: 28, fontFamily: typography.fontFamily.bold, color: '#22C55E' }}>${revenueBreakdown.paidTotal}</Text>
+                  <Text style={ad.muted}>Revenue earned</Text>
+                </View>
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ fontSize: 22, fontFamily: typography.fontFamily.bold, color: colors.text.primary }}>{revenueBreakdown.totalOffers}</Text>
+                  <Text style={ad.muted}>Offers sent</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 22, fontFamily: typography.fontFamily.bold, color: '#F97316' }}>{revenueBreakdown.conversionRate}%</Text>
+                  <Text style={ad.muted}>Conversion</Text>
+                </View>
+              </View>
+
+              {/* By Offer Type */}
+              {[{ key: 'early_checkin', label: 'Early Check-in', color: '#14B8A6' },
+                { key: 'late_checkout', label: 'Late Checkout', color: '#F97316' },
+                { key: 'gap_night', label: 'Gap Night Discount', color: '#8B5CF6' },
+                { key: 'custom', label: 'Custom Offers', color: '#64748B' },
+              ].map(({ key, label, color }) => {
+                const data = revenueBreakdown.byType[key];
+                if (!data || data.count === 0) return null;
+                return (
+                  <View key={key} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: `${colors.border.DEFAULT}50` }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color, marginRight: 8 }} />
+                      <Text style={{ color: colors.text.secondary, fontSize: 14 }}>{label}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ color: colors.text.muted, fontSize: 12, marginRight: 12 }}>{data.count} sent</Text>
+                      <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.semibold }}>${data.revenue}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+
+              {revenueBreakdown.totalOffers === 0 && (
+                <Text style={ad.emptyText}>AI-generated upsell offers will appear here once guests are presented with early check-in, late checkout, or gap night deals.</Text>
+              )}
+
+              {/* Status Pipeline */}
+              {revenueBreakdown.totalOffers > 0 && (
+                <View style={{ marginTop: spacing['4'], paddingTop: spacing['4'], borderTopWidth: 1, borderTopColor: `${colors.border.DEFAULT}50` }}>
+                  <Text style={{ color: colors.text.muted, fontSize: 12, marginBottom: 8 }}>Offer Pipeline</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    {[{ key: 'sent', color: '#64748B' }, { key: 'accepted', color: '#F97316' }, { key: 'paid', color: '#22C55E' }, { key: 'declined', color: '#EF4444' }].map(({ key, color }) => (
+                      <View key={key} style={{ alignItems: 'center' }}>
+                        <Text style={{ fontSize: 18, fontFamily: typography.fontFamily.bold, color }}>{revenueBreakdown.byStatus[key] || 0}</Text>
+                        <Text style={{ fontSize: 11, color: colors.text.disabled, textTransform: 'capitalize' }}>{key}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
           </Animated.View>
         </ScrollView>

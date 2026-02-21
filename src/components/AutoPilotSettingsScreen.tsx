@@ -74,7 +74,7 @@ export function AutoPilotSettingsScreen({ onBack, onNavigate }: AutoPilotSetting
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={ap.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [ap.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <ArrowLeft size={20} color="#FFFFFF" />
+            <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={ap.title}>AI Automation</Text>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rental Voice — Inbox Design Options</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #1a1a2e; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+  
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { color: #94a3b8; margin-bottom: 30px; font-size: 15px; }
+  
+  .toggle-bar { display: flex; gap: 8px; margin-bottom: 30px; background: #111827; border-radius: 12px; padding: 4px; }
+  .toggle-btn { padding: 10px 20px; border-radius: 10px; border: none; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; color: #94a3b8; background: transparent; }
+  .toggle-btn.active { background: #14B8A6; color: #fff; }
+  .toggle-btn:hover:not(.active) { background: #1e293b; }
+  
+  .phone-frame { width: 390px; height: 844px; background: #0A0F1A; border-radius: 50px; overflow: hidden; border: 3px solid #334155; position: relative; box-shadow: 0 25px 60px rgba(0,0,0,0.5); }
+  .status-bar { height: 54px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 28px 4px; font-size: 14px; font-weight: 600; }
+  .status-time { font-size: 16px; font-weight: 700; }
+  .status-icons { display: flex; gap: 6px; align-items: center; font-size: 12px; color: #94a3b8; }
+  
+  .screen { display: none; height: calc(100% - 54px); flex-direction: column; }
+  .screen.active { display: flex; }
+  
+  .header { padding: 12px 20px 0; }
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .header-title { font-size: 32px; font-weight: 700; }
+  .header-icons { display: flex; gap: 10px; }
+  .header-icon { width: 38px; height: 38px; border-radius: 50%; background: #1e293b; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
+  .header-icon:hover { background: #334155; }
+  .header-icon svg, .header-icon i { color: #94a3b8; }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid #1e293b; }
+  .tab { padding: 10px 16px; font-size: 14px; font-weight: 500; color: #94a3b8; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .tab.active { color: #14B8A6; border-bottom-color: #14B8A6; }
+  
+  .pills { display: flex; gap: 8px; padding: 12px 20px; overflow-x: auto; }
+  .pill { padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+  .pill-outline { border: 1.5px solid #334155; color: #94a3b8; background: transparent; }
+  .pill-outline.active { border-color: #14B8A6; color: #14B8A6; background: rgba(20,184,166,0.08); }
+  .pill-filled { background: #1e293b; color: #94a3b8; border: none; }
+  .pill-filled.active { background: #14B8A6; color: #fff; }
+  .pill-count { background: rgba(20,184,166,0.2); color: #14B8A6; padding: 1px 6px; border-radius: 8px; font-size: 11px; margin-left: 4px; }
+  
+  .conv-list { flex: 1; overflow-y: auto; }
+  .conv-item { display: flex; padding: 14px 20px; gap: 12px; border-bottom: 1px solid rgba(30,41,59,0.5); cursor: pointer; transition: background 0.15s; }
+  .conv-item:hover { background: #111827; }
+  .conv-avatar { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+  .conv-body { flex: 1; min-width: 0; }
+  .conv-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .conv-name { font-weight: 600; font-size: 15px; }
+  .conv-time { font-size: 12px; color: #64748b; flex-shrink: 0; }
+  .conv-property { font-size: 12px; color: #64748b; margin-bottom: 3px; }
+  .conv-preview { font-size: 13px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
+  .conv-meta { display: flex; gap: 10px; margin-top: 6px; font-size: 11px; color: #64748b; align-items: center; }
+  .conv-meta-item { display: flex; align-items: center; gap: 4px; }
+  .conv-meta-item svg { width: 12px; height: 12px; color: #64748b; }
+  .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: #14B8A6; flex-shrink: 0; margin-top: 6px; }
+  .status-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .status-new { color: #22C55E; }
+  .status-inquiry { color: #3B82F6; }
+  .status-followup { color: #F97316; }
+  
+  .section-header { padding: 10px 20px; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; background: rgba(15,23,42,0.6); display: flex; justify-content: space-between; align-items: center; }
+  .section-count { background: #14B8A620; color: #14B8A6; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  
+  .ai-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(20,184,166,0.12); color: #2DD4BF; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+  .ai-badge svg { width: 10px; height: 10px; }
+  
+  .tab-bar { display: flex; border-top: 1px solid #1e293b; background: rgba(10,15,26,0.95); backdrop-filter: blur(10px); }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 0 24px; gap: 4px; font-size: 10px; font-weight: 500; color: #64748b; cursor: pointer; }
+  .tab-item.active { color: #14B8A6; }
+  .tab-item svg { width: 22px; height: 22px; }
+  
+  .design-notes { width: 390px; margin-top: 20px; background: #111827; border-radius: 16px; padding: 20px; }
+  .design-notes h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #14B8A6; }
+  .design-notes ul { list-style: none; padding: 0; }
+  .design-notes li { padding: 6px 0; font-size: 13px; color: #cbd5e1; display: flex; gap: 8px; align-items: flex-start; }
+  .design-notes li::before { content: "→"; color: #14B8A6; flex-shrink: 0; }
+  .diff-add { color: #4ADE80; }
+  .diff-remove { color: #F87171; }
+</style>
+</head>
+<body>
+
+<h1>Inbox Design Options</h1>
+<p class="subtitle">Pick the style that feels right — all icons are production SVGs (lucide)</p>
+
+<div class="toggle-bar">
+  <button class="toggle-btn active" onclick="showScreen('a')">A — Airbnb Clean</button>
+  <button class="toggle-btn" onclick="showScreen('b')">B — Hostaway Pro</button>
+  <button class="toggle-btn" onclick="showScreen('c')">C — Smart Inbox</button>
+</div>
+
+<div class="phone-frame">
+  <div class="status-bar">
+    <span class="status-time">12:37</span>
+    <span class="status-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="6" width="3" height="6" rx="1"/><rect x="4.5" y="4" width="3" height="8" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1" opacity="0.3"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 4C9.1 4 10.1 4.4 10.9 5.1L12.3 3.7C11.1 2.6 9.6 2 8 2S4.9 2.6 3.7 3.7L5.1 5.1C5.9 4.4 6.9 4 8 4Z"/><path d="M8 8C8.6 8 9.1 8.2 9.5 8.6L8 10.1L6.5 8.6C6.9 8.2 7.4 8 8 8Z"/><path d="M14 2C12.4.7 10.3 0 8 0S3.6.7 2 2L3.4 3.4C4.7 2.3 6.3 1.7 8 1.7s3.3.6 4.6 1.7L14 2Z" opacity="0.4"/></svg>
+      <svg width="24" height="12" viewBox="0 0 24 12" fill="currentColor"><rect x="0" y="1" width="20" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="21" y="4" width="2" height="4" rx="0.5"/><rect x="2" y="3" width="13" height="6" rx="1" fill="#22C55E"/></svg>
+    </span>
+  </div>
+
+  <!-- OPTION A: Airbnb Clean -->
+  <div class="screen active" id="screen-a">
+    <div class="header">
+      <div class="header-row">
+        <div class="header-title">Inbox</div>
+        <div class="header-icons">
+          <div class="header-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></div>
+          <div class="header-icon"><i data-lucide="settings" style="width:18px;height:18px;"></i></div>
+        </div>
+      </div>
+      <div class="pills">
+        <div class="pill pill-filled active">All</div>
+        <div class="pill pill-filled">Unread <span class="pill-count">3</span></div>
+        <div class="pill pill-filled">Urgent</div>
+        <div class="pill pill-filled">AI Drafts</div>
+        <div class="pill pill-filled">Archived</div>
+      </div>
+    </div>
+    
+    <div class="conv-list">
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#EC4899,#DB2777)">JA</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Juan Carlos Alvarez</span>
+            <span class="conv-time">1:57 PM</span>
+          </div>
+          <div class="conv-property">Dockside Dreams w/ Pool</div>
+          <div class="conv-preview">Hi Juan, thank you so much for your interest in our client's home! So unfortunately…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>12</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Jul 30 – Aug 4</span>
+            <span class="ai-badge"><i data-lucide="sparkles" style="width:10px;height:10px;"></i> Draft ready</span>
+          </div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#8B5CF6,#7C3AED)">LM</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Laura Martin</span>
+            <span class="conv-time">Yesterday</span>
+          </div>
+          <div class="conv-property">Pool+Spa+3.5 Baths+Outdoor Grill</div>
+          <div class="conv-preview">Hi Laura! Yes we do! We cant wait to have you all!</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>5</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Mar 4 – Mar 7</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#F97316,#EA580C)">SL</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Shannon Lee</span>
+            <span class="conv-time">4:58 AM</span>
+          </div>
+          <div class="conv-property">Pool+Spa+3.5 Baths+Outdoor Grill</div>
+          <div class="conv-preview">Hello Shannon, and thanks for your reservation!!! *Please let me know…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>1</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Apr 3 – Apr 10</span>
+          </div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#3B82F6,#2563EB)">RE</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Riley Ehlers</span>
+            <span class="conv-time">Yesterday</span>
+          </div>
+          <div class="conv-property">75th ST</div>
+          <div class="conv-preview">It is our pleasure Riley! It looks like our d…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Feb 12 – Feb 19</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#14B8A6,#0D9488)">DW</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Daniel West</span>
+            <span class="conv-time">Feb 17</span>
+          </div>
+          <div class="conv-property">Spa+Pool+By The River</div>
+          <div class="conv-preview">Thank you for your kind thoughts. Total number of people will be 5 adults…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>5</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Mar 21 – Mar 26</span>
+            <span class="ai-badge"><i data-lucide="sparkles" style="width:10px;height:10px;"></i> Draft ready</span>
+          </div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#EAB308,#CA8A04)">SN</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Sierra Nelson</span>
+            <span class="conv-time">12:05 PM</span>
+          </div>
+          <div class="conv-property">75th ST</div>
+          <div class="conv-preview">Hi Sierra, This is a quick automated remi…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Feb 19 – Feb 26</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-bar">
+      <div class="tab-item active"><i data-lucide="message-square" style="width:22px;height:22px;"></i>Inbox</div>
+      <div class="tab-item"><i data-lucide="calendar-days" style="width:22px;height:22px;"></i>Calendar</div>
+      <div class="tab-item"><i data-lucide="home" style="width:22px;height:22px;"></i>Properties</div>
+      <div class="tab-item"><i data-lucide="settings" style="width:22px;height:22px;"></i>Settings</div>
+    </div>
+  </div>
+
+  <!-- OPTION B: Hostaway Pro -->
+  <div class="screen" id="screen-b">
+    <div class="header">
+      <div class="header-row">
+        <div class="header-title">Inbox</div>
+        <div class="header-icons">
+          <div class="header-icon"><i data-lucide="arrow-up-down" style="width:18px;height:18px;"></i></div>
+          <div class="header-icon"><i data-lucide="filter" style="width:18px;height:18px;"></i></div>
+          <div class="header-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></div>
+        </div>
+      </div>
+      <div class="tabs" style="padding: 0 20px;">
+        <div class="tab active">All threads</div>
+        <div class="tab">Archived</div>
+        <div class="tab">Snoozed</div>
+      </div>
+    </div>
+    
+    <div class="conv-list">
+      <div class="conv-item" style="flex-direction: column; gap: 4px;">
+        <div class="status-label status-new">NEW</div>
+        <div style="display: flex; gap: 12px;">
+          <div class="conv-avatar" style="background:linear-gradient(135deg,#EC4899,#DB2777); width: 44px; height: 44px; font-size: 14px;">JA</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">Juan Carlos Alvarez</span>
+              <span class="conv-time">1:57 PM</span>
+            </div>
+            <div class="conv-preview" style="color: #94a3b8;">You: Hi Juan, thank you so much for your interes…</div>
+            <div class="conv-meta">
+              <span>Jul 30 – Aug 4</span>
+              <span style="color:#334155">·</span>
+              <span>Dockside Dreams</span>
+            </div>
+          </div>
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #F97316; margin-top: 6px; flex-shrink: 0;"></div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="flex-direction: column; gap: 4px;">
+        <div class="status-label status-inquiry">INQUIRY</div>
+        <div style="display: flex; gap: 12px;">
+          <div class="conv-avatar" style="background:linear-gradient(135deg,#14B8A6,#0D9488); width: 44px; height: 44px; font-size: 14px;">DW</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">Daniel West</span>
+              <span class="conv-time">Feb 17</span>
+            </div>
+            <div class="conv-preview" style="color: #94a3b8;">Daniel: Thank you for your kind thoughts. Tot…</div>
+            <div class="conv-meta">
+              <span>Mar 21 – Mar 26</span>
+              <span style="color:#334155">·</span>
+              <span>Spa+Pool+River</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="flex-direction: column; gap: 4px;">
+        <div class="status-label status-new">NEW</div>
+        <div style="display: flex; gap: 12px;">
+          <div class="conv-avatar" style="background:linear-gradient(135deg,#8B5CF6,#7C3AED); width: 44px; height: 44px; font-size: 14px;">LM</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">Laura Martin</span>
+              <span class="conv-time">Yesterday</span>
+            </div>
+            <div class="conv-preview" style="color: #94a3b8;">Seascape Vacations: Hi Laura! Yes we do! We c…</div>
+            <div class="conv-meta">
+              <span>Mar 5 – Mar 8</span>
+              <span style="color:#334155">·</span>
+              <span>Gretter's Home</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="flex-direction: column; gap: 4px;">
+        <div class="status-label" style="color: #94a3b8;">MODIFIED</div>
+        <div style="display: flex; gap: 12px;">
+          <div class="conv-avatar" style="background:linear-gradient(135deg,#3B82F6,#2563EB); width: 44px; height: 44px; font-size: 14px;">RE</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">Riley Ehlers</span>
+              <span class="conv-time">Yesterday</span>
+            </div>
+            <div class="conv-preview" style="color: #94a3b8;">You: It is our pleasure Riley! It looks like our d…</div>
+            <div class="conv-meta">
+              <span>Feb 12 – Feb 19</span>
+              <span style="color:#334155">·</span>
+              <span>75th ST</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="flex-direction: column; gap: 4px;">
+        <div class="status-label status-followup">FOLLOW-UP</div>
+        <div style="display: flex; gap: 12px;">
+          <div class="conv-avatar" style="background:linear-gradient(135deg,#F97316,#EA580C); width: 44px; height: 44px; font-size: 14px;">SL</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">Shannon Lee</span>
+              <span class="conv-time">4:58 AM</span>
+            </div>
+            <div class="conv-preview" style="color: #94a3b8;">You: Hello Shannon, and thanks for your reser…</div>
+            <div class="conv-meta">
+              <span>Apr 3 – Apr 10</span>
+              <span style="color:#334155">·</span>
+              <span>Pool+Spa</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="flex-direction: column; gap: 4px;">
+        <div class="status-label status-new">NEW</div>
+        <div style="display: flex; gap: 12px;">
+          <div class="conv-avatar" style="background:linear-gradient(135deg,#EAB308,#CA8A04); width: 44px; height: 44px; font-size: 14px;">SN</div>
+          <div class="conv-body">
+            <div class="conv-top">
+              <span class="conv-name">Sierra Nelson</span>
+              <span class="conv-time">12:05 PM</span>
+            </div>
+            <div class="conv-preview" style="color: #94a3b8;">You: Hi Sierra,</div>
+            <div class="conv-meta">
+              <span>Feb 19 – Feb 26</span>
+              <span style="color:#334155">·</span>
+              <span>75th ST</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-bar">
+      <div class="tab-item active"><i data-lucide="message-square" style="width:22px;height:22px;"></i>Inbox</div>
+      <div class="tab-item"><i data-lucide="calendar-days" style="width:22px;height:22px;"></i>Calendar</div>
+      <div class="tab-item"><i data-lucide="home" style="width:22px;height:22px;"></i>Properties</div>
+      <div class="tab-item"><i data-lucide="settings" style="width:22px;height:22px;"></i>Settings</div>
+    </div>
+  </div>
+
+  <!-- OPTION C: Smart Inbox -->
+  <div class="screen" id="screen-c">
+    <div class="header">
+      <div class="header-row">
+        <div class="header-title">Inbox</div>
+        <div class="header-icons">
+          <div class="header-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></div>
+        </div>
+      </div>
+      <div class="pills">
+        <div class="pill pill-outline active">Priority <span class="pill-count">3</span></div>
+        <div class="pill pill-outline">All</div>
+        <div class="pill pill-outline">AI Drafts <span class="pill-count">2</span></div>
+        <div class="pill pill-outline">Archived</div>
+      </div>
+    </div>
+    
+    <div class="conv-list">
+      <div class="section-header">
+        <span>Needs Reply</span>
+        <span class="section-count">3</span>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#EC4899,#DB2777)">JA</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Juan Carlos Alvarez</span>
+            <span class="conv-time">1:57 PM</span>
+          </div>
+          <div class="conv-property">Dockside Dreams w/ Pool · Direct</div>
+          <div class="conv-preview">Hi Juan, thank you so much for your interest…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>12</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Jul 30 – Aug 4</span>
+            <span class="ai-badge"><i data-lucide="sparkles" style="width:10px;height:10px;"></i> 88% match</span>
+          </div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#14B8A6,#0D9488)">DW</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Daniel West</span>
+            <span class="conv-time">Feb 17</span>
+          </div>
+          <div class="conv-property">Spa+Pool+By The River · Direct</div>
+          <div class="conv-preview">Thank you for your kind thoughts. Total number of people will be 5…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>5</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Mar 21 – Mar 26</span>
+            <span class="ai-badge"><i data-lucide="sparkles" style="width:10px;height:10px;"></i> 92% match</span>
+          </div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      
+      <div class="conv-item">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#F97316,#EA580C)">SL</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Shannon Lee</span>
+            <span class="conv-time">4:58 AM</span>
+          </div>
+          <div class="conv-property">Pool+Spa+3.5 Baths · Direct</div>
+          <div class="conv-preview">Hello Shannon, and thanks for your reservation!!!</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="users" style="width:12px;height:12px;"></i>1</span>
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Apr 3 – Apr 10</span>
+          </div>
+        </div>
+        <div class="unread-dot"></div>
+      </div>
+      
+      <div class="section-header">
+        <span>Responded</span>
+      </div>
+      
+      <div class="conv-item" style="opacity: 0.6;">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#8B5CF6,#7C3AED)">LM</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Laura Martin</span>
+            <span class="conv-time">Yesterday</span>
+          </div>
+          <div class="conv-property">Pool+Spa+3.5 Baths · Direct</div>
+          <div class="conv-preview">Hi Laura! Yes we do! We cant wait to have you all!</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Mar 4 – Mar 7</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="opacity: 0.6;">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#3B82F6,#2563EB)">RE</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Riley Ehlers</span>
+            <span class="conv-time">Yesterday</span>
+          </div>
+          <div class="conv-property">75th ST · Direct</div>
+          <div class="conv-preview">It is our pleasure Riley! It looks like our d…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Feb 12 – Feb 19</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="conv-item" style="opacity: 0.6;">
+        <div class="conv-avatar" style="background:linear-gradient(135deg,#EAB308,#CA8A04)">SN</div>
+        <div class="conv-body">
+          <div class="conv-top">
+            <span class="conv-name">Sierra Nelson</span>
+            <span class="conv-time">12:05 PM</span>
+          </div>
+          <div class="conv-property">75th ST · Direct</div>
+          <div class="conv-preview">Hi Sierra, This is a quick automated remi…</div>
+          <div class="conv-meta">
+            <span class="conv-meta-item"><i data-lucide="calendar" style="width:12px;height:12px;"></i>Feb 19 – Feb 26</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="tab-bar">
+      <div class="tab-item active"><i data-lucide="message-square" style="width:22px;height:22px;"></i>Inbox</div>
+      <div class="tab-item"><i data-lucide="calendar-days" style="width:22px;height:22px;"></i>Calendar</div>
+      <div class="tab-item"><i data-lucide="sparkles" style="width:22px;height:22px;"></i>AI</div>
+      <div class="tab-item"><i data-lucide="settings" style="width:22px;height:22px;"></i>Settings</div>
+    </div>
+  </div>
+</div>
+
+<div class="design-notes" id="notes-a">
+  <h3>Option A — Airbnb Clean</h3>
+  <ul>
+    <li><span class="diff-remove">Removes:</span> Floating clipboard icon, dropdown arrow, second filter row, sync indicator</li>
+    <li><span class="diff-add">Adds:</span> Single pill filter row (scrollable), "✦ Draft ready" badges inline</li>
+    <li>Only 2 header icons (search + settings) — maximum simplicity</li>
+    <li>Gradient avatars add premium feel without photos</li>
+    <li>Feels like: <strong>Personal messaging app</strong> — casual hosts love this</li>
+  </ul>
+</div>
+<div class="design-notes" id="notes-b" style="display:none;">
+  <h3>Option B — Hostaway Professional</h3>
+  <ul>
+    <li><span class="diff-remove">Removes:</span> Floating clipboard icon, dropdown arrow, icon filter row</li>
+    <li><span class="diff-add">Adds:</span> Status labels (NEW, INQUIRY, FOLLOW-UP), clean underline tabs</li>
+    <li>3 header icons (sort, filter, search) — functional but clean</li>
+    <li>Status labels provide at-a-glance conversation state</li>
+    <li>Feels like: <strong>Professional PMS</strong> — power users love this</li>
+  </ul>
+</div>
+<div class="design-notes" id="notes-c" style="display:none;">
+  <h3>Option C — Smart Inbox (AI-First)</h3>
+  <ul>
+    <li><span class="diff-remove">Removes:</span> ALL clutter — only 1 header icon (search)</li>
+    <li><span class="diff-add">Adds:</span> Priority sections (Needs Reply / Responded), AI match badges</li>
+    <li>Responded items dim to 60% — visual hierarchy guides attention</li>
+    <li>AI confidence badges show your differentiator from competitors</li>
+    <li>Feels like: <strong>AI-powered productivity tool</strong> — your unique angle</li>
+  </ul>
+</div>
+
+<script>
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.design-notes').forEach(n => n.style.display = 'none');
+  
+  document.getElementById('screen-' + id).classList.add('active');
+  document.getElementById('notes-' + id).style.display = 'block';
+  
+  event.target.classList.add('active');
+  
+  // Re-init lucide icons for the newly shown screen
+  lucide.createIcons();
+}
+
+// Init all icons on load
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+});
+</script>
+
+</body>
+</html>

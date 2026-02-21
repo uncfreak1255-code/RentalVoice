@@ -109,7 +109,7 @@ export function SentimentTrendsDashboard({ onBack }: SentimentTrendsDashboardPro
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={[st.rowCenter, { paddingHorizontal: spacing['4'], paddingVertical: spacing['3'] }]}>
-          <Pressable onPress={onBack} style={({ pressed }) => [st.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color="#FFFFFF" /></Pressable>
+          <Pressable onPress={onBack} style={({ pressed }) => [st.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
           <View style={{ flex: 1 }}><Text style={st.title}>Sentiment Trends</Text><Text style={{ color: colors.text.muted, fontSize: 14 }}>Guest sentiment analysis</Text></View>
           <BarChart3 size={20} color="#14B8A6" />
         </Animated.View>

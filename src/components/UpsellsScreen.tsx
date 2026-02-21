@@ -129,7 +129,7 @@ export function UpsellsScreen({ conversationId, onBack }: UpsellsScreenProps) {
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={us.header}>
           <View style={us.rowCenter}>
-            <Pressable onPress={onBack} style={({ pressed }) => [us.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color="#FFFFFF" /></Pressable>
+            <Pressable onPress={onBack} style={({ pressed }) => [us.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
             <View><Text style={us.title}>Upsells</Text><Text style={{ color: colors.text.disabled, fontSize: 12 }}>Increase revenue with smart offers</Text></View>
           </View>
         </Animated.View>

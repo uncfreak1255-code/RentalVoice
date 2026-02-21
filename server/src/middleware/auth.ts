@@ -10,13 +10,14 @@
 import type { Context, Next } from 'hono';
 import { getSupabaseAdmin } from '../db/supabase.js';
 import type { AuthTokenPayload } from '../lib/types.js';
+import type { AppEnv } from '../lib/env.js';
 
 /**
  * Middleware: Require authentication.
  * Verifies the Supabase JWT from the Authorization header.
  * Sets `c.set('userId', ...)` and `c.set('orgId', ...)` for downstream handlers.
  */
-export async function requireAuth(c: Context, next: Next): Promise<Response | void> {
+export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
   const authHeader = c.req.header('Authorization');
 
   if (!authHeader?.startsWith('Bearer ')) {
@@ -55,7 +56,7 @@ export async function requireAuth(c: Context, next: Next): Promise<Response | vo
 
     // Attach to context for downstream handlers
     c.set('userId', user.id);
-    c.set('userEmail', user.email);
+    c.set('userEmail', user.email ?? '');
     c.set('orgId', membership.org_id);
     c.set('orgRole', membership.role);
 

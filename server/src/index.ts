@@ -11,6 +11,18 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { aiRouter } from './routes/ai-generate.js';
+import { authRouter } from './routes/auth.js';
+import { settingsRouter } from './routes/settings.js';
+import { knowledgeRouter } from './routes/knowledge.js';
+import { accountRouter } from './routes/account.js';
+import { usageRouter } from './routes/usage.js';
+import { hostawayRouter } from './routes/hostaway.js';
+import { billingRouter } from './routes/billing.js';
+import { webhooksRouter } from './routes/webhooks.js';
+import { guestyRouter } from './routes/guesty.js';
+import './adapters/guesty-adapter.js'; // Self-registers Guesty adapter
+import { lodgifyRouter } from './routes/lodgify.js';
+import './adapters/lodgify-adapter.js'; // Self-registers Lodgify adapter
 
 const app = new Hono().basePath('/api');
 
@@ -50,17 +62,18 @@ app.get('/health', (c) => {
 // Route Mounting
 // ============================================================
 
-// AI endpoints
 app.route('/ai', aiRouter);
+app.route('/auth', authRouter);
+app.route('/settings', settingsRouter);
+app.route('/knowledge', knowledgeRouter);
+app.route('/account', accountRouter);
+app.route('/usage', usageRouter);
+app.route('/hostaway', hostawayRouter);
+app.route('/billing', billingRouter);
+app.route('/webhooks', webhooksRouter);
+app.route('/guesty', guestyRouter);
+app.route('/lodgify', lodgifyRouter);
 
-// TODO: Phase 2 routes (uncomment as implemented)
-// app.route('/auth', authRouter);
-// app.route('/hostaway', hostawayRouter);
-// app.route('/knowledge', knowledgeRouter);
-// app.route('/settings', settingsRouter);
-// app.route('/billing', billingRouter);
-// app.route('/webhooks', webhooksRouter);
-// app.route('/account', accountRouter); // Includes DELETE for App Store compliance
 
 // ============================================================
 // 404 Handler

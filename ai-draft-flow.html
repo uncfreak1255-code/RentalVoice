@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Draft Options — Interactive Flow</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; padding: 40px 20px; }
+  
+  h1 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+  .subtitle { color: #64748b; text-align: center; margin-bottom: 40px; font-size: 15px; }
+  
+  .options-row { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+  .option-col { display: flex; flex-direction: column; align-items: center; }
+  .option-label { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #1e293b; }
+  .option-sublabel { font-size: 12px; color: #64748b; margin-bottom: 12px; text-align: center; max-width: 300px; }
+  .rec-badge { display: inline-block; background: #14B8A615; color: #0D9488; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; margin-left: 4px; }
+  .bad-badge { display: inline-block; background: #FEE2E2; color: #DC2626; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; margin-left: 4px; }
+  
+  /* Phone */
+  .phone { width: 340px; height: 700px; background: #FFFFFF; border-radius: 44px; overflow: hidden; border: 2.5px solid #e2e8f0; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05); }
+  
+  .status-bar { height: 50px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 28px 6px; font-size: 14px; font-weight: 600; color: #1e293b; }
+  
+  .screen-content { height: calc(100% - 50px); display: flex; flex-direction: column; }
+  
+  /* Chat header */
+  .chat-hdr { padding: 10px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f1f5f9; background: #fff; }
+  .chat-back { width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; }
+  .chat-back svg { color: #64748b; }
+  .chat-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#F97316,#EA580C); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 13px; }
+  .chat-info { flex: 1; }
+  .chat-name { font-weight: 600; font-size: 15px; color: #1e293b; }
+  .chat-prop { font-size: 11px; color: #94a3b8; }
+  
+  /* Messages */
+  .msgs { flex: 1; padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #FAFBFC; }
+  .msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 13px; line-height: 1.45; }
+  .msg-guest { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 4px; }
+  .msg-host { align-self: flex-end; background: linear-gradient(135deg, #14B8A6, #0D9488); color: #fff; border-bottom-right-radius: 4px; }
+  .msg-time { font-size: 10px; color: #94a3b8; margin-top: 3px; }
+  .msg-host .msg-time { color: rgba(255,255,255,0.6); }
+  
+  /* Step indicator */
+  .step-bar { display: flex; justify-content: center; gap: 6px; padding: 8px 16px; background: #fff; border-top: 1px solid #f1f5f9; }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; transition: all 0.3s; }
+  .step-dot.active { background: #14B8A6; width: 24px; border-radius: 4px; }
+  .step-dot.done { background: #0D9488; }
+  
+  /* Step content area */
+  .step-area { position: relative; }
+  .step { display: none; }
+  .step.active { display: block; }
+  
+  /* Next button */
+  .next-btn { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; background: #14B8A6; color: #fff; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 12px; cursor: pointer; margin: 8px 16px; transition: all 0.15s; }
+  .next-btn:hover { background: #0D9488; }
+  .next-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: default; }
+  .step-label { text-align: center; font-size: 11px; color: #64748b; padding: 4px; font-weight: 500; }
+  
+  /* Draft panel */
+  .draft-panel { margin: 0 12px; border-radius: 12px; padding: 12px; border: 1.5px solid #14B8A625; background: #F0FDFA; }
+  .draft-hdr { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; font-size: 12px; font-weight: 600; color: #0D9488; }
+  .draft-hdr svg { width: 14px; height: 14px; }
+  .draft-text { font-size: 13px; color: #475569; line-height: 1.5; margin-bottom: 8px; }
+  .draft-conf { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .conf-bar { height: 3px; flex: 1; background: #e2e8f0; border-radius: 2px; overflow: hidden; }
+  .conf-fill { height: 100%; background: #14B8A6; border-radius: 2px; transition: width 0.6s ease; }
+  .conf-pct { font-size: 11px; color: #0D9488; font-weight: 600; }
+  .draft-acts { display: flex; gap: 6px; }
+  .d-btn { padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 4px; }
+  .d-btn svg { width: 12px; height: 12px; }
+  .d-btn-send { background: #14B8A6; color: #fff; }
+  .d-btn-edit { background: #f1f5f9; color: #475569; }
+  .d-btn-ghost { background: transparent; color: #94a3b8; padding: 6px 8px; }
+  
+  /* Generate button */
+  .gen-btn { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 12px; padding: 12px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; background: #F0FDFA; border: 1.5px dashed #14B8A640; color: #0D9488; transition: all 0.15s; }
+  .gen-btn:hover { background: #CCFBF1; }
+  .gen-btn svg { width: 16px; height: 16px; }
+  
+  /* Composer */
+  .composer { padding: 8px 12px 28px; display: flex; gap: 8px; align-items: center; background: #fff; }
+  .comp-input { flex: 1; padding: 10px 14px; border-radius: 20px; font-size: 13px; font-family: 'Inter', sans-serif; border: 1.5px solid #e2e8f0; outline: none; color: #1e293b; background: #fff; }
+  .comp-input:focus { border-color: #14B8A6; }
+  .comp-input::placeholder { color: #94a3b8; }
+  .comp-send { width: 36px; height: 36px; border-radius: 50%; background: #14B8A6; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .comp-send svg { width: 16px; height: 16px; color: #fff; }
+  
+  /* Loading dots */
+  .loading-dots { display: flex; gap: 4px; padding: 10px 14px; align-self: flex-start; }
+  .loading-dots span { width: 8px; height: 8px; border-radius: 50%; background: #14B8A6; animation: pulse 1.2s ease-in-out infinite; }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
+  
+  /* Empty AI hint */
+  .ai-hint { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; }
+  .ai-hint svg { width: 20px; height: 20px; color: #cbd5e1; display: block; margin: 0 auto 6px; }
+  
+  /* Sent confirmation */
+  .sent-msg { align-self: flex-end; }
+  .sent-check { display: flex; align-items: center; gap: 3px; justify-content: flex-end; margin-top: 2px; }
+  .sent-check svg { width: 12px; height: 12px; color: #14B8A6; }
+  .sent-check span { font-size: 10px; color: #14B8A6; font-weight: 500; }
+
+  /* Annotation callout */
+  .callout { margin: 8px 12px; padding: 10px 14px; background: #FEF3C7; border-radius: 10px; border: 1px solid #FCD34D; font-size: 12px; color: #92400E; display: flex; align-items: flex-start; gap: 8px; }
+  .callout svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout-bad { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
+</style>
+</head>
+<body>
+
+<h1>AI Draft Options — Interactive Flow</h1>
+<p class="subtitle">Click "Next Step" on each phone to see the full user experience</p>
+
+<div class="options-row">
+  
+  <!-- OPTION 3A: Always Show -->
+  <div class="option-col">
+    <div class="option-label">3A — Auto-Show Draft <span class="rec-badge">RECOMMENDED</span></div>
+    <div class="option-sublabel">AI draft appears automatically when a guest message arrives. No action needed.</div>
+    <div class="phone" id="phone-a">
+      <div class="status-bar">
+        <span>1:22</span>
+        <span style="display:flex;gap:5px;align-items:center;">
+          <svg width="14" height="10" viewBox="0 0 16 12" fill="#1e293b"><rect x="0" y="6" width="3" height="6" rx="1"/><rect x="4.5" y="4" width="3" height="8" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1" opacity="0.3"/></svg>
+          <svg width="22" height="10" viewBox="0 0 24 12" fill="#1e293b"><rect x="0" y="1" width="20" height="10" rx="2" fill="none" stroke="#1e293b" stroke-width="1.5"/><rect x="21" y="4" width="2" height="4" rx="0.5"/><rect x="2" y="3" width="13" height="6" rx="1" fill="#22C55E"/></svg>
+        </span>
+      </div>
+      <div class="screen-content">
+        <div class="chat-hdr">
+          <div class="chat-back"><i data-lucide="chevron-left" style="width:16px;height:16px;"></i></div>
+          <div class="chat-avatar">SL</div>
+          <div class="chat-info">
+            <div class="chat-name">Shannon Lee</div>
+            <div class="chat-prop">Pool+Spa+3.5 Baths</div>
+          </div>
+        </div>
+        
+        <div class="msgs" id="msgs-a">
+          <div class="msg msg-host">
+            Hello Shannon, and thanks for your reservation!!!
+            <div class="msg-time">Feb 18, 11:00 AM</div>
+          </div>
+          <!-- Step 1: Guest message arrives -->
+          <div class="step active" data-phone="a" data-step="1">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">Just now</div>
+            </div>
+          </div>
+          <!-- Step 2: AI generating -->
+          <div class="step" data-phone="a" data-step="2">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+          </div>
+          <!-- Step 3: Draft appears -->
+          <div class="step" data-phone="a" data-step="3">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+          </div>
+          <!-- Step 4: Sent -->
+          <div class="step" data-phone="a" data-step="4">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+            <div class="msg msg-host sent-msg">
+              Hi Shannon! Check-in is at 4 PM. Yes, there's a dedicated parking spot in the driveway!
+              <div class="sent-check"><i data-lucide="check-check" style="width:12px;height:12px;color:#14B8A6;"></i><span>Sent via AI</span></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Bottom area changes per step -->
+        <div id="bottom-a">
+          <div class="step active" data-phone="a" data-step="1">
+            <div class="step-label">Step 1: Guest message arrives</div>
+            <div style="padding:8px 12px;">
+              <div class="loading-dots"><span></span><span></span><span></span></div>
+              <div style="font-size:11px;color:#94a3b8;padding:0 14px 4px;">AI is generating a reply...</div>
+            </div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="a" data-step="2">
+            <div class="step-label">Step 2: AI draft auto-appears (1-2 sec)</div>
+            <div class="draft-panel">
+              <div class="draft-hdr"><i data-lucide="sparkles"></i> AI Suggested Reply</div>
+              <div class="draft-text">Hi Shannon! Check-in is at 4 PM. Yes, there's a dedicated parking spot in the driveway!</div>
+              <div class="draft-conf">
+                <div class="conf-bar"><div class="conf-fill" style="width:95%;"></div></div>
+                <span class="conf-pct">95%</span>
+              </div>
+              <div class="draft-acts">
+                <button class="d-btn d-btn-send"><i data-lucide="send"></i> Send</button>
+                <button class="d-btn d-btn-edit"><i data-lucide="pencil"></i> Edit</button>
+                <button class="d-btn d-btn-ghost"><i data-lucide="refresh-cw"></i></button>
+                <button class="d-btn d-btn-ghost"><i data-lucide="x"></i></button>
+              </div>
+            </div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Or type your own..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="a" data-step="3">
+            <div class="step-label">Step 3: User taps "Send" → done!</div>
+            <div class="callout"><i data-lucide="zap"></i> One tap from guest question to reply. Total time: ~3 seconds.</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="a" data-step="4">
+            <div class="step-label">✓ Reply sent via AI draft</div>
+            <div class="callout"><i data-lucide="check-circle"></i> Guest replied in under 5 seconds. AI learned from this interaction.</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="step-bar">
+          <div class="step-dot active" data-phone="a" data-i="1"></div>
+          <div class="step-dot" data-phone="a" data-i="2"></div>
+          <div class="step-dot" data-phone="a" data-i="3"></div>
+          <div class="step-dot" data-phone="a" data-i="4"></div>
+        </div>
+        <button class="next-btn" onclick="nextStep('a')">Next Step →</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- OPTION 3B: Tap to Generate -->
+  <div class="option-col">
+    <div class="option-label">3B — Tap to Generate</div>
+    <div class="option-sublabel">User sees a button and must tap it to request an AI draft. More control, extra step.</div>
+    <div class="phone" id="phone-b">
+      <div class="status-bar">
+        <span>1:22</span>
+        <span style="display:flex;gap:5px;align-items:center;">
+          <svg width="14" height="10" viewBox="0 0 16 12" fill="#1e293b"><rect x="0" y="6" width="3" height="6" rx="1"/><rect x="4.5" y="4" width="3" height="8" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1" opacity="0.3"/></svg>
+          <svg width="22" height="10" viewBox="0 0 24 12" fill="#1e293b"><rect x="0" y="1" width="20" height="10" rx="2" fill="none" stroke="#1e293b" stroke-width="1.5"/><rect x="21" y="4" width="2" height="4" rx="0.5"/><rect x="2" y="3" width="13" height="6" rx="1" fill="#22C55E"/></svg>
+        </span>
+      </div>
+      <div class="screen-content">
+        <div class="chat-hdr">
+          <div class="chat-back"><i data-lucide="chevron-left" style="width:16px;height:16px;"></i></div>
+          <div class="chat-avatar">SL</div>
+          <div class="chat-info">
+            <div class="chat-name">Shannon Lee</div>
+            <div class="chat-prop">Pool+Spa+3.5 Baths</div>
+          </div>
+        </div>
+        
+        <div class="msgs" id="msgs-b">
+          <div class="msg msg-host">
+            Hello Shannon, and thanks for your reservation!!!
+            <div class="msg-time">Feb 18, 11:00 AM</div>
+          </div>
+          <div class="step active" data-phone="b" data-step="1">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">Just now</div>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="2">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="3">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="4">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="5">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+            <div class="msg msg-host sent-msg">
+              Hi Shannon! Check-in is at 4 PM. Yes, there's a dedicated parking spot in the driveway!
+              <div class="sent-check"><i data-lucide="check-check" style="width:12px;height:12px;color:#14B8A6;"></i><span>Sent via AI</span></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="bottom-b">
+          <div class="step active" data-phone="b" data-step="1">
+            <div class="step-label">Step 1: Guest message arrives</div>
+            <div class="gen-btn"><i data-lucide="sparkles"></i> Generate AI Reply</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="2">
+            <div class="step-label">Step 2: User taps "Generate AI Reply"</div>
+            <div style="padding:8px 12px;">
+              <div class="loading-dots"><span></span><span></span><span></span></div>
+              <div style="font-size:11px;color:#94a3b8;padding:0 14px 4px;">Generating...</div>
+            </div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="3">
+            <div class="step-label">Step 3: Draft appears</div>
+            <div class="draft-panel">
+              <div class="draft-hdr"><i data-lucide="sparkles"></i> AI Suggested Reply</div>
+              <div class="draft-text">Hi Shannon! Check-in is at 4 PM. Yes, there's a dedicated parking spot in the driveway!</div>
+              <div class="draft-conf">
+                <div class="conf-bar"><div class="conf-fill" style="width:95%;"></div></div>
+                <span class="conf-pct">95%</span>
+              </div>
+              <div class="draft-acts">
+                <button class="d-btn d-btn-send"><i data-lucide="send"></i> Send</button>
+                <button class="d-btn d-btn-edit"><i data-lucide="pencil"></i> Edit</button>
+                <button class="d-btn d-btn-ghost"><i data-lucide="refresh-cw"></i></button>
+                <button class="d-btn d-btn-ghost"><i data-lucide="x"></i></button>
+              </div>
+            </div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Or type your own..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="4">
+            <div class="step-label">Step 4: User taps "Send"</div>
+            <div class="callout"><i data-lucide="info"></i> 2 taps + wait time. Total: ~5-8 seconds.</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="b" data-step="5">
+            <div class="step-label">✓ Reply sent</div>
+            <div class="callout"><i data-lucide="info"></i> Same result, but required 1 extra tap + wait for generation.</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="step-bar">
+          <div class="step-dot active" data-phone="b" data-i="1"></div>
+          <div class="step-dot" data-phone="b" data-i="2"></div>
+          <div class="step-dot" data-phone="b" data-i="3"></div>
+          <div class="step-dot" data-phone="b" data-i="4"></div>
+          <div class="step-dot" data-phone="b" data-i="5"></div>
+        </div>
+        <button class="next-btn" onclick="nextStep('b')">Next Step →</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- OPTION 3C: Current (Hidden) -->
+  <div class="option-col">
+    <div class="option-label">3C — Current Behavior <span class="bad-badge">NOT RECOMMENDED</span></div>
+    <div class="option-sublabel">Draft is generated internally but invisible. User must type their own reply.</div>
+    <div class="phone" id="phone-c">
+      <div class="status-bar">
+        <span>1:22</span>
+        <span style="display:flex;gap:5px;align-items:center;">
+          <svg width="14" height="10" viewBox="0 0 16 12" fill="#1e293b"><rect x="0" y="6" width="3" height="6" rx="1"/><rect x="4.5" y="4" width="3" height="8" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1" opacity="0.3"/></svg>
+          <svg width="22" height="10" viewBox="0 0 24 12" fill="#1e293b"><rect x="0" y="1" width="20" height="10" rx="2" fill="none" stroke="#1e293b" stroke-width="1.5"/><rect x="21" y="4" width="2" height="4" rx="0.5"/><rect x="2" y="3" width="13" height="6" rx="1" fill="#22C55E"/></svg>
+        </span>
+      </div>
+      <div class="screen-content">
+        <div class="chat-hdr">
+          <div class="chat-back"><i data-lucide="chevron-left" style="width:16px;height:16px;"></i></div>
+          <div class="chat-avatar">SL</div>
+          <div class="chat-info">
+            <div class="chat-name">Shannon Lee</div>
+            <div class="chat-prop">Pool+Spa+3.5 Baths</div>
+          </div>
+        </div>
+        
+        <div class="msgs" id="msgs-c">
+          <div class="msg msg-host">
+            Hello Shannon, and thanks for your reservation!!!
+            <div class="msg-time">Feb 18, 11:00 AM</div>
+          </div>
+          <div class="step active" data-phone="c" data-step="1">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">Just now</div>
+            </div>
+          </div>
+          <div class="step" data-phone="c" data-step="2">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+          </div>
+          <div class="step" data-phone="c" data-step="3">
+            <div class="msg msg-guest">
+              Hi! Thanks! What time is check-in and is there parking available?
+              <div class="msg-time">4:58 AM</div>
+            </div>
+            <div class="msg msg-host sent-msg">
+              Check-in is 4pm. Yes there's parking.
+              <div class="msg-time" style="color:rgba(255,255,255,0.6);">1:22 PM</div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="bottom-c">
+          <div class="step active" data-phone="c" data-step="1">
+            <div class="step-label">Step 1: Guest message arrives</div>
+            <div class="ai-hint"><i data-lucide="sparkles"></i>AI learns from your replies</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="c" data-step="2">
+            <div class="step-label">Step 2: User types manually...</div>
+            <div class="callout callout-bad"><i data-lucide="alert-triangle"></i> User doesn't see AI draft. Types their own reply from scratch. AI feature is invisible.</div>
+            <div class="composer">
+              <input class="comp-input" value="Check-in is 4pm. Yes there's parking." readonly style="color:#1e293b;" />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+          <div class="step" data-phone="c" data-step="3">
+            <div class="step-label">Step 3: Manually sent</div>
+            <div class="callout callout-bad"><i data-lucide="alert-triangle"></i> Reply took ~30 seconds. Less polished than AI draft. User doesn't know AI exists. Core feature wasted.</div>
+            <div class="composer">
+              <input class="comp-input" placeholder="Type your own reply..." readonly />
+              <button class="comp-send"><i data-lucide="send" style="width:16px;height:16px;color:white;"></i></button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="step-bar">
+          <div class="step-dot active" data-phone="c" data-i="1"></div>
+          <div class="step-dot" data-phone="c" data-i="2"></div>
+          <div class="step-dot" data-phone="c" data-i="3"></div>
+        </div>
+        <button class="next-btn" onclick="nextStep('c')">Next Step →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const phoneSteps = { a: 1, b: 1, c: 1 };
+const maxSteps = { a: 4, b: 5, c: 3 };
+
+function nextStep(phone) {
+  const current = phoneSteps[phone];
+  if (current >= maxSteps[phone]) return;
+  
+  const next = current + 1;
+  phoneSteps[phone] = next;
+  
+  // Hide current steps, show next
+  document.querySelectorAll(`.step[data-phone="${phone}"]`).forEach(el => {
+    el.classList.remove('active');
+    if (parseInt(el.dataset.step) === next) {
+      el.classList.add('active');
+    }
+  });
+  
+  // Update dots
+  document.querySelectorAll(`.step-dot[data-phone="${phone}"]`).forEach(dot => {
+    const i = parseInt(dot.dataset.i);
+    dot.classList.remove('active', 'done');
+    if (i === next) dot.classList.add('active');
+    else if (i < next) dot.classList.add('done');
+  });
+  
+  // Disable button at end
+  if (next >= maxSteps[phone]) {
+    document.querySelector(`#phone-${phone} .next-btn`).disabled = true;
+    document.querySelector(`#phone-${phone} .next-btn`).textContent = 'Flow Complete ✓';
+  }
+  
+  lucide.createIcons();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+});
+</script>
+
+</body>
+</html>

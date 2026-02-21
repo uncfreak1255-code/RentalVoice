@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveCold, removeCold } from './cold-storage';
 
 // Types
 export interface Guest {
@@ -24,32 +25,60 @@ export interface Property {
 }
 
 // Property Knowledge Base for AI
+export type PropertyType = 'vacation_rental' | 'long_term' | 'hybrid';
+
 export interface PropertyKnowledge {
   propertyId: string;
+  propertyType: PropertyType;
+
+  // ── Shared fields ──
   wifiName?: string;
   wifiPassword?: string;
+  parkingInfo?: string;
+  houseRules?: string;
+  applianceGuide?: string;
+  emergencyContacts?: string;
+  customNotes?: string;
+  tonePreference?: 'friendly' | 'professional' | 'casual';
+
+  // ── STR-specific ──
   checkInInstructions?: string;
   checkInTime?: string;
   checkOutInstructions?: string;
   checkOutTime?: string;
-  parkingInfo?: string;
-  houseRules?: string;
-  applianceGuide?: string;
   localRecommendations?: string;
-  emergencyContacts?: string;
-  customNotes?: string;
-  tonePreference?: 'friendly' | 'professional' | 'casual';
   earlyCheckInFee?: number;
   lateCheckOutFee?: number;
   earlyCheckInAvailable?: boolean;
   lateCheckOutAvailable?: boolean;
+
+  // ── LTR-specific ──
+  leaseStartDate?: string;
+  leaseEndDate?: string;
+  monthlyRent?: number;
+  rentDueDay?: number;
+  lateFeeAmount?: number;
+  lateFeeGracePeriod?: number;
+  paymentMethods?: string;
+  tenantPortalUrl?: string;
+  maintenanceContactName?: string;
+  maintenanceContactPhone?: string;
+  maintenanceEmergencyPhone?: string;
+  maintenanceHours?: string;
+  quietHoursPolicy?: string;
+  parkingPolicy?: string;
+  petPolicy?: string;
+  guestPolicy?: string;
+  smokingPolicy?: string;
+  trashPolicy?: string;
+  utilityResponsibility?: string;
 }
 
 // Issue tracking
 export interface Issue {
   id: string;
   conversationId: string;
-  category: 'maintenance' | 'cleanliness' | 'amenity' | 'noise' | 'access' | 'other';
+  category: 'maintenance' | 'cleanliness' | 'amenity' | 'noise' | 'access' | 'lease_violation' | 'rent_delinquency' | 'pest' | 'utility' | 'other';
   description: string;
   status: 'open' | 'in_progress' | 'resolved';
   priority: 'low' | 'medium' | 'high' | 'urgent';
@@ -62,7 +91,7 @@ export interface Issue {
 export interface ScheduledMessage {
   id: string;
   propertyId: string;
-  triggerType: 'before_checkin' | 'after_checkin' | 'before_checkout' | 'after_checkout' | 'custom';
+  triggerType: 'before_checkin' | 'after_checkin' | 'before_checkout' | 'after_checkout' | 'rent_reminder' | 'late_rent' | 'lease_renewal' | 'inspection' | 'seasonal' | 'custom';
   triggerHours: number; // hours before/after trigger event
   template: string;
   isActive: boolean;
@@ -70,7 +99,7 @@ export interface ScheduledMessage {
   // Smart template features
   aiPersonalization?: boolean;
   personalizationInstructions?: string;
-  category?: 'check_in' | 'check_out' | 'welcome' | 'review_request' | 'issue_response' | 'upsell' | 'custom';
+  category?: 'check_in' | 'check_out' | 'welcome' | 'review_request' | 'issue_response' | 'upsell' | 'rent' | 'lease' | 'maintenance' | 'custom';
 }
 
 // Analytics data
@@ -121,7 +150,7 @@ export interface HostStyleProfile {
   lastUpdated: Date;
 }
 
-// AI Learning Progress
+// AI Learning Progress — unified stats from all learning layers
 export interface AILearningProgress {
   totalMessagesAnalyzed: number;
   totalEditsLearned: number;
@@ -130,6 +159,36 @@ export interface AILearningProgress {
   lastTrainingDate: Date;
   isTraining: boolean;
   trainingProgress: number; // 0-100
+  // Real-time counters (incremented by learnFromReply, analyzeIndependentReply, etc.)
+  realTimeApprovalsCount: number;
+  realTimeEditsCount: number;
+  realTimeIndependentRepliesCount: number;
+  realTimeRejectionsCount: number;
+  patternsIndexed: number;
+  // Persisted training result summary
+  lastTrainingResult: {
+    hostMessagesAnalyzed: number;
+    patternsIndexed: number;
+    trainingSampleSize: number;
+    trainingDurationMs: number;
+  } | null;
+}
+
+// Tier 3 re-exports
+export type { CalibrationEntry, ConversationFlow, ReplyDelta, CalibrationSummary } from './ai-intelligence';
+import type { CalibrationEntry, ConversationFlow, ReplyDelta } from './ai-intelligence';
+
+// Draft Outcome Tracking for Accuracy Dashboard (Tier 2)
+export type DraftOutcomeType = 'approved' | 'edited' | 'rejected' | 'independent';
+
+export interface DraftOutcome {
+  id: string;
+  timestamp: Date;
+  outcomeType: DraftOutcomeType;
+  propertyId?: string;
+  guestIntent?: string;
+  confidence?: number;
+  editDistance?: number; // character change % for edited drafts
 }
 
 // History Sync Status for comprehensive data fetching
@@ -282,7 +341,10 @@ export interface Conversation {
 // Inbox sorting preference options
 export type InboxSortPreference = 'recent' | 'unread_first' | 'urgent_first';
 
+export type PMSProvider = 'hostaway' | 'guesty' | 'lodgify';
+
 export interface AppSettings {
+  pmsProvider: PMSProvider;
   accountId: string | null;
   apiKey: string | null;
   isOnboarded: boolean;
@@ -330,6 +392,10 @@ export interface AppSettings {
     upsellResponse: boolean;
   };
   mutedPropertyIds: string[];
+  // Theme / appearance
+  themeMode: 'dark' | 'light' | 'system';
+  // Property favorites for quick switching
+  favoritePropertyIds: string[];
 }
 
 // AI Provider Usage Tracking
@@ -451,6 +517,22 @@ interface AppState {
   updateAILearningProgress: (updates: Partial<AILearningProgress>) => void;
   resetAILearning: () => void;
 
+  // Draft Outcome Tracking (Tier 2 — accuracy dashboard)
+  draftOutcomes: DraftOutcome[];
+  addDraftOutcome: (outcome: DraftOutcome) => void;
+
+  // Tier 3: Confidence Calibration
+  calibrationEntries: CalibrationEntry[];
+  addCalibrationEntry: (entry: CalibrationEntry) => void;
+
+  // Tier 3: Conversation Flows
+  conversationFlows: ConversationFlow[];
+  setConversationFlows: (flows: ConversationFlow[]) => void;
+
+  // Tier 3: Reply Deltas
+  replyDeltas: ReplyDelta[];
+  addReplyDelta: (delta: ReplyDelta) => void;
+
   // History Sync Status
   historySyncStatus: HistorySyncStatus;
   updateHistorySyncStatus: (updates: Partial<HistorySyncStatus>) => void;
@@ -505,6 +587,7 @@ interface AppState {
 }
 
 const initialSettings: AppSettings = {
+  pmsProvider: 'hostaway',
   accountId: null,
   apiKey: null,
   isOnboarded: false,
@@ -552,6 +635,8 @@ const initialSettings: AppSettings = {
     upsellResponse: true,
   },
   mutedPropertyIds: [],
+  themeMode: 'dark',
+  favoritePropertyIds: [],
 };
 
 const initialAnalytics: AnalyticsData = {
@@ -789,7 +874,7 @@ export const useAppStore = create<AppState>()(
       learningEntries: [],
       addLearningEntry: (entry) =>
         set((state) => ({
-          learningEntries: [...state.learningEntries, entry],
+          learningEntries: [...state.learningEntries.slice(-499), entry],
         })),
 
       // Host Style Profiles
@@ -834,6 +919,12 @@ export const useAppStore = create<AppState>()(
         lastTrainingDate: new Date(),
         isTraining: false,
         trainingProgress: 0,
+        realTimeApprovalsCount: 0,
+        realTimeEditsCount: 0,
+        realTimeIndependentRepliesCount: 0,
+        realTimeRejectionsCount: 0,
+        patternsIndexed: 0,
+        lastTrainingResult: null,
       },
       updateAILearningProgress: (updates) =>
         set((state) => ({
@@ -843,6 +934,10 @@ export const useAppStore = create<AppState>()(
         set({
           learningEntries: [],
           hostStyleProfiles: {},
+          draftOutcomes: [],
+          calibrationEntries: [],
+          conversationFlows: [],
+          replyDeltas: [],
           aiLearningProgress: {
             totalMessagesAnalyzed: 0,
             totalEditsLearned: 0,
@@ -851,8 +946,40 @@ export const useAppStore = create<AppState>()(
             lastTrainingDate: new Date(),
             isTraining: false,
             trainingProgress: 0,
+            realTimeApprovalsCount: 0,
+            realTimeEditsCount: 0,
+            realTimeIndependentRepliesCount: 0,
+            realTimeRejectionsCount: 0,
+            patternsIndexed: 0,
+            lastTrainingResult: null,
           },
         }),
+
+      // Draft Outcome Tracking (Tier 2)
+      draftOutcomes: [],
+      addDraftOutcome: (outcome) =>
+        set((state) => ({
+          // Keep at most 500 entries to prevent unbounded growth
+          draftOutcomes: [...state.draftOutcomes.slice(-499), outcome],
+        })),
+
+      // Tier 3: Confidence Calibration
+      calibrationEntries: [],
+      addCalibrationEntry: (entry) =>
+        set((state) => ({
+          calibrationEntries: [...state.calibrationEntries.slice(-499), entry],
+        })),
+
+      // Tier 3: Conversation Flows
+      conversationFlows: [],
+      setConversationFlows: (flows) => set({ conversationFlows: flows }),
+
+      // Tier 3: Reply Deltas
+      replyDeltas: [],
+      addReplyDelta: (delta) =>
+        set((state) => ({
+          replyDeltas: [...state.replyDeltas.slice(-199), delta],
+        })),
 
       // History Sync Status
       historySyncStatus: {
@@ -1107,7 +1234,17 @@ export const useAppStore = create<AppState>()(
       setDemoMode: (value) => set({ isDemoMode: value }),
 
       // Reset
-      resetStore: () =>
+      resetStore: () => {
+        // Clear cold storage to prevent zombie data on next mount
+        const coldKeys = [
+          'conversations', 'learningEntries', 'draftOutcomes',
+          'calibrationEntries', 'replyDeltas', 'conversationFlows',
+          'issues', 'favoriteMessages', 'autoPilotLogs',
+        ];
+        for (const key of coldKeys) {
+          removeCold(key);
+        }
+
         set({
           settings: initialSettings,
           conversations: [],
@@ -1126,6 +1263,12 @@ export const useAppStore = create<AppState>()(
             lastTrainingDate: new Date(),
             isTraining: false,
             trainingProgress: 0,
+            realTimeApprovalsCount: 0,
+            realTimeEditsCount: 0,
+            realTimeIndependentRepliesCount: 0,
+            realTimeRejectionsCount: 0,
+            patternsIndexed: 0,
+            lastTrainingResult: null,
           },
           historySyncStatus: {
             lastFullSync: null,
@@ -1154,9 +1297,14 @@ export const useAppStore = create<AppState>()(
           autoPilotLogs: [],
           propertyAutoPilotSettings: {},
           learnedLanguageStyles: {},
+          draftOutcomes: [],
+          calibrationEntries: [],
+          conversationFlows: [],
+          replyDeltas: [],
           activeConversationId: null,
           isDemoMode: false,
-        }),
+        });
+      },
     }),
     {
       name: 'rental-reply-storage',
@@ -1165,21 +1313,48 @@ export const useAppStore = create<AppState>()(
         settings: state.settings,
         isDemoMode: state.isDemoMode,
         properties: state.properties,
-        conversations: state.conversations,
         propertyKnowledge: state.propertyKnowledge,
         scheduledMessages: state.scheduledMessages,
         analytics: state.analytics,
-        learningEntries: state.learningEntries,
-        issues: state.issues,
         hostStyleProfiles: state.hostStyleProfiles,
         aiLearningProgress: state.aiLearningProgress,
         historySyncStatus: state.historySyncStatus,
         quickReplyTemplates: state.quickReplyTemplates,
-        favoriteMessages: state.favoriteMessages,
-        autoPilotLogs: state.autoPilotLogs,
         propertyAutoPilotSettings: state.propertyAutoPilotSettings,
         learnedLanguageStyles: state.learnedLanguageStyles,
+        // NOTE: Cold arrays removed from partialize for performance.
+        // They are persisted via cold-storage.ts subscribers below.
+        // Removed: conversations, learningEntries, draftOutcomes,
+        // calibrationEntries, replyDeltas, conversationFlows,
+        // issues, favoriteMessages, autoPilotLogs
       }),
     }
   )
 );
+
+// ── Cold Data Subscribers ──
+// Per-key selective subscribers that only fire when their specific
+// array reference changes — not on every Zustand state update.
+// Each subscriber debounce-saves via cold-storage.ts (2s).
+const coldKeys = [
+  'conversations',
+  'learningEntries',
+  'draftOutcomes',
+  'calibrationEntries',
+  'replyDeltas',
+  'conversationFlows',
+  'issues',
+  'favoriteMessages',
+  'autoPilotLogs',
+] as const;
+
+for (const key of coldKeys) {
+  let previous: unknown = undefined;
+  useAppStore.subscribe((state) => {
+    const current = state[key];
+    if (current !== previous) {
+      previous = current;
+      saveCold(key, current);
+    }
+  });
+}

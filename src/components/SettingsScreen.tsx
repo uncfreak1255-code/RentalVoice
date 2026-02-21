@@ -394,7 +394,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                       ]}
                     >
                       <item.icon
-                        size={20}
+                        size={16}
                         color={item.type === 'toggle' && item.value ? colors.primary.DEFAULT : colors.text.muted}
                       />
                     </View>
@@ -530,24 +530,24 @@ const settingsStyles = StyleSheet.create({
     marginLeft: spacing['1'],
   },
   sectionCard: {
-    backgroundColor: `${colors.bg.elevated}E6`,
-    borderRadius: radius['2xl'],
+    backgroundColor: colors.bg.card,
+    borderRadius: radius.xl,
     overflow: 'hidden',
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing['4'],
-    paddingVertical: spacing['4'],
+    paddingHorizontal: spacing['3'],
+    paddingVertical: spacing['3'],
   },
   itemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: `${colors.border.DEFAULT}50`,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing['3'],

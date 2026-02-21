@@ -153,12 +153,12 @@ export function PrivacyComplianceScreen({ onBack }: PrivacyComplianceScreenProps
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={['#1E293B', '#0F172A']} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200 }} />
+      <LinearGradient colors={[colors.bg.card, colors.bg.base]} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200 }} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={s.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [s.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <ArrowLeft size={20} color="#FFFFFF" />
+            <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={s.title}>Privacy Compliance</Text>

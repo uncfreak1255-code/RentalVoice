@@ -1,27 +1,15 @@
 // AI Service for generating guest responses
-// Uses OpenAI Responses API with property-specific knowledge
+// Uses Google Gemini 2.5 Flash for best cost/performance on guest messages
 
-import type { Conversation, Message, Property, HostStyleProfile, QuickReplyTemplate, LearnedLanguageStyle } from './store';
+import type { Conversation, Message, Property, HostStyleProfile, QuickReplyTemplate, LearnedLanguageStyle, PropertyKnowledge } from './store';
 import { generateStyleInstructions, findMatchingTemplates, generateTemplateBasedPrompt, type TemplateMatchResult } from './ai-learning';
-import { generateCulturalToneInstructions, getCulturalAdaptationSummary, getCulturalProfile } from './cultural-tone';
+import { generateCulturalToneInstructions, getCulturalAdaptationSummary } from './cultural-tone';
 import { detectLanguage as detectLanguageEnhanced } from './language-detect';
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
+const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-export interface PropertyKnowledge {
-  propertyId: string;
-  wifiName?: string;
-  wifiPassword?: string;
-  checkInInstructions?: string;
-  checkOutInstructions?: string;
-  parkingInfo?: string;
-  houseRules?: string;
-  applianceGuide?: string;
-  localRecommendations?: string;
-  emergencyContacts?: string;
-  customNotes?: string;
-  tonePreference?: 'friendly' | 'professional' | 'casual';
-}
+// PropertyKnowledge is imported from store.ts
 
 export interface AIResponse {
   content: string;
@@ -114,17 +102,26 @@ function buildSystemPrompt(
   }
 ): string {
   const tone = knowledge?.tonePreference || 'friendly';
+  const propertyType = knowledge?.propertyType || 'vacation_rental';
   const toneGuidelines = {
-    friendly: 'Be warm, personable, and use a conversational tone. Show genuine care for the guest.',
+    friendly: 'Be warm, personable, and use a conversational tone. Show genuine care.',
     professional: 'Be polite, efficient, and maintain a business-appropriate tone. Be helpful but concise.',
     casual: 'Be relaxed and informal. Use a friendly, approachable style like texting a friend.',
   };
 
-  let prompt = `You are an AI assistant helping manage guest communications for a vacation rental property.
+  // Adapt intro and role based on property type
+  const roleIntro = propertyType === 'long_term'
+    ? `You are an AI assistant helping manage tenant communications for a long-term rental property.`
+    : propertyType === 'hybrid'
+    ? `You are an AI assistant helping manage communications for a rental property that serves both short-term guests and long-term tenants. Adapt your tone based on the conversation context.`
+    : `You are an AI assistant helping manage guest communications for a vacation rental property.`;
+
+  let prompt = `${roleIntro}
 
 PROPERTY: ${property.name}
 ADDRESS: ${property.address}
 ${hostName ? `HOST NAME: ${hostName}` : ''}
+PROPERTY TYPE: ${propertyType === 'long_term' ? 'Long-Term Rental' : propertyType === 'hybrid' ? 'Hybrid (STR + LTR)' : 'Vacation Rental'}
 
 BASE COMMUNICATION STYLE: ${toneGuidelines[tone]}
 
@@ -136,6 +133,19 @@ GUIDELINES:
 - Keep responses concise but complete (2-4 sentences typically)
 - For urgent issues (lockouts, safety, emergencies), express immediate concern and offer solutions
 `;
+
+  // LTR-specific guidelines
+  if (propertyType === 'long_term' || propertyType === 'hybrid') {
+    prompt += `
+LANDLORD-TENANT GUIDELINES:
+- Maintain a professional landlord-tenant relationship tone
+- For rent inquiries, reference specific amounts, due dates, and payment methods
+- For maintenance requests, acknowledge urgency and provide correct contacts
+- For lease questions, reference terms but advise consulting the actual lease document
+- For complaints (noise, pests), document and escalate appropriately
+- Never discuss other tenants' personal information
+`;
+  }
 
   // Add cultural tone instructions if enabled
   if (culturalToneData?.enabled && culturalToneData.languageCode) {
@@ -157,16 +167,10 @@ ${styleInstructions}
   }
 
   if (knowledge) {
+    // Shared property info
     prompt += '\nPROPERTY INFORMATION:\n';
-
     if (knowledge.wifiName && knowledge.wifiPassword) {
       prompt += `- WiFi: Network "${knowledge.wifiName}", Password "${knowledge.wifiPassword}"\n`;
-    }
-    if (knowledge.checkInInstructions) {
-      prompt += `- Check-in Instructions: ${knowledge.checkInInstructions}\n`;
-    }
-    if (knowledge.checkOutInstructions) {
-      prompt += `- Check-out Instructions: ${knowledge.checkOutInstructions}\n`;
     }
     if (knowledge.parkingInfo) {
       prompt += `- Parking: ${knowledge.parkingInfo}\n`;
@@ -177,18 +181,91 @@ ${styleInstructions}
     if (knowledge.applianceGuide) {
       prompt += `- Appliances: ${knowledge.applianceGuide}\n`;
     }
-    if (knowledge.localRecommendations) {
-      prompt += `- Local Tips: ${knowledge.localRecommendations}\n`;
-    }
     if (knowledge.emergencyContacts) {
       prompt += `- Emergency Contacts: ${knowledge.emergencyContacts}\n`;
     }
     if (knowledge.customNotes) {
       prompt += `- Additional Notes: ${knowledge.customNotes}\n`;
     }
+
+    // STR-specific info
+    if (propertyType === 'vacation_rental' || propertyType === 'hybrid') {
+      if (knowledge.checkInInstructions) {
+        prompt += `- Check-in Instructions: ${knowledge.checkInInstructions}\n`;
+      }
+      if (knowledge.checkOutInstructions) {
+        prompt += `- Check-out Instructions: ${knowledge.checkOutInstructions}\n`;
+      }
+      if (knowledge.localRecommendations) {
+        prompt += `- Local Tips: ${knowledge.localRecommendations}\n`;
+      }
+    }
+
+    // LTR-specific info
+    if (propertyType === 'long_term' || propertyType === 'hybrid') {
+      prompt += '\nLEASE & RENT DETAILS:\n';
+      if (knowledge.monthlyRent) {
+        prompt += `- Monthly Rent: $${knowledge.monthlyRent}\n`;
+      }
+      if (knowledge.rentDueDay) {
+        prompt += `- Rent Due: ${knowledge.rentDueDay}${getOrdinal(knowledge.rentDueDay)} of each month\n`;
+      }
+      if (knowledge.lateFeeAmount && knowledge.lateFeeGracePeriod) {
+        prompt += `- Late Fee: $${knowledge.lateFeeAmount} after ${knowledge.lateFeeGracePeriod}-day grace period\n`;
+      }
+      if (knowledge.paymentMethods) {
+        prompt += `- Payment Methods: ${knowledge.paymentMethods}\n`;
+      }
+      if (knowledge.tenantPortalUrl) {
+        prompt += `- Tenant Portal: ${knowledge.tenantPortalUrl}\n`;
+      }
+      if (knowledge.leaseStartDate && knowledge.leaseEndDate) {
+        prompt += `- Lease Period: ${knowledge.leaseStartDate} to ${knowledge.leaseEndDate}\n`;
+      }
+
+      prompt += '\nBUILDING POLICIES:\n';
+      if (knowledge.quietHoursPolicy) {
+        prompt += `- Quiet Hours: ${knowledge.quietHoursPolicy}\n`;
+      }
+      if (knowledge.petPolicy) {
+        prompt += `- Pet Policy: ${knowledge.petPolicy}\n`;
+      }
+      if (knowledge.guestPolicy) {
+        prompt += `- Guest Policy: ${knowledge.guestPolicy}\n`;
+      }
+      if (knowledge.smokingPolicy) {
+        prompt += `- Smoking Policy: ${knowledge.smokingPolicy}\n`;
+      }
+      if (knowledge.trashPolicy) {
+        prompt += `- Trash & Recycling: ${knowledge.trashPolicy}\n`;
+      }
+      if (knowledge.utilityResponsibility) {
+        prompt += `- Utilities: ${knowledge.utilityResponsibility}\n`;
+      }
+
+      prompt += '\nMAINTENANCE:\n';
+      if (knowledge.maintenanceContactName) {
+        prompt += `- Contact: ${knowledge.maintenanceContactName}`;
+        if (knowledge.maintenanceContactPhone) prompt += ` (${knowledge.maintenanceContactPhone})`;
+        prompt += '\n';
+      }
+      if (knowledge.maintenanceEmergencyPhone) {
+        prompt += `- Emergency Line: ${knowledge.maintenanceEmergencyPhone}\n`;
+      }
+      if (knowledge.maintenanceHours) {
+        prompt += `- Hours: ${knowledge.maintenanceHours}\n`;
+      }
+    }
   }
 
   return prompt;
+}
+
+/** Helper for ordinal suffixes (1st, 2nd, 3rd, etc.) */
+function getOrdinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
 }
 
 /**
@@ -237,11 +314,43 @@ function analyzeMessage(content: string): { sentiment: 'positive' | 'neutral' | 
 }
 
 /**
- * Detect common guest intents
+ * Detect common intents — supports both STR (guest) and LTR (tenant) messages
  */
 function detectIntent(content: string): string {
   const lowerContent = content.toLowerCase();
 
+  // ── LTR Intents ──
+  if (lowerContent.includes('rent') || lowerContent.includes('payment') || lowerContent.includes('due') || lowerContent.includes('late fee') || lowerContent.includes('pay')) {
+    return 'rent_inquiry';
+  }
+  if (lowerContent.includes('lease') || lowerContent.includes('contract') || lowerContent.includes('renew') || lowerContent.includes('renewal') || lowerContent.includes('term')) {
+    return 'lease_inquiry';
+  }
+  if (lowerContent.includes('noise') || lowerContent.includes('loud') || lowerContent.includes('party') || lowerContent.includes('neighbor') || lowerContent.includes('quiet hours')) {
+    return 'noise_complaint';
+  }
+  if (lowerContent.includes('move in') || lowerContent.includes('move out') || lowerContent.includes('key return') || lowerContent.includes('walkthrough') || lowerContent.includes('moving')) {
+    return 'move_in_out';
+  }
+  if (lowerContent.includes('bug') || lowerContent.includes('pest') || lowerContent.includes('roach') || lowerContent.includes('mouse') || lowerContent.includes('ant') || lowerContent.includes('exterminator')) {
+    return 'pest_issue';
+  }
+  if (lowerContent.includes('utility') || lowerContent.includes('electric') || lowerContent.includes('water bill') || lowerContent.includes('gas bill') || lowerContent.includes('included')) {
+    return 'utility_inquiry';
+  }
+
+  // ── Shared Intents ──
+  if (lowerContent.includes('park') || lowerContent.includes('car') || lowerContent.includes('garage') || lowerContent.includes('towed') || lowerContent.includes('visitor parking')) {
+    return 'parking_inquiry';
+  }
+  if (lowerContent.includes('broken') || lowerContent.includes('not working') || lowerContent.includes('fix') || lowerContent.includes('repair') || lowerContent.includes('leak') || lowerContent.includes('plumbing') || lowerContent.includes('hvac')) {
+    return 'maintenance_issue';
+  }
+  if (lowerContent.includes('key') || lowerContent.includes('lock') || lowerContent.includes('door') || lowerContent.includes('access')) {
+    return 'access_inquiry';
+  }
+
+  // ── STR-specific Intents ──
   if (lowerContent.includes('wifi') || lowerContent.includes('internet') || lowerContent.includes('password')) {
     return 'wifi_inquiry';
   }
@@ -257,20 +366,11 @@ function detectIntent(content: string): string {
   if (lowerContent.includes('late') && (lowerContent.includes('check') || lowerContent.includes('stay'))) {
     return 'late_checkout_request';
   }
-  if (lowerContent.includes('park') || lowerContent.includes('car') || lowerContent.includes('garage')) {
-    return 'parking_inquiry';
-  }
-  if (lowerContent.includes('key') || lowerContent.includes('lock') || lowerContent.includes('door') || lowerContent.includes('access')) {
-    return 'access_inquiry';
-  }
   if (lowerContent.includes('clean') || lowerContent.includes('towel') || lowerContent.includes('sheet') || lowerContent.includes('trash')) {
     return 'housekeeping_inquiry';
   }
   if (lowerContent.includes('restaurant') || lowerContent.includes('food') || lowerContent.includes('eat') || lowerContent.includes('recommend')) {
     return 'local_recommendation';
-  }
-  if (lowerContent.includes('broken') || lowerContent.includes('not working') || lowerContent.includes('fix') || lowerContent.includes('repair')) {
-    return 'maintenance_issue';
   }
 
   return 'general_inquiry';
@@ -292,11 +392,11 @@ export async function generateAIResponse(options: AIGenerationOptions): Promise<
     responseLanguageMode = 'match_guest',
     hostDefaultLanguage = 'en',
   } = options;
-  const apiKey = process.env.EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY;
+  const apiKey = process.env.EXPO_PUBLIC_VIBECODE_GOOGLE_API_KEY;
 
   if (!apiKey) {
-    console.error('[AI Service] No OpenAI API key found');
-    throw new Error('OpenAI API key not configured. Please add it in the API tab.');
+    console.error('[AI Service] No Gemini API key found');
+    throw new Error('Gemini API key not configured. Please add it in Settings → API.');
   }
 
   const lastGuestMessage = [...conversation.messages]
@@ -401,34 +501,40 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
   console.log('[AI Service] Generating response for intent:', detectedIntent);
 
   try {
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        input: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }],
+          },
         ],
-        temperature: 0.7,
-        max_output_tokens: 500,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 500,
+        },
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('[AI Service] API error:', error);
+      console.error('[AI Service] Gemini API error:', error);
       throw new Error(`AI generation failed: ${response.status}`);
     }
 
     const data = await response.json();
-    const generatedContent = data.output?.[0]?.content?.[0]?.text || data.output_text || '';
+    const generatedContent =
+      data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!generatedContent) {
-      throw new Error('Empty response from AI');
+      throw new Error('Empty response from Gemini');
     }
 
     // Calculate confidence based on various factors
@@ -492,14 +598,36 @@ function getSuggestedActions(intent: string, sentiment: string): string[] {
     actions.push('Consider offering compensation');
   }
 
+  // STR actions
   if (intent === 'maintenance_issue') {
     actions.push('Create maintenance ticket');
     actions.push('Contact property manager');
   }
-
   if (intent === 'early_checkin_request' || intent === 'late_checkout_request') {
     actions.push('Check availability');
     actions.push('Consider upsell opportunity');
+  }
+
+  // LTR actions
+  if (intent === 'rent_inquiry') {
+    actions.push('Verify payment status');
+    actions.push('Send payment portal link');
+  }
+  if (intent === 'lease_inquiry') {
+    actions.push('Review lease terms');
+    actions.push('Schedule renewal discussion');
+  }
+  if (intent === 'noise_complaint') {
+    actions.push('Document complaint');
+    actions.push('Send quiet hours reminder to building');
+  }
+  if (intent === 'pest_issue') {
+    actions.push('Schedule exterminator');
+    actions.push('Create urgent maintenance ticket');
+  }
+  if (intent === 'move_in_out') {
+    actions.push('Schedule walkthrough');
+    actions.push('Prepare move-in/out checklist');
   }
 
   return actions;

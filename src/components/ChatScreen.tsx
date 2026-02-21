@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -12,6 +12,7 @@ import { ConversationSummaryDisplay } from './ConversationSummaryDisplay';
 import { AIDraftActionsSheet } from './AIDraftActionsSheet';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { ReservationSummaryBar } from './ReservationSummaryBar';
+import { GuestProfileScreen } from './GuestProfileScreen';
 import { generateAIResponse, generateDemoResponse } from '@/lib/ai-service';
 import {
   generateEnhancedAIResponse,
@@ -30,6 +31,7 @@ import { sendMessage as sendHostawayMessage } from '@/lib/hostaway';
 import { features } from '@/lib/config';
 import { generateAIDraftViaServer } from '@/lib/api-client';
 import { aiTrainingService } from '@/lib/ai-training-service';
+import { notifyAutoPilotSent } from '@/lib/push-notifications';
 import {
   analyzeEdit,
   storeEditPattern,
@@ -42,6 +44,10 @@ import {
   getIndependentReplySummary,
 } from '@/lib/edit-diff-analysis';
 import {
+  createCalibrationEntry,
+  analyzeReplyDelta,
+} from '@/lib/ai-intelligence';
+import {
   ArrowLeft,
   Phone,
   Home,
@@ -53,6 +59,8 @@ import {
   Bell,
   AlertTriangle,
   Brain,
+  Search,
+  X,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -82,6 +90,7 @@ interface EnhancedAiDraft {
 export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const hasScrolledToBottom = useRef(false);
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showGuestInfo, setShowGuestInfo] = useState(false);
@@ -89,6 +98,10 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const [showEscalationAlert, setShowEscalationAlert] = useState(false);
   const [currentModifier, setCurrentModifier] = useState<RegenerationOption['modifier'] | undefined>();
   const [editLearningSummary, setEditLearningSummary] = useState<string | null>(null);
+  const [learningToastType, setLearningToastType] = useState<'approval' | 'edit' | 'independent' | 'rejection'>('edit');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showGuestProfile, setShowGuestProfile] = useState(false);
 
   const conversations = useAppStore((s) => s.conversations);
   const addMessage = useAppStore((s) => s.addMessage);
@@ -107,8 +120,56 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const addLearningEntry = useAppStore((s) => s.addLearningEntry);
   const hostStyleProfiles = useAppStore((s) => s.hostStyleProfiles);
   const addIssue = useAppStore((s) => s.addIssue);
+  const addAutoPilotLog = useAppStore((s) => s.addAutoPilotLog);
+  const notificationSettings = useAppStore((s) => s.settings);
   const responseLanguageMode = useAppStore((s) => s.settings.responseLanguageMode ?? 'match_guest');
   const defaultLanguage = useAppStore((s) => s.settings.defaultLanguage ?? 'en');
+  const updateAILearningProgress = useAppStore((s) => s.updateAILearningProgress);
+  const aiLearningProgress = useAppStore((s) => s.aiLearningProgress);
+  const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
+  const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
+  const addReplyDelta = useAppStore((s) => s.addReplyDelta);
+
+  // Helper: centralized outcome tracking (fixes 5A DRY + 6A calibration guard)
+  const trackDraftOutcome = useCallback((
+    outcomeType: 'approved' | 'edited' | 'rejected' | 'independent',
+    opts: {
+      propertyId?: string;
+      guestIntent?: string;
+      confidence?: number;
+      aiDraft?: string;
+      hostReply?: string;
+      guestMessage?: string;
+    } = {}
+  ) => {
+    const outcome = {
+      id: `outcome_${Date.now()}`,
+      timestamp: new Date(),
+      outcomeType,
+      propertyId: opts.propertyId,
+      guestIntent: opts.guestIntent,
+      confidence: opts.confidence,
+    };
+    addDraftOutcome(outcome);
+
+    // Only calibrate when we have a confidence prediction to evaluate (fix 6A)
+    if (opts.confidence !== undefined) {
+      addCalibrationEntry(createCalibrationEntry(outcome));
+    }
+
+    // Reply delta analysis when both draft and reply are available
+    if (opts.aiDraft && opts.hostReply && opts.guestMessage) {
+      const delta = analyzeReplyDelta(
+        opts.aiDraft,
+        opts.hostReply,
+        opts.guestMessage,
+        opts.propertyId,
+        opts.guestIntent
+      );
+      addReplyDelta(delta);
+      console.log(`[ChatScreen] ${outcomeType} delta:`, delta.learningSummary);
+    }
+  }, [addDraftOutcome, addCalibrationEntry, addReplyDelta]);
 
   const conversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
@@ -138,13 +199,18 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   // Scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0 && listRef.current) {
+      // On initial load, use a longer delay and no animation
+      const isInitial = !hasScrolledToBottom.current;
+      const delay = isInitial ? 400 : 150;
+      const animated = !isInitial;
       setTimeout(() => {
         try {
-          listRef.current?.scrollToEnd?.({ animated: true });
+          listRef.current?.scrollToEnd?.({ animated });
+          hasScrolledToBottom.current = true;
         } catch (e) {
-          // FlashList may not be ready yet, ignore
+          // FlatList may not be ready yet
         }
-      }, 150);
+      }, delay);
     }
   }, [messages.length]);
 
@@ -163,15 +229,19 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
 
   // Handlers for FlatList auto-scroll
   const handleContentSizeChange = useCallback(() => {
-    if (listRef.current) {
+    // Only auto-scroll on content size change after we've done the initial scroll
+    // This prevents jumping around during layout but scrolls for new messages
+    if (hasScrolledToBottom.current && listRef.current) {
       listRef.current.scrollToEnd({ animated: true });
     }
   }, []);
 
   const handleListLayout = useCallback(() => {
-    if (messages.length > 0 && listRef.current) {
+    // On initial layout, scroll to end without animation
+    if (messages.length > 0 && listRef.current && !hasScrolledToBottom.current) {
       setTimeout(() => {
         listRef.current?.scrollToEnd?.({ animated: false });
+        hasScrolledToBottom.current = true;
       }, 100);
     }
   }, [messages.length]);
@@ -423,6 +493,29 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
       setCurrentEnhancedDraft(null);
       incrementAnalytic('totalMessagesHandled');
       incrementAnalytic('aiResponsesApproved');
+
+      // Fire push notification for auto-send
+      const guestName = conversation.guest?.name || 'Guest';
+      const confidence = currentEnhancedDraft?.confidence ?? autoPilotThreshold;
+      notifyAutoPilotSent(guestName, confidence, {
+        quietHoursStart: notificationSettings.autoPilotScheduleStart,
+        quietHoursEnd: notificationSettings.autoPilotScheduleEnd,
+      }).catch(err => console.error('[ChatScreen] Push notification error:', err));
+
+      // Log to autopilot audit log
+      addAutoPilotLog({
+        id: `ap-${Date.now()}`,
+        timestamp: new Date(),
+        conversationId,
+        guestName,
+        action: 'auto_sent',
+        reason: `Confidence ${confidence}% met threshold ${autoPilotThreshold}%`,
+        confidence,
+        messagePreview: content.substring(0, 100),
+        propertyId: conversation.property?.id || '',
+        propertyName: conversation.property?.name || '',
+      });
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error('[ChatScreen] Auto-send failed:', error);
@@ -454,9 +547,10 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           console.error('[ChatScreen] Failed to store independent reply pattern:', err)
         );
 
-        // Show brief feedback
+        // Show richer feedback
         const summary = getIndependentReplySummary(pattern);
-        setEditLearningSummary(`Learning: ${summary}`);
+        setLearningToastType('independent');
+        setEditLearningSummary(`${summary}`);
         console.log('[ChatScreen] Independent reply analysis:', summary);
         setTimeout(() => setEditLearningSummary(null), 4000);
       }
@@ -469,6 +563,21 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           true, // Treat as edited since host wrote their own
           conversation?.property?.id
         ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
+
+        // Increment real-time counters so the AI Learning screen shows real data
+        updateAILearningProgress({
+          realTimeIndependentRepliesCount: aiLearningProgress.realTimeIndependentRepliesCount + 1,
+          patternsIndexed: aiLearningProgress.patternsIndexed + 1,
+        });
+
+        // Track outcome + delta analysis
+        trackDraftOutcome('independent', {
+          propertyId: conversation?.property?.id,
+          guestIntent: draftIntent,
+          aiDraft: currentEnhancedDraft?.content,
+          hostReply: content,
+          guestMessage: lastGuestMessage.content,
+        });
       }
 
       // Send the message through Hostaway (if not demo mode)
@@ -578,9 +687,15 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             console.error('[ChatScreen] Failed to store edit pattern:', err)
           );
           const summary = getEditSummary(editPattern);
+          setLearningToastType('edit');
           setEditLearningSummary(summary);
           console.log('[ChatScreen] Edit analysis:', summary);
           setTimeout(() => setEditLearningSummary(null), 4000);
+        } else if (!wasEdited) {
+          // Approval toast — no edit, just confidence reinforcement
+          setLearningToastType('approval');
+          setEditLearningSummary('Response style reinforced — AI will match this tone');
+          setTimeout(() => setEditLearningSummary(null), 3000);
         }
 
         // INCREMENTAL LEARNING
@@ -591,6 +706,24 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             wasEdited,
             conversation?.property?.id
           ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
+
+          // Increment real-time counters
+          updateAILearningProgress({
+            ...(wasEdited
+              ? { realTimeEditsCount: aiLearningProgress.realTimeEditsCount + 1 }
+              : { realTimeApprovalsCount: aiLearningProgress.realTimeApprovalsCount + 1 }),
+            patternsIndexed: aiLearningProgress.patternsIndexed + 1,
+          });
+
+          // Track outcome + delta analysis
+          trackDraftOutcome(wasEdited ? 'edited' : 'approved', {
+            propertyId: conversation?.property?.id,
+            guestIntent: draftMessage?.detectedIntent,
+            confidence: currentEnhancedDraft.confidence,
+            aiDraft: wasEdited ? currentEnhancedDraft.originalContent : undefined,
+            hostReply: wasEdited ? currentEnhancedDraft.content : undefined,
+            guestMessage: lastGuestMessage.content,
+          });
         }
       }
 
@@ -608,6 +741,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
     if (isGeneratingDraft) return;
 
     incrementAnalytic('aiResponsesRejected');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Remove old draft first
     const messagesWithoutDraft = messages.filter((m) => m.sender !== 'ai_draft');
@@ -658,9 +792,22 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           console.error('[ChatScreen] Failed to store rejection pattern:', err)
         );
 
-        // Show brief feedback about what was learned
+        // Increment rejection counter
+        updateAILearningProgress({
+          realTimeRejectionsCount: aiLearningProgress.realTimeRejectionsCount + 1,
+        });
+
+        // Track outcome (with confidence for calibration)
+        trackDraftOutcome('rejected', {
+          propertyId: conversation?.property?.id,
+          guestIntent: draftMessage?.detectedIntent,
+          confidence: currentEnhancedDraft?.confidence,
+        });
+
+        // Show richer rejection feedback
         const summary = getRejectionSummary(rejectionPattern);
-        setEditLearningSummary(`Noted: ${summary}`);
+        setLearningToastType('rejection');
+        setEditLearningSummary(`${summary}`);
         console.log('[ChatScreen] Rejection analysis:', summary);
         setTimeout(() => setEditLearningSummary(null), 3000);
       }
@@ -676,6 +823,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
 
     setCurrentEnhancedDraft(null);
     incrementAnalytic('aiResponsesRejected');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [messages, conversationId, updateConversation, incrementAnalytic, currentEnhancedDraft, conversation]);
 
 
@@ -721,7 +869,21 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const { guest, property, checkInDate, checkOutDate, platform, numberOfGuests } = conversation;
 
   // Filter out AI drafts for display (shown in composer)
-  const displayMessages = messages.filter((m) => m.sender !== 'ai_draft');
+  const displayMessages = useMemo(() => {
+    const nonDraft = messages.filter((m) => m.sender !== 'ai_draft');
+    if (!searchQuery.trim()) return nonDraft;
+    const q = searchQuery.toLowerCase();
+    return nonDraft.filter((m) => m.content.toLowerCase().includes(q));
+  }, [messages, searchQuery]);
+
+  if (showGuestProfile) {
+    return (
+      <GuestProfileScreen
+        conversation={conversation}
+        onBack={() => setShowGuestProfile(false)}
+      />
+    );
+  }
 
   return (
     <View style={chatStyles.root}>
@@ -754,7 +916,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           </Animated.View>
         )}
 
-        {/* Edit Learning Summary Toast */}
+        {/* Learning Toast — contextual feedback per interaction type */}
         {editLearningSummary && (
           <Animated.View
             entering={FadeIn.duration(300)}
@@ -764,7 +926,10 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
               <Brain size={18} color="#FFFFFF" />
               <View style={chatStyles.learnToastText}>
                 <Text style={chatStyles.learnToastTitle}>
-                  AI learned from your edit
+                  {learningToastType === 'approval' && '✓ AI confidence reinforced'}
+                  {learningToastType === 'edit' && '✏️ AI learned from your edit'}
+                  {learningToastType === 'independent' && '🧠 AI learning your style'}
+                  {learningToastType === 'rejection' && '📝 AI noted your preference'}
                 </Text>
                 <Text style={chatStyles.learnToastBody}>
                   {editLearningSummary}
@@ -785,7 +950,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             </Pressable>
 
             <Pressable
-              onPress={() => setShowGuestInfo(!showGuestInfo)}
+              onPress={() => setShowGuestProfile(true)}
               style={({ pressed }) => [chatStyles.guestPressable, { opacity: pressed ? 0.8 : 1 }]}
             >
               <Avatar
@@ -823,7 +988,46 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                 style={{ marginLeft: spacing['1'] }}
               />
             </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setIsSearchOpen(!isSearchOpen);
+                if (isSearchOpen) setSearchQuery('');
+              }}
+              style={({ pressed }) => [
+                chatStyles.autoPilotBtn,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              {isSearchOpen ? (
+                <X size={18} color={colors.text.muted} />
+              ) : (
+                <Search size={18} color={colors.text.muted} />
+              )}
+            </Pressable>
           </View>
+
+          {/* Search Bar */}
+          {isSearchOpen && (
+            <Animated.View entering={FadeInDown.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['2'] }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg.hover, borderRadius: radius.md, paddingHorizontal: spacing['3'], height: 36 }}>
+                <Search size={14} color={colors.text.muted} />
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search messages..."
+                  placeholderTextColor={colors.text.disabled}
+                  autoFocus
+                  style={{ flex: 1, color: colors.text.primary, fontSize: 14, fontFamily: typography.fontFamily.regular, marginLeft: spacing['2'], paddingVertical: 0 }}
+                />
+                {searchQuery.length > 0 && (
+                  <Pressable onPress={() => setSearchQuery('')}>
+                    <X size={14} color={colors.text.muted} />
+                  </Pressable>
+                )}
+              </View>
+            </Animated.View>
+          )}
 
           {/* Hostaway-style Reservation Summary Bar */}
           <ReservationSummaryBar
@@ -902,6 +1106,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
               keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingTop: spacing['4'], paddingBottom: spacing['2'] }}
               inverted={false}
+              initialNumToRender={30}
               onContentSizeChange={handleContentSizeChange}
               onLayout={handleListLayout}
             />

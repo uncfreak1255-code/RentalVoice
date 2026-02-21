@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, AppState, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, AppState, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '@/lib/store';
@@ -31,6 +31,7 @@ import {
   Smartphone,
   Moon,
   Zap,
+  Sliders,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -50,6 +51,11 @@ import {
   type TrainingState,
   type TrainingResult,
 } from '@/lib/ai-training-service';
+import {
+  computeCalibrationSummary,
+  generateVoiceDNA,
+} from '@/lib/ai-intelligence';
+import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
 interface AILearningScreenProps {
@@ -65,6 +71,25 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const updateHostStyleProfile = useAppStore((s) => s.updateHostStyleProfile);
   const updateAILearningProgress = useAppStore((s) => s.updateAILearningProgress);
   const resetAILearning = useAppStore((s) => s.resetAILearning);
+  const draftOutcomes = useAppStore((s) => s.draftOutcomes);
+  const calibrationEntries = useAppStore((s) => s.calibrationEntries);
+  const conversationFlows = useAppStore((s) => s.conversationFlows);
+  const replyDeltas = useAppStore((s) => s.replyDeltas);
+
+  // Tier 3: Memoized computed values (avoid recomputing on every render)
+  const calSummary = useMemo(
+    () => calibrationEntries.length >= 3 ? computeCalibrationSummary(calibrationEntries) : null,
+    [calibrationEntries]
+  );
+  const deltaStats = useMemo(() => {
+    if (replyDeltas.length < 3) return null;
+    return {
+      hostMoreSpecific: replyDeltas.filter(d => d.specificityDelta === 'host_more_specific').length,
+      totalAdded: replyDeltas.reduce((sum, d) => sum + d.contentAdded.length, 0),
+      totalRemoved: replyDeltas.reduce((sum, d) => sum + d.contentRemoved.length, 0),
+      recentDeltas: replyDeltas.slice(0, 5),
+    };
+  }, [replyDeltas]);
 
   // History sync state
   const historySyncStatus = useAppStore((s) => s.historySyncStatus);
@@ -127,6 +152,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           processedConversations: state.processedConversations,
           processedMessages: state.processedMessages,
         });
+      }
+
+      // Recover fetched data from sync manager if available (survives screen remounts)
+      const cachedData = historySyncManager.getData();
+      if (cachedData && !fetchedHistoryData) {
+        setFetchedHistoryData(cachedData);
+        console.log(`[AI Learning] Recovered ${cachedData.conversations.length} conversations from sync manager cache`);
       }
     });
 
@@ -196,7 +228,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           // Update learning progress
           updateAILearningProgress({
             totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+            patternsIndexed: result.stats.patternsIndexed,
             lastTrainingDate: new Date(),
+            lastTrainingResult: {
+              hostMessagesAnalyzed: result.stats.hostMessagesAnalyzed,
+              patternsIndexed: result.stats.patternsIndexed,
+              trainingSampleSize: result.stats.trainingSampleSize,
+              trainingDurationMs: result.stats.trainingDurationMs,
+            },
           });
 
           setLastTrainingResult(result);
@@ -254,7 +293,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           // Update learning progress
           updateAILearningProgress({
             totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+            patternsIndexed: result.stats.patternsIndexed,
             lastTrainingDate: new Date(),
+            lastTrainingResult: {
+              hostMessagesAnalyzed: result.stats.hostMessagesAnalyzed,
+              patternsIndexed: result.stats.patternsIndexed,
+              trainingSampleSize: result.stats.trainingSampleSize,
+              trainingDurationMs: result.stats.trainingDurationMs,
+            },
           });
 
           setLastTrainingResult(result);
@@ -521,10 +567,17 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           updateHostStyleProfile('global', result.styleProfile);
           updateAILearningProgress({
             totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
-            totalEditsLearned: learningEntries.filter((e) => e.wasEdited).length,
-            totalApprovalsLearned: learningEntries.filter((e) => e.wasApproved).length,
+            patternsIndexed: result.stats.patternsIndexed,
+            totalEditsLearned: learningEntries.filter((e) => e.wasEdited).length + aiLearningProgress.realTimeEditsCount,
+            totalApprovalsLearned: learningEntries.filter((e) => e.wasApproved).length + aiLearningProgress.realTimeApprovalsCount,
             accuracyScore: learningStats.accuracyScore,
             lastTrainingDate: new Date(),
+            lastTrainingResult: {
+              hostMessagesAnalyzed: result.stats.hostMessagesAnalyzed,
+              patternsIndexed: result.stats.patternsIndexed,
+              trainingSampleSize: result.stats.trainingSampleSize,
+              trainingDurationMs: result.stats.trainingDurationMs,
+            },
           });
 
           setLastTrainingResult(result);
@@ -540,6 +593,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
     }
 
     // Fallback to basic local conversation analysis if no history data
+    if (conversations.length === 0) {
+      Alert.alert(
+        'No Messages to Train On',
+        'Fetch your message history first by tapping "Import All History" below, then try training again.',
+        [{ text: 'Got It' }]
+      );
+      return;
+    }
     setIsTraining(true);
     updateAILearningProgress({ isTraining: true, trainingProgress: 0 });
 
@@ -566,8 +627,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
         isTraining: false,
         trainingProgress: 100,
         totalMessagesAnalyzed: hostMessagesCount,
-        totalEditsLearned: learningEntries.filter((e) => e.wasEdited).length,
-        totalApprovalsLearned: learningEntries.filter((e) => e.wasApproved).length,
+        totalEditsLearned: learningEntries.filter((e) => e.wasEdited).length + aiLearningProgress.realTimeEditsCount,
+        totalApprovalsLearned: learningEntries.filter((e) => e.wasApproved).length + aiLearningProgress.realTimeApprovalsCount,
         accuracyScore: learningStats.accuracyScore,
         lastTrainingDate: new Date(),
       });
@@ -602,9 +663,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const globalProfile = hostStyleProfiles['global'];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg.base }}>
       <LinearGradient
-        colors={['#1E293B', '#0F172A']}
+        colors={[colors.bg.card, colors.bg.base]}
         style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 150 }}
       />
 
@@ -627,8 +688,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
               <Pressable
                 onPress={() => setShowTrainingComplete(false)}
-                style={{ padding: 8 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
               >
                 <X size={18} color="#22C55E" />
               </Pressable>
@@ -675,8 +735,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </View>
             <View style={{ height: 6, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
               <View
-                style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%' }}
-                style={{ width: `${trainingState.progress}%` }}
+                style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%', width: `${trainingState.progress}%` }}
               />
             </View>
             <Text style={{ color: '#C084FC99', fontSize: 12, marginTop: 8 }}>
@@ -689,10 +748,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
         <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' }}>
           <Pressable
             onPress={onBack}
-            style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: 'rgba(30,41,59,0.5)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 9999, backgroundColor: 'rgba(30,41,59,0.5)', alignItems: 'center' as const, justifyContent: 'center' as const, marginRight: 12, opacity: pressed ? 0.7 : 1 })}
           >
-            <ArrowLeft size={20} color="#FFFFFF" />
+            <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
           <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>AI Learning</Text>
         </Animated.View>
@@ -727,8 +785,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
               <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
                 <View
-                  style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%' }}
-                  style={{ width: `${learningStats.accuracyScore}%` }}
+                  style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%', width: `${learningStats.accuracyScore}%` }}
                 />
               </View>
             </View>
@@ -759,9 +816,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </Pressable>
 
             {/* Training Summary */}
-            {trainingState?.hasCompletedInitialTraining && !isTraining && (
+            {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult) && !isTraining && (
               <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
-                {getTrainingSummary(trainingState)}
+                {trainingState?.hasCompletedInitialTraining
+                  ? getTrainingSummary(trainingState)
+                  : aiLearningProgress.lastTrainingResult
+                    ? `Trained on ${aiLearningProgress.lastTrainingResult.hostMessagesAnalyzed.toLocaleString()} messages • ${aiLearningProgress.lastTrainingResult.patternsIndexed.toLocaleString()} patterns indexed`
+                    : null}
               </Text>
             )}
           </Animated.View>
@@ -798,10 +859,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <CheckCircle size={16} color="#22C55E" />
-                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Direct Approvals</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Approvals</Text>
                   </View>
                   <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
-                    {learningEntries.filter((e) => e.wasApproved && !e.wasEdited).length}
+                    {aiLearningProgress.realTimeApprovalsCount + learningEntries.filter((e) => e.wasApproved && !e.wasEdited).length}
                   </Text>
                 </View>
               </View>
@@ -810,15 +871,556 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <Edit3 size={16} color="#F59E0B" />
-                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Edits Learned</Text>
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Edits + Corrections</Text>
                   </View>
                   <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
-                    {learningEntries.filter((e) => e.wasEdited).length}
+                    {aiLearningProgress.realTimeEditsCount + aiLearningProgress.realTimeIndependentRepliesCount + learningEntries.filter((e) => e.wasEdited).length}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ width: '50%', paddingRight: 8, marginTop: 12 }}>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Sparkles size={16} color="#60A5FA" />
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Patterns Indexed</Text>
+                  </View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
+                    {aiLearningProgress.patternsIndexed || (aiLearningProgress.lastTrainingResult?.patternsIndexed ?? 0)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ width: '50%', paddingLeft: 8, marginTop: 12 }}>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <X size={16} color="#EF4444" />
+                    <Text style={{ color: '#94A3B8', fontSize: 12, marginLeft: 8 }}>Rejections Noted</Text>
+                  </View>
+                  <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>
+                    {aiLearningProgress.realTimeRejectionsCount}
                   </Text>
                 </View>
               </View>
             </View>
           </Animated.View>
+
+          {/* ── TIER 2: Accuracy Dashboard ── */}
+          <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              Accuracy Trend
+            </Text>
+            <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+              {(() => {
+                const outcomes = draftOutcomes || [];
+                if (outcomes.length === 0) {
+                  return (
+                    <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                      <TrendingUp size={24} color="#475569" />
+                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                        Start approving or editing AI drafts to track accuracy over time
+                      </Text>
+                    </View>
+                  );
+                }
+
+                // Group by week (last 4 weeks)
+                const now = new Date();
+                const weeks: { label: string; approved: number; total: number }[] = [];
+                for (let w = 3; w >= 0; w--) {
+                  const weekStart = new Date(now.getTime() - (w + 1) * 7 * 86400000);
+                  const weekEnd = new Date(now.getTime() - w * 7 * 86400000);
+                  const weekOutcomes = outcomes.filter((o) => {
+                    const t = new Date(o.timestamp).getTime();
+                    return t >= weekStart.getTime() && t < weekEnd.getTime();
+                  });
+                  const approved = weekOutcomes.filter((o) => o.outcomeType === 'approved').length;
+                  weeks.push({
+                    label: w === 0 ? 'This Week' : w === 1 ? 'Last Week' : `${w + 1}w ago`,
+                    approved,
+                    total: weekOutcomes.length,
+                  });
+                }
+
+                // Also calculate all-time rate
+                const totalApproved = outcomes.filter((o) => o.outcomeType === 'approved').length;
+                const totalEdited = outcomes.filter((o) => o.outcomeType === 'edited').length;
+                const allTimeRate = outcomes.length > 0 ? Math.round(((totalApproved + totalEdited) / outcomes.length) * 100) : 0;
+
+                return (
+                  <>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <View>
+                        <Text style={{ color: '#94A3B8', fontSize: 12 }}>Overall Acceptance</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '700' }}>{allTimeRate}%</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: '#94A3B8', fontSize: 12 }}>Total Drafts</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '700' }}>{outcomes.length}</Text>
+                      </View>
+                    </View>
+
+                    {/* Weekly bar chart */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60 }}>
+                      {weeks.map((week, i) => {
+                        const rate = week.total > 0 ? (week.approved / week.total) : 0;
+                        const barHeight = Math.max(8, rate * 50);
+                        const color = rate >= 0.7 ? '#22C55E' : rate >= 0.4 ? '#F59E0B' : '#EF4444';
+                        return (
+                          <View key={i} style={{ alignItems: 'center', flex: 1 }}>
+                            <Text style={{ color: '#94A3B8', fontSize: 10, marginBottom: 4 }}>
+                              {week.total > 0 ? `${Math.round(rate * 100)}%` : '—'}
+                            </Text>
+                            <View style={{ width: 24, height: barHeight, backgroundColor: week.total > 0 ? color : '#334155', borderRadius: 4 }} />
+                            <Text style={{ color: '#64748B', fontSize: 10, marginTop: 4 }}>{week.label}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </>
+                );
+              })()}
+            </View>
+          </Animated.View>
+
+          {/* ── TIER 2: What I Learned Summary ── */}
+          <Animated.View entering={FadeInDown.delay(350).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              What I Learned
+            </Text>
+            <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+              {(() => {
+                const globalProfile = hostStyleProfiles['global'];
+                if (!globalProfile || globalProfile.samplesAnalyzed === 0) {
+                  return (
+                    <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                      <Brain size={24} color="#475569" />
+                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                        Train on your message history to see what the AI learned about your style
+                      </Text>
+                    </View>
+                  );
+                }
+
+                const formalityLabel = globalProfile.formalityLevel < 30 ? 'Casual' : globalProfile.formalityLevel < 60 ? 'Balanced' : 'Formal';
+                const warmthLabel = globalProfile.warmthLevel < 30 ? 'Direct' : globalProfile.warmthLevel < 60 ? 'Friendly' : 'Very Warm';
+                const lengthLabel = globalProfile.averageResponseLength < 30 ? 'Brief' : globalProfile.averageResponseLength < 80 ? 'Medium' : 'Detailed';
+
+                return (
+                  <View style={{ gap: 12 }}>
+                    {/* Greeting */}
+                    {globalProfile.commonGreetings.length > 0 && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ color: '#22C55E', fontSize: 14, marginRight: 8 }}>👋</Text>
+                        <Text style={{ color: '#94A3B8', fontSize: 13, flex: 1 }}>
+                          Typical greeting: <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>"{globalProfile.commonGreetings[0]}"</Text>
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Tone */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ color: '#A855F7', fontSize: 14, marginRight: 8 }}>🎭</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 13, flex: 1 }}>
+                        Tone: <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>{formalityLabel}, {warmthLabel}</Text>
+                      </Text>
+                    </View>
+
+                    {/* Length */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ color: '#14B8A6', fontSize: 14, marginRight: 8 }}>📏</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 13, flex: 1 }}>
+                        Response length: <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>{lengthLabel} (~{Math.round(globalProfile.averageResponseLength)} words)</Text>
+                      </Text>
+                    </View>
+
+                    {/* Emoji usage */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={{ color: '#F59E0B', fontSize: 14, marginRight: 8 }}>{globalProfile.usesEmojis ? '😊' : '📝'}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 13, flex: 1 }}>
+                        Emojis: <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>{globalProfile.usesEmojis ? `Yes (${globalProfile.emojiFrequency}% of messages)` : 'Rarely used'}</Text>
+                      </Text>
+                    </View>
+
+                    {/* Sign-off */}
+                    {globalProfile.commonSignoffs.length > 0 && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ color: '#60A5FA', fontSize: 14, marginRight: 8 }}>✍️</Text>
+                        <Text style={{ color: '#94A3B8', fontSize: 13, flex: 1 }}>
+                          Sign-off: <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>"{globalProfile.commonSignoffs[0]}"</Text>
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Samples analyzed */}
+                    <Text style={{ color: '#475569', fontSize: 11, marginTop: 4, textAlign: 'right' }}>
+                      Based on {globalProfile.samplesAnalyzed} messages analyzed
+                    </Text>
+                  </View>
+                );
+              })()}
+            </View>
+          </Animated.View>
+
+          {/* ── TIER 2: Style Profile Editor ── */}
+          <Animated.View entering={FadeInDown.delay(400).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              Style Preferences
+            </Text>
+            <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+              {(() => {
+                const globalProfile = hostStyleProfiles['global'];
+                if (!globalProfile) {
+                  return (
+                    <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                      <Sliders size={24} color="#475569" />
+                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                        Train on messages first to unlock style controls
+                      </Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <View style={{ gap: 20 }}>
+                    {/* Formality Slider */}
+                    <View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ color: '#94A3B8', fontSize: 13 }}>Formality</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+                          {globalProfile.formalityLevel < 30 ? 'Casual' : globalProfile.formalityLevel < 60 ? 'Balanced' : 'Formal'}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ color: '#64748B', fontSize: 11, marginRight: 8 }}>Casual</Text>
+                        <View style={{ flex: 1, height: 6, backgroundColor: '#1E293B', borderRadius: 3, overflow: 'hidden' }}>
+                          <View style={{ width: `${globalProfile.formalityLevel}%`, height: '100%', backgroundColor: '#A855F7', borderRadius: 3 }} />
+                        </View>
+                        <Text style={{ color: '#64748B', fontSize: 11, marginLeft: 8 }}>Formal</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 }}>
+                        {[20, 40, 60, 80].map((val) => (
+                          <Pressable
+                            key={val}
+                            onPress={() => updateHostStyleProfile('global', { formalityLevel: val })}
+                            style={({ pressed }) => ({
+                              paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8,
+                              backgroundColor: Math.abs(globalProfile.formalityLevel - val) < 15 ? '#A855F720' : 'transparent',
+                              opacity: pressed ? 0.7 : 1,
+                            })}
+                          >
+                            <Text style={{ color: Math.abs(globalProfile.formalityLevel - val) < 15 ? '#A855F7' : '#64748B', fontSize: 11 }}>
+                              {val === 20 ? '😎' : val === 40 ? '🙂' : val === 60 ? '🤝' : '👔'}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Warmth Slider */}
+                    <View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ color: '#94A3B8', fontSize: 13 }}>Warmth</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+                          {globalProfile.warmthLevel < 30 ? 'Direct' : globalProfile.warmthLevel < 60 ? 'Friendly' : 'Very Warm'}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={{ color: '#64748B', fontSize: 11, marginRight: 8 }}>Direct</Text>
+                        <View style={{ flex: 1, height: 6, backgroundColor: '#1E293B', borderRadius: 3, overflow: 'hidden' }}>
+                          <View style={{ width: `${globalProfile.warmthLevel}%`, height: '100%', backgroundColor: '#F59E0B', borderRadius: 3 }} />
+                        </View>
+                        <Text style={{ color: '#64748B', fontSize: 11, marginLeft: 8 }}>Warm</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 }}>
+                        {[20, 40, 60, 80].map((val) => (
+                          <Pressable
+                            key={val}
+                            onPress={() => updateHostStyleProfile('global', { warmthLevel: val })}
+                            style={({ pressed }) => ({
+                              paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8,
+                              backgroundColor: Math.abs(globalProfile.warmthLevel - val) < 15 ? '#F59E0B20' : 'transparent',
+                              opacity: pressed ? 0.7 : 1,
+                            })}
+                          >
+                            <Text style={{ color: Math.abs(globalProfile.warmthLevel - val) < 15 ? '#F59E0B' : '#64748B', fontSize: 11 }}>
+                              {val === 20 ? '📋' : val === 40 ? '🙂' : val === 60 ? '😊' : '🤗'}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Emoji Toggle */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View>
+                        <Text style={{ color: '#94A3B8', fontSize: 13 }}>Use Emojis</Text>
+                        <Text style={{ color: '#64748B', fontSize: 11 }}>Include emojis in AI responses</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => updateHostStyleProfile('global', { usesEmojis: !globalProfile.usesEmojis })}
+                        style={{
+                          width: 48, height: 28, borderRadius: 14,
+                          backgroundColor: globalProfile.usesEmojis ? '#22C55E' : '#334155',
+                          justifyContent: 'center',
+                          paddingHorizontal: 2,
+                        }}
+                      >
+                        <View style={{
+                          width: 24, height: 24, borderRadius: 12,
+                          backgroundColor: '#FFFFFF',
+                          alignSelf: globalProfile.usesEmojis ? 'flex-end' : 'flex-start',
+                        }} />
+                      </Pressable>
+                    </View>
+
+                    {/* Response Length Preference */}
+                    <View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={{ color: '#94A3B8', fontSize: 13 }}>Response Length</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+                          ~{Math.round(globalProfile.averageResponseLength)} words
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                        {[
+                          { label: 'Brief', value: 25, icon: '📝' },
+                          { label: 'Medium', value: 50, icon: '📄' },
+                          { label: 'Detailed', value: 100, icon: '📋' },
+                        ].map((opt) => (
+                          <Pressable
+                            key={opt.value}
+                            onPress={() => updateHostStyleProfile('global', { averageResponseLength: opt.value })}
+                            style={({ pressed }) => ({
+                              paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
+                              backgroundColor: Math.abs(globalProfile.averageResponseLength - opt.value) < 20 ? '#14B8A620' : '#1E293B',
+                              opacity: pressed ? 0.7 : 1, alignItems: 'center',
+                            })}
+                          >
+                            <Text style={{ fontSize: 18, marginBottom: 2 }}>{opt.icon}</Text>
+                            <Text style={{ color: Math.abs(globalProfile.averageResponseLength - opt.value) < 20 ? '#14B8A6' : '#64748B', fontSize: 11, fontWeight: '500' }}>
+                              {opt.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()}
+            </View>
+          </Animated.View>
+
+          {/* ── TIER 2: Per-Property Style Comparison ── */}
+          {Object.keys(hostStyleProfiles).filter((k) => k !== 'global').length > 0 && (
+            <Animated.View entering={FadeInDown.delay(450).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                Per-Property Styles
+              </Text>
+              <View style={{ gap: 8 }}>
+                {Object.entries(hostStyleProfiles)
+                  .filter(([k]) => k !== 'global')
+                  .map(([propertyId, profile]) => {
+                    const property = properties.find((p) => p.id === propertyId);
+                    const propertyName = property?.name || `Property ${propertyId}`;
+                    const fLabel = profile.formalityLevel < 30 ? 'Casual' : profile.formalityLevel < 60 ? 'Balanced' : 'Formal';
+                    const wLabel = profile.warmthLevel < 30 ? 'Direct' : profile.warmthLevel < 60 ? 'Friendly' : 'Warm';
+
+                    return (
+                      <View key={propertyId} style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 12, padding: 14 }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14, marginBottom: 6 }}>
+                          🏠 {propertyName}
+                        </Text>
+                        <Text style={{ color: '#94A3B8', fontSize: 12 }}>
+                          {fLabel} • {wLabel} • {profile.usesEmojis ? '😊 Emojis' : 'No emojis'} • ~{Math.round(profile.averageResponseLength)} words
+                        </Text>
+                        <Text style={{ color: '#475569', fontSize: 11, marginTop: 4 }}>
+                          {profile.samplesAnalyzed} samples analyzed
+                        </Text>
+                      </View>
+                    );
+                  })}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* ── TIER 3: Confidence Calibration Dashboard ── */}
+          {calSummary && (() => {
+            const gaugeColor = calSummary.calibrationScore >= 70 ? '#10B981'
+              : calSummary.calibrationScore >= 40 ? '#F59E0B' : '#EF4444';
+            return (
+              <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ marginBottom: 24 }}>
+                <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                  🎯 Confidence Calibration
+                </Text>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+                  {/* Calibration Score */}
+                  <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                    <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: gaugeColor, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: gaugeColor, fontSize: 24, fontWeight: '800' }}>{calSummary.calibrationScore}</Text>
+                    </View>
+                    <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 6 }}>Calibration Score</Text>
+                  </View>
+
+                  {/* Breakdown Row */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: '#10B981', fontSize: 18, fontWeight: '700' }}>{calSummary.calibratedCount}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Calibrated</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(245,158,11,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: '#F59E0B', fontSize: 18, fontWeight: '700' }}>{calSummary.overconfidentCount}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Overconfident</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(99,102,241,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: '#6366F1', fontSize: 18, fontWeight: '700' }}>{calSummary.underconfidentCount}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Underconfident</Text>
+                    </View>
+                  </View>
+
+                  {/* Averages */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 12 }}>Avg confidence when approved:</Text>
+                    <Text style={{ color: '#10B981', fontSize: 12, fontWeight: '600' }}>{calSummary.avgConfidenceWhenApproved}%</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 12 }}>Avg confidence when rejected:</Text>
+                    <Text style={{ color: '#EF4444', fontSize: 12, fontWeight: '600' }}>{calSummary.avgConfidenceWhenRejected}%</Text>
+                  </View>
+
+                  {/* Adjustment Recommendation */}
+                  {calSummary.confidenceAdjustment !== 0 && (
+                    <View style={{ backgroundColor: 'rgba(99,102,241,0.1)', borderRadius: 10, padding: 10, marginTop: 8 }}>
+                      <Text style={{ color: '#A5B4FC', fontSize: 12 }}>
+                        {calSummary.confidenceAdjustment < 0
+                          ? `⚠️ AI is overconfident by ~${Math.abs(calSummary.confidenceAdjustment)}%. Adjusting threshold down.`
+                          : `💡 AI is underconfident by ~${calSummary.confidenceAdjustment}%. Could safely increase auto-pilot.`}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Problem Intents */}
+                  {calSummary.problemIntents.length > 0 && (
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Problem Areas:</Text>
+                      {calSummary.problemIntents.slice(0, 3).map((pi, idx) => (
+                        <Text key={idx} style={{ color: pi.issue === 'overconfident' ? '#F59E0B' : '#6366F1', fontSize: 11, marginBottom: 2 }}>
+                          • {pi.intent.replace(/_/g, ' ')}: {pi.issue} ({pi.count}x)
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </Animated.View>
+            );
+          })()}
+
+          {/* ── TIER 3: Voice DNA Export ── */}
+          {hostStyleProfiles['global'] && (
+            <Animated.View entering={FadeInDown.delay(550).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                🧬 Voice DNA
+              </Text>
+              <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+                <Text style={{ color: '#CBD5E1', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+                  Your portable communication fingerprint. Copy and paste into any AI to clone your voice.
+                </Text>
+                <View style={{ backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                  <Text style={{ color: '#94A3B8', fontSize: 11, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', lineHeight: 16 }} numberOfLines={8}>
+                    {generateVoiceDNA(hostStyleProfiles['global'])}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    const dna = generateVoiceDNA(hostStyleProfiles['global']);
+                    Clipboard.setStringAsync(dna);
+                    Alert.alert('Copied!', 'Voice DNA copied to clipboard. Paste it into any AI\'s system prompt.');
+                  }}
+                  style={{ backgroundColor: '#6366F1', borderRadius: 10, padding: 12, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>📋 Copy Voice DNA</Text>
+                </Pressable>
+              </View>
+            </Animated.View>
+          )}
+
+          {/* ── TIER 3: Reply Delta Insights ── */}
+          {deltaStats && (() => {
+            const { hostMoreSpecific, totalAdded, totalRemoved, recentDeltas } = deltaStats;
+
+            return (
+              <Animated.View entering={FadeInDown.delay(600).duration(400)} style={{ marginBottom: 24 }}>
+                <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                  🔬 Deep Edit Analysis
+                </Text>
+                <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+                  {/* Summary Stats */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: '#10B981', fontSize: 18, fontWeight: '700' }}>{totalAdded}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Info Added</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(239,68,68,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '700' }}>{totalRemoved}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Info Removed</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(99,102,241,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
+                      <Text style={{ color: '#6366F1', fontSize: 18, fontWeight: '700' }}>{hostMoreSpecific}</Text>
+                      <Text style={{ color: '#94A3B8', fontSize: 10 }}>Host Specific</Text>
+                    </View>
+                  </View>
+
+                  {/* Recent Delta Log */}
+                  <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '600', marginBottom: 6 }}>Recent Corrections:</Text>
+                  {recentDeltas.map((delta, idx) => (
+                    <View key={delta.id} style={{ backgroundColor: 'rgba(15,23,42,0.5)', borderRadius: 8, padding: 10, marginBottom: 6 }}>
+                      <Text style={{ color: '#CBD5E1', fontSize: 12, marginBottom: 2 }}>
+                        {delta.learningSummary}
+                      </Text>
+                      {delta.specificExamples.length > 0 && (
+                        <Text style={{ color: '#64748B', fontSize: 10, fontStyle: 'italic' }}>
+                          {delta.specificExamples[0]}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </Animated.View>
+            );
+          })()}
+
+          {/* ── TIER 3: Conversation Flow Predictions ── */}
+          {conversationFlows.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(650).duration(400)} style={{ marginBottom: 24 }}>
+              <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+                🔄 Conversation Patterns
+              </Text>
+              <View style={{ backgroundColor: 'rgba(30,41,59,0.5)', borderRadius: 16, padding: 16 }}>
+                <Text style={{ color: '#CBD5E1', fontSize: 12, marginBottom: 12 }}>
+                  Detected {conversationFlows.length} recurring conversation patterns from your history.
+                </Text>
+                {conversationFlows.slice(0, 5).map((flow, idx) => (
+                  <View key={flow.id} style={{ backgroundColor: 'rgba(15,23,42,0.5)', borderRadius: 10, padding: 10, marginBottom: 6 }}>
+                    <Text style={{ color: '#E2E8F0', fontSize: 12, fontWeight: '600', marginBottom: 4 }}>
+                      {flow.intentSequence.map(i => i.replace(/_/g, ' ')).join(' → ')}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ color: '#94A3B8', fontSize: 11 }}>
+                        Seen {flow.frequency}x
+                      </Text>
+                      {flow.predictedNextIntent && (
+                        <View style={{ backgroundColor: 'rgba(99,102,241,0.15)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ color: '#A5B4FC', fontSize: 10, fontWeight: '600' }}>
+                            → {flow.predictedNextIntent.replace(/_/g, ' ')} ({flow.predictionConfidence}%)
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+          )}
 
           {/* Historical Data Fetch Section */}
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ marginBottom: 24 }}>
@@ -941,8 +1543,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     {historySyncStatus.isPaused ? (
                       <Pressable
                         onPress={handleResumeSync}
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#14B8A6', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
-                        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                        style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#14B8A6', borderRadius: 8, paddingVertical: 8, marginRight: 8, opacity: pressed ? 0.8 : 1 })}
                       >
                         <Play size={14} color="#FFFFFF" />
                         <Text style={{ color: '#FFFFFF', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Resume</Text>
@@ -950,8 +1551,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     ) : (
                       <Pressable
                         onPress={handlePauseSync}
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F59E0B20', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
-                        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                        style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#F59E0B20', borderRadius: 8, paddingVertical: 8, marginRight: 8, opacity: pressed ? 0.8 : 1 })}
                       >
                         <Pause size={14} color="#F59E0B" />
                         <Text style={{ color: '#FB923C', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Pause</Text>
@@ -959,8 +1559,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     )}
                     <Pressable
                       onPress={handleCancelSync}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF444410', borderRadius: 8, paddingVertical: 8 }}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#EF444410', borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                     >
                       <Square size={14} color="#EF4444" />
                       <Text style={{ color: '#F87171', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Cancel</Text>
@@ -982,16 +1581,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   <View style={{ flexDirection: 'row' }}>
                     <Pressable
                       onPress={() => handleStartSync(true)}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#14B8A6', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#14B8A6', borderRadius: 8, paddingVertical: 8, marginRight: 8, opacity: pressed ? 0.8 : 1 })}
                     >
                       <Play size={14} color="#FFFFFF" />
                       <Text style={{ color: '#FFFFFF', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Resume</Text>
                     </Pressable>
                     <Pressable
                       onPress={handleClearAndRestart}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#334155', borderRadius: 8, paddingVertical: 8 }}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#334155', borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                     >
                       <RefreshCw size={14} color="#94A3B8" />
                       <Text style={{ color: '#CBD5E1', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Start Fresh</Text>
@@ -1115,8 +1712,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {/* Progress Bar */}
                   <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden', marginBottom: 8 }}>
                     <View
-                      style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%' }}
-                      style={{ width: `${backgroundSyncProgress.percentage}%` }}
+                      style={{ backgroundColor: '#A855F7', borderRadius: 9999, height: '100%', width: `${backgroundSyncProgress.percentage}%` }}
                     />
                   </View>
 
@@ -1142,16 +1738,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   <View style={{ flexDirection: 'row', marginTop: 12 }}>
                     <Pressable
                       onPress={handleResumeBackgroundSyncInForeground}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#A855F7', borderRadius: 8, paddingVertical: 8, marginRight: 8 }}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#A855F7', borderRadius: 8, paddingVertical: 8, marginRight: 8, opacity: pressed ? 0.8 : 1 })}
                     >
                       <Smartphone size={14} color="#FFFFFF" />
                       <Text style={{ color: '#FFFFFF', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Speed Up</Text>
                     </Pressable>
                     <Pressable
                       onPress={handleDisableBackgroundSync}
-                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF444410', borderRadius: 8, paddingVertical: 8 }}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#EF444410', borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                     >
                       <Square size={14} color="#EF4444" />
                       <Text style={{ color: '#F87171', fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Stop</Text>
@@ -1172,8 +1766,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   </View>
                   <Pressable
                     onPress={handleClearBackgroundSync}
-                    style={{ padding: 8 }}
-                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                    style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
                   >
                     <X size={16} color="#64748B" />
                   </Pressable>
@@ -1242,8 +1835,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   </View>
                   <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
                     <View
-                      style={{ backgroundColor: '#14B8A6', borderRadius: 9999, height: '100%' }}
-                      style={{ width: `${globalProfile.formalityLevel}%` }}
+                      style={{ backgroundColor: '#14B8A6', borderRadius: 9999, height: '100%', width: `${globalProfile.formalityLevel}%` }}
                     />
                   </View>
                 </View>
@@ -1262,8 +1854,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   </View>
                   <View style={{ height: 8, backgroundColor: '#334155', borderRadius: 9999, overflow: 'hidden' }}>
                     <View
-                      style={{ backgroundColor: '#F97316', borderRadius: 9999, height: '100%' }}
-                      style={{ width: `${globalProfile.warmthLevel}%` }}
+                      style={{ backgroundColor: '#F97316', borderRadius: 9999, height: '100%', width: `${globalProfile.warmthLevel}%` }}
                     />
                   </View>
                 </View>
@@ -1343,8 +1934,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ marginBottom: 32 }}>
             <Pressable
               onPress={handleResetLearning}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF444410', borderRadius: 16, paddingVertical: 16 }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              style={({ pressed }) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: '#EF444410', borderRadius: 16, paddingVertical: 16, opacity: pressed ? 0.8 : 1 })}
             >
               <Trash2 size={18} color="#EF4444" />
               <Text style={{ color: '#EF4444', fontWeight: '500', marginLeft: 8 }}>Reset All Learning Data</Text>
@@ -1462,8 +2052,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             {/* Done Button */}
             <Pressable
               onPress={() => setShowDateRangeModal(false)}
-              style={{ backgroundColor: '#14B8A6', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              style={({ pressed }) => ({ backgroundColor: '#14B8A6', borderRadius: 12, paddingVertical: 12, alignItems: 'center' as const, opacity: pressed ? 0.8 : 1 })}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Done</Text>
             </Pressable>

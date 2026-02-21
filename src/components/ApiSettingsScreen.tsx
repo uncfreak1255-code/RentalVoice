@@ -2,12 +2,31 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, type PMSProvider } from '@/lib/store';
 import { ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff, Cpu, ChevronDown, RotateCcw } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { initializeConnection, disconnectHostaway, validateCredentials } from '@/lib/hostaway';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
+
+const PMS_PROVIDERS: { key: PMSProvider; name: string; color: string; helpText: string; fields: { id: string; key: string }; comingSoon?: boolean }[] = [
+  {
+    key: 'hostaway', name: 'Hostaway', color: '#14B8A6',
+    helpText: 'Log in to Hostaway Dashboard → Settings → API → Copy Account ID and API Secret Key',
+    fields: { id: 'Account ID', key: 'API Secret Key' },
+  },
+  {
+    key: 'guesty', name: 'Guesty', color: '#6366F1',
+    helpText: 'Log in to Guesty Dashboard → Marketplace → Open API → Generate Token',
+    fields: { id: 'Account ID', key: 'API Token' },
+  },
+  {
+    key: 'lodgify', name: 'Lodgify', color: '#F59E0B',
+    helpText: 'Log in to Lodgify → Settings → Public API → Get API Key',
+    fields: { id: 'Property ID', key: 'API Key' },
+    comingSoon: true,
+  },
+];
 
 const AI_PROVIDERS = [
   {
@@ -47,6 +66,11 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
   const setProviderModel = useAppStore((s) => s.setProviderModel);
   const resetProviderUsage = useAppStore((s) => s.resetProviderUsage);
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  const pmsProvider = useAppStore((s) => s.settings.pmsProvider) || 'hostaway';
+  const updateSettings = useAppStore((s) => s.updateSettings);
+  const pmsConfig = PMS_PROVIDERS.find((p) => p.key === pmsProvider) || PMS_PROVIDERS[0];
+
+  const [selectedPms, setSelectedPms] = useState<PMSProvider>(pmsProvider);
 
   const [accountId, setAccountId] = useState(storedAccountId || '');
   const [apiKey, setApiKey] = useState(storedApiKey || '');
@@ -74,6 +98,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
       const success = await initializeConnection(accountId.trim(), apiKey.trim());
       if (success) {
         setCredentials(accountId.trim(), apiKey.trim());
+        updateSettings({ pmsProvider: selectedPms });
         setDemoMode(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
@@ -98,7 +123,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
   };
 
   const handleDisconnect = async () => {
-    Alert.alert('Disconnect Hostaway', 'This will remove your saved credentials securely. You will need to re-enter them to reconnect.', [
+    Alert.alert(`Disconnect ${pmsConfig.name}`, 'This will remove your saved credentials securely. You will need to re-enter them to reconnect.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Disconnect', style: 'destructive', onPress: async () => {
         setIsDisconnecting(true);
@@ -130,10 +155,39 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
           <Pressable onPress={onBack} style={({ pressed }) => [ap.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
             <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
-          <Text style={ap.headerTitle}>Hostaway API</Text>
+          <Text style={ap.headerTitle}>PMS Connection</Text>
         </Animated.View>
 
         <ScrollView style={ap.scroll} showsVerticalScrollIndicator={false}>
+          {/* PMS Provider Picker */}
+          <Animated.View entering={FadeInDown.delay(50).duration(400)} style={ap.fieldWrap}>
+            <Text style={ap.fieldLabel}>Property Management System</Text>
+            <View style={{ flexDirection: 'row', gap: spacing['2'] }}>
+              {PMS_PROVIDERS.map((p) => (
+                <Pressable
+                  key={p.key}
+                  onPress={() => {
+                    if (p.comingSoon) return;
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedPms(p.key);
+                  }}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    paddingVertical: spacing['3'],
+                    borderRadius: radius.md,
+                    alignItems: 'center' as const,
+                    backgroundColor: selectedPms === p.key ? p.color + '20' : colors.bg.elevated + '80',
+                    borderWidth: selectedPms === p.key ? 1.5 : 1,
+                    borderColor: selectedPms === p.key ? p.color : colors.border.subtle,
+                    opacity: p.comingSoon ? 0.4 : pressed ? 0.8 : 1,
+                  })}
+                >
+                  <Text style={{ color: selectedPms === p.key ? p.color : colors.text.muted, fontFamily: typography.fontFamily.medium, fontSize: 13 }}>{p.name}</Text>
+                  {p.comingSoon && <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>Soon</Text>}
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
           {/* Status Card */}
           <Animated.View entering={FadeInDown.delay(100).duration(400)} style={[ap.statusCard, { backgroundColor: isConnected ? colors.primary.muted : isDemoMode ? colors.accent.muted : colors.bg.elevated + '80' }]}>
             <View style={ap.statusRow}>
@@ -147,22 +201,22 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
 
           {/* Account ID */}
           <Animated.View entering={FadeInDown.delay(200).duration(400)} style={ap.fieldWrap}>
-            <Text style={ap.fieldLabel}>Account ID</Text>
+            <Text style={ap.fieldLabel}>{pmsConfig.fields.id}</Text>
             <View style={ap.inputWrap}>
-              <TextInput value={accountId} onChangeText={(t) => { setAccountId(t); setError(null); }} placeholder="Enter your Hostaway Account ID" placeholderTextColor={colors.text.disabled} style={ap.input} autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" />
+              <TextInput value={accountId} onChangeText={(t) => { setAccountId(t); setError(null); }} placeholder={`Enter your ${pmsConfig.name} ${pmsConfig.fields.id}`} placeholderTextColor={colors.text.disabled} style={ap.input} autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" />
             </View>
           </Animated.View>
 
           {/* API Key */}
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={ap.fieldWrapLg}>
-            <Text style={ap.fieldLabel}>API Secret Key</Text>
+            <Text style={ap.fieldLabel}>{pmsConfig.fields.key}</Text>
             <View style={ap.inputRow}>
-              <TextInput value={apiKey} onChangeText={(t) => { setApiKey(t); setError(null); }} placeholder="Enter your Hostaway API Secret Key" placeholderTextColor={colors.text.disabled} secureTextEntry={!showKey} style={ap.inputFlex} autoCapitalize="none" autoCorrect={false} />
+              <TextInput value={apiKey} onChangeText={(t) => { setApiKey(t); setError(null); }} placeholder={`Enter your ${pmsConfig.name} ${pmsConfig.fields.key}`} placeholderTextColor={colors.text.disabled} secureTextEntry={!showKey} style={ap.inputFlex} autoCapitalize="none" autoCorrect={false} />
               <Pressable onPress={() => setShowKey(!showKey)}>
                 {showKey ? <EyeOff size={20} color={colors.text.disabled} /> : <Eye size={20} color={colors.text.disabled} />}
               </Pressable>
             </View>
-            <Text style={ap.hint}>Find your credentials in Hostaway Dashboard → Settings → API</Text>
+            <Text style={ap.hint}>{pmsConfig.helpText}</Text>
           </Animated.View>
 
           {/* Error */}

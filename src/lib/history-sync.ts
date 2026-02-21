@@ -6,6 +6,10 @@ import { getAccessToken } from './hostaway';
 
 const HOSTAWAY_API_BASE = 'https://api.hostaway.com/v1';
 const SYNC_STATE_KEY = 'hostaway_sync_state';
+const SYNC_CONVERSATIONS_KEY = 'hostaway_sync_conversations';
+const SYNC_MESSAGES_KEY_PREFIX = 'hostaway_sync_messages_'; // chunked: _0, _1, etc.
+const SYNC_MESSAGES_META_KEY = 'hostaway_sync_messages_meta';
+const MESSAGES_CHUNK_SIZE = 100; // conversations per chunk
 
 // Sync configuration
 const CONFIG = {
@@ -158,6 +162,9 @@ class HistorySyncManager {
         // Merge with initial state to ensure all fields exist
         this.state = { ...this.getInitialState(), ...parsed, isRunning: false, isPaused: false };
       }
+
+      // Load persisted conversation/message data
+      await this.loadData();
     } catch (error) {
       console.error('[HistorySync] Failed to load state:', error);
     }
@@ -172,10 +179,103 @@ class HistorySyncManager {
     }
   }
 
-  // Clear saved state
+  // Persist fetched data to AsyncStorage (survives app restarts)
+  async saveData(): Promise<void> {
+    if (this.fetchedConversations.length === 0) return;
+
+    try {
+      // Save conversations
+      await AsyncStorage.setItem(
+        SYNC_CONVERSATIONS_KEY,
+        JSON.stringify(this.fetchedConversations)
+      );
+
+      // Save messages in chunks to avoid AsyncStorage size limits
+      const conversationIds = Object.keys(this.fetchedMessages).map(Number);
+      const totalChunks = Math.ceil(conversationIds.length / MESSAGES_CHUNK_SIZE);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkIds = conversationIds.slice(
+          i * MESSAGES_CHUNK_SIZE,
+          (i + 1) * MESSAGES_CHUNK_SIZE
+        );
+        const chunkData: Record<number, HostawayMessage[]> = {};
+        for (const id of chunkIds) {
+          chunkData[id] = this.fetchedMessages[id] || [];
+        }
+        await AsyncStorage.setItem(
+          `${SYNC_MESSAGES_KEY_PREFIX}${i}`,
+          JSON.stringify(chunkData)
+        );
+      }
+
+      // Save meta so we know how many chunks to load
+      await AsyncStorage.setItem(
+        SYNC_MESSAGES_META_KEY,
+        JSON.stringify({ totalChunks, totalConversations: conversationIds.length })
+      );
+
+      console.log(`[HistorySync] Saved ${this.fetchedConversations.length} conversations and ${conversationIds.length} message sets (${totalChunks} chunks)`);
+    } catch (error) {
+      console.error('[HistorySync] Failed to save data:', error);
+    }
+  }
+
+  // Load persisted data from AsyncStorage
+  private async loadData(): Promise<void> {
+    try {
+      // Load conversations
+      const savedConversations = await AsyncStorage.getItem(SYNC_CONVERSATIONS_KEY);
+      if (savedConversations) {
+        this.fetchedConversations = JSON.parse(savedConversations);
+      }
+
+      // Load message chunks in parallel (instead of sequential)
+      const metaRaw = await AsyncStorage.getItem(SYNC_MESSAGES_META_KEY);
+      if (metaRaw) {
+        const meta = JSON.parse(metaRaw);
+        this.fetchedMessages = {};
+
+        const chunkPromises = Array.from({ length: meta.totalChunks }, (_, i) =>
+          AsyncStorage.getItem(`${SYNC_MESSAGES_KEY_PREFIX}${i}`)
+        );
+        const chunks = await Promise.all(chunkPromises);
+
+        for (const chunkRaw of chunks) {
+          if (chunkRaw) {
+            const chunkData = JSON.parse(chunkRaw) as Record<string, HostawayMessage[]>;
+            for (const [id, messages] of Object.entries(chunkData)) {
+              this.fetchedMessages[Number(id)] = messages;
+            }
+          }
+        }
+
+        console.log(`[HistorySync] Loaded ${this.fetchedConversations.length} conversations and ${Object.keys(this.fetchedMessages).length} message sets from storage (parallel)`);
+      }
+    } catch (error) {
+      console.error('[HistorySync] Failed to load data:', error);
+    }
+  }
+
+  // Clear saved state and data
   async clearState(): Promise<void> {
     try {
+      // Clear sync state
       await AsyncStorage.removeItem(SYNC_STATE_KEY);
+
+      // Clear conversations
+      await AsyncStorage.removeItem(SYNC_CONVERSATIONS_KEY);
+
+      // Clear message chunks
+      const metaRaw = await AsyncStorage.getItem(SYNC_MESSAGES_META_KEY);
+      if (metaRaw) {
+        const meta = JSON.parse(metaRaw);
+        for (let i = 0; i < meta.totalChunks; i++) {
+          await AsyncStorage.removeItem(`${SYNC_MESSAGES_KEY_PREFIX}${i}`);
+        }
+      }
+      await AsyncStorage.removeItem(SYNC_MESSAGES_META_KEY);
+
       this.state = this.getInitialState();
       this.fetchedConversations = [];
       this.fetchedMessages = {};
@@ -235,6 +335,20 @@ class HistorySyncManager {
   // Get current state
   getState(): SyncState {
     return { ...this.state };
+  }
+
+  // Check if fetched data exists in memory
+  hasData(): boolean {
+    return this.fetchedConversations.length > 0;
+  }
+
+  // Get fetched data for training (survives screen remounts within same app session)
+  getData(): { conversations: HostawayConversation[]; messages: Record<number, HostawayMessage[]> } | null {
+    if (this.fetchedConversations.length === 0) return null;
+    return {
+      conversations: this.fetchedConversations,
+      messages: this.fetchedMessages,
+    };
   }
 
   // Start or resume sync
@@ -330,10 +444,11 @@ class HistorySyncManager {
       await this.fetchAllMessages();
     }
 
-    // Phase 3: Complete
+    // Phase 3: Complete — persist everything
     this.state.phase = 'complete';
     this.state.isRunning = false;
     await this.saveState();
+    await this.saveData(); // Persist fetched data to AsyncStorage for app restart survival
     this.emitProgress();
 
     // Emit data and completion

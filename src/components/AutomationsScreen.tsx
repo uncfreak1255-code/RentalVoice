@@ -103,7 +103,7 @@ export function AutomationsScreen({ onBack }: AutomationsScreenProps) {
         <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], borderBottomWidth: 1, borderBottomColor: colors.border.DEFAULT }}>
           <View style={[au.row, { justifyContent: 'space-between' }]}>
             <View style={au.row}>
-              <Pressable onPress={onBack} style={({ pressed }) => [au.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color="#FFF" /></Pressable>
+              <Pressable onPress={onBack} style={({ pressed }) => [au.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
               <Text style={au.title}>Smart Automations</Text>
             </View>
             <Pressable onPress={() => { resetForm(); setShowCreateModal(true); }} style={({ pressed }) => ({ backgroundColor: '#F97316', width: 40, height: 40, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}><Plus size={22} color="#FFF" /></Pressable>

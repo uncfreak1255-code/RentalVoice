@@ -1,11 +1,12 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { format, isToday, isYesterday } from 'date-fns';
 import type { Conversation } from '@/lib/store';
 import { Sparkles, Users, Calendar, AlertTriangle } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
-import { colors, typography, spacing, radius } from '@/lib/design-tokens';
+import { PremiumPressable } from '@/components/ui/PremiumPressable';
+import { colors, typography, spacing, radius, elevation } from '@/lib/design-tokens';
 import { analyzeConversationSentiment } from '@/lib/sentiment-analysis';
 
 interface ConversationItemProps {
@@ -87,7 +88,10 @@ export const ConversationItem = memo(function ConversationItem({
     [conversation, sentimentData.currentSentiment]
   );
 
-  const isUnread = unreadCount > 0;
+  // Only show bold/unread styling when the last message is from a guest (needs your response)
+  // If you already replied, it shouldn't look bold — just like Airbnb
+  const lastSender = lastMessage?.sender;
+  const isUnread = unreadCount > 0 && lastSender !== 'host';
   const dateRange = formatDateRange(checkInDate, checkOutDate);
 
   const lastMessagePreview = useMemo(() => {
@@ -110,8 +114,10 @@ export const ConversationItem = memo(function ConversationItem({
       : 'Direct';
 
   return (
-    <Pressable
+    <PremiumPressable
       onPress={onPress}
+      scaleTo={0.97}
+      hapticFeedback="light"
       style={({ pressed }) => [
         styles.container,
         isSelected && styles.selected,
@@ -193,7 +199,7 @@ export const ConversationItem = memo(function ConversationItem({
           )}
         </View>
       </View>
-    </Pressable>
+    </PremiumPressable>
   );
 });
 
@@ -207,20 +213,16 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing['3'],
     marginTop: spacing['2'],
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
+    ...elevation.shadows.premium.sm,
   },
   selected: {
     backgroundColor: colors.bg.elevated,
-    borderColor: colors.primary.muted,
   },
   pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.99 }],
+    opacity: 0.9,
   },
   unread: {
-    borderColor: colors.primary.soft,
-    backgroundColor: `${colors.bg.card}`,
+    backgroundColor: colors.bg.card,
   },
   content: {
     flex: 1,
@@ -237,14 +239,14 @@ const styles = StyleSheet.create({
     marginRight: spacing['2'],
   },
   guestName: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 22,
     fontFamily: typography.fontFamily.medium,
-    color: colors.text.secondary,
+    color: colors.text.primary,
+    letterSpacing: -0.2,
   },
   guestNameUnread: {
-    fontFamily: typography.fontFamily.semibold,
-    color: colors.text.primary,
+    fontFamily: typography.fontFamily.bold,
   },
   unreadDot: {
     width: 8,
@@ -291,7 +293,8 @@ const styles = StyleSheet.create({
     marginTop: spacing['1.5'],
   },
   messagePreviewUnread: {
-    color: colors.text.muted,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.text.secondary,
   },
   bottomRow: {
     flexDirection: 'row',

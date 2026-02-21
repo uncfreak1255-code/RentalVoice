@@ -232,7 +232,7 @@ export function AIProviderSettingsScreen({ onBack }: AIProviderSettingsScreenPro
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <Animated.View entering={FadeIn.duration(300)} style={ai.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [ai.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <ArrowLeft size={20} color="#FFFFFF" />
+            <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={ai.title}>AI Providers</Text>

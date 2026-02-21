@@ -30,10 +30,9 @@ import {
   fetchMessages,
   fetchReservation,
   extractGuestName,
-  type HostawayListing,
-  type HostawayMessage,
 } from '@/lib/hostaway';
-import type { Conversation, Guest, Message, Property } from '@/lib/store';
+import { convertListingToProperty, getChannelPlatform, convertHostawayMessage } from '@/lib/hostaway-utils';
+import type { Conversation, Guest } from '@/lib/store';
 
 interface SyncDataScreenProps {
   onBack: () => void;
@@ -53,41 +52,7 @@ function formatTimeAgo(date: Date | null): string {
   return `${Math.floor(diffHr / 24)}d ago`;
 }
 
-function getChannelPlatform(
-  channelName?: string,
-  channelId?: number,
-  source?: string
-): 'airbnb' | 'booking' | 'vrbo' | 'direct' {
-  const name = (channelName || '').toLowerCase();
-  const src = (source || '').toLowerCase();
-  if (channelId === 2000) return 'airbnb';
-  if (channelId === 2016) return 'vrbo';
-  if (channelId === 2002) return 'booking';
-  if (name.includes('airbnb') || src.includes('airbnb')) return 'airbnb';
-  if (name.includes('booking') || src.includes('booking')) return 'booking';
-  if (name.includes('vrbo') || name.includes('homeaway')) return 'vrbo';
-  return 'direct';
-}
-
-function convertHostawayMessage(msg: HostawayMessage, conversationId: string): Message {
-  return {
-    id: String(msg.id),
-    conversationId,
-    content: msg.body || '',
-    sender: msg.isIncoming ? 'guest' : 'host',
-    timestamp: new Date(msg.sentOn || msg.insertedOn),
-    isRead: true,
-  };
-}
-
-function convertListingToProperty(listing: HostawayListing): Property {
-  return {
-    id: String(listing.id),
-    name: listing.name || listing.externalListingName || 'Unnamed Property',
-    address: [listing.address, listing.city, listing.state].filter(Boolean).join(', '),
-    image: listing.thumbnailUrl || listing.picture,
-  };
-}
+// convertListingToProperty, getChannelPlatform, convertHostawayMessage imported from '@/lib/hostaway-utils'
 
 export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
   const properties = useAppStore((s) => s.properties);

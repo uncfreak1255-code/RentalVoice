@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -112,6 +111,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ai_usage_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      autopilot_actions: {
+        Row: {
+          id: string
+          org_id: string
+          conversation_id: string
+          property_id: string | null
+          action: string
+          confidence: number
+          draft_preview: string
+          reason: string
+          guest_message_preview: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          conversation_id: string
+          property_id?: string | null
+          action: string
+          confidence: number
+          draft_preview: string
+          reason?: string
+          guest_message_preview?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          conversation_id?: string
+          property_id?: string | null
+          action?: string
+          confidence?: number
+          draft_preview?: string
+          reason?: string
+          guest_message_preview?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autopilot_actions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"

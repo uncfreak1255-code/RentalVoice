@@ -25,12 +25,15 @@ import { AutoPilotAuditLogScreen } from '@/components/AutoPilotAuditLogScreen';
 import { SentimentTrendsDashboard } from '@/components/SentimentTrendsDashboard';
 import { CalendarScreen } from '@/components/CalendarScreen';
 import { AIProviderSettingsScreen } from '@/components/AIProviderSettingsScreen';
+import { ReviewResponseScreen } from '@/components/ReviewResponseScreen';
 import * as SplashScreen from 'expo-splash-screen';
 import { restoreConnection } from '@/lib/hostaway';
 import { useNotifications } from '@/lib/NotificationProvider';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { useNetworkStatus } from '@/lib/useNetworkStatus';
+import { OfflineBanner } from '@/components/OfflineBanner';
 
-type Screen = 'inbox' | 'chat' | 'settings' | 'propertyKnowledge' | 'issueTracker' | 'automations' | 'analytics' | 'upsells' | 'guestPortal' | 'apiSettings' | 'syncData' | 'languageSettings' | 'helpCenter' | 'privacySecurity' | 'privacyCompliance' | 'aiLearning' | 'webhookSetup' | 'notificationSettings' | 'autoPilotSettings' | 'autoPilotAuditLog' | 'sentimentTrends' | 'calendar' | 'aiProviders';
+type Screen = 'inbox' | 'chat' | 'settings' | 'propertyKnowledge' | 'issueTracker' | 'automations' | 'analytics' | 'upsells' | 'guestPortal' | 'apiSettings' | 'syncData' | 'languageSettings' | 'helpCenter' | 'privacySecurity' | 'privacyCompliance' | 'aiLearning' | 'webhookSetup' | 'notificationSettings' | 'autoPilotSettings' | 'autoPilotAuditLog' | 'sentimentTrends' | 'calendar' | 'aiProviders' | 'reviewResponse';
 
 export default function HomeScreen() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('inbox');
@@ -45,6 +48,8 @@ export default function HomeScreen() {
   const isDemoMode = useAppStore((s) => s.isDemoMode);
   const activeConversationId = useAppStore((s) => s.activeConversationId);
   const setActiveConversation = useAppStore((s) => s.setActiveConversation);
+
+  const { isOffline, queueLength, recheckNow } = useNetworkStatus();
 
   const { lastNotificationData } = useNotifications();
 
@@ -165,6 +170,7 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-slate-900">
       <StatusBar barStyle="light-content" />
+      <OfflineBanner isOffline={isOffline} queueLength={queueLength} onRetry={recheckNow} />
 
       {currentScreen === 'inbox' && (
         <Animated.View
@@ -410,6 +416,16 @@ export default function HomeScreen() {
           className="flex-1"
         >
           <CalendarScreen onBack={handleBackToInbox} />
+        </Animated.View>
+      )}
+
+      {currentScreen === 'reviewResponse' && (
+        <Animated.View
+          key="reviewResponse"
+          entering={FadeIn.duration(300)}
+          className="flex-1"
+        >
+          <ReviewResponseScreen onBack={handleBackToSettings} />
         </Animated.View>
       )}
     </View>

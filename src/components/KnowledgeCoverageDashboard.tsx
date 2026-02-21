@@ -55,7 +55,7 @@ export function KnowledgeCoverageDashboard({ onClose, propertyId = null }: Knowl
   return (
     <View style={k.root}>
       {/* Header */}
-      <LinearGradient colors={['#0F172A', '#1E293B']} style={{ paddingTop: 12, paddingBottom: 20, paddingHorizontal: 20 }}>
+      <LinearGradient colors={[colors.bg.card, colors.bg.base]} style={{ paddingTop: 12, paddingBottom: 20, paddingHorizontal: 20 }}>
         <View style={[k.row, { justifyContent: 'space-between', marginBottom: spacing['4'] }]}>
           <View style={k.row}>
             <View style={[k.iconBox, { backgroundColor: '#10B98120' }]}><Target size={22} color="#10B981" /></View>

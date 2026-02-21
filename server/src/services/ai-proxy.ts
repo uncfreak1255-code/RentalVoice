@@ -14,9 +14,11 @@ import type {
   AIGenerateResponse,
   AIProvider,
 } from '../lib/types.js';
+import { reportOverageIfNeeded } from './stripe-billing.js';
 
 interface AICallOptions {
   orgId: string;
+  userId: string;
   request: AIGenerateRequest;
 }
 
@@ -25,7 +27,7 @@ interface AICallOptions {
  * Determines managed vs BYOK, selects provider, calls the API, and tracks usage.
  */
 export async function generateDraft(options: AICallOptions): Promise<AIGenerateResponse> {
-  const { orgId, request } = options;
+  const { orgId, userId, request } = options;
   const supabase = getSupabaseAdmin();
 
   // 1. Get org's AI config
@@ -53,8 +55,25 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
     apiKey = getManagedApiKey(provider);
   }
 
-  // 3. Build the prompt
-  const systemPrompt = buildSystemPrompt(request);
+  // 3. Fetch style profile for prompt injection (non-blocking on failure)
+  let styleProfile: Record<string, unknown> | null = null;
+  try {
+    const { data: profile } = await supabase
+      .from('host_style_profiles')
+      .select('profile_json')
+      .eq('org_id', orgId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (profile?.profile_json) {
+      styleProfile = profile.profile_json as Record<string, unknown>;
+    }
+  } catch {
+    // Style profile is optional — continue without it
+  }
+
+  // 4. Build the prompt
+  const systemPrompt = buildSystemPrompt(request, styleProfile);
   const userMessage = request.message;
 
   // 4. Call the AI provider
@@ -67,6 +86,11 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
   // 5. Track usage (async, non-blocking)
   trackUsage(orgId, provider, result.tokensUsed).catch(err =>
     console.error('[AI Proxy] Usage tracking failed:', err)
+  );
+
+  // 6. Report overage to Stripe if needed (async, non-blocking)
+  reportOverageIfNeeded(orgId, userId).catch(err =>
+    console.error('[AI Proxy] Overage reporting failed:', err)
   );
 
   return {
@@ -111,12 +135,28 @@ function getManagedApiKey(provider: AIProvider): string {
   return key;
 }
 
-function buildSystemPrompt(request: AIGenerateRequest): string {
+function buildSystemPrompt(request: AIGenerateRequest, styleProfile?: Record<string, unknown> | null): string {
   const langInstruction = request.responseLanguageMode === 'host_default'
     ? `Always respond in ${request.hostDefaultLanguage || 'English'}.`
     : request.responseLanguageMode === 'match_guest'
       ? 'Match the language the guest wrote in.'
       : 'Respond in the same language as the guest message.';
+
+  // Build style context from learned profile
+  let styleContext = '';
+  if (styleProfile && styleProfile.trained === true) {
+    const parts: string[] = [];
+    if (styleProfile.tonePreference === 'detailed') parts.push('Write longer, more detailed responses.');
+    if (styleProfile.tonePreference === 'concise') parts.push('Keep responses short and to the point.');
+    if (styleProfile.usesEmoji) parts.push('Use emojis occasionally where appropriate.');
+    if (styleProfile.usesExclamation) parts.push('Use exclamation marks to convey enthusiasm.');
+    if (Array.isArray(styleProfile.topPhrases) && styleProfile.topPhrases.length > 0) {
+      parts.push(`The host often uses these phrases: "${(styleProfile.topPhrases as string[]).slice(0, 5).join('", "')}".`);
+    }
+    if (parts.length > 0) {
+      styleContext = `\nHOST STYLE PREFERENCES (learned from previous edits):\n${parts.join('\n')}`;
+    }
+  }
 
   return `You are an AI assistant helping a vacation rental host respond to guest messages.
 Your tone should be warm, professional, and helpful.
@@ -124,7 +164,7 @@ Keep responses concise but thorough.
 ${langInstruction}
 ${request.guestName ? `The guest's name is ${request.guestName}.` : ''}
 Do not include any explicit, harmful, or inappropriate content.
-If the guest message contains inappropriate content, respond professionally and redirect.`;
+If the guest message contains inappropriate content, respond professionally and redirect.${styleContext}`;
 }
 
 interface ProviderResult {

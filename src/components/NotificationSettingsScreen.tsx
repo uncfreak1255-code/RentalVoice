@@ -79,7 +79,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={ns.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [ns.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
-            <ArrowLeft size={20} color="#FFFFFF" />
+            <ArrowLeft size={20} color={colors.text.primary} />
           </Pressable>
           <Text style={ns.title}>Notification Settings</Text>
         </Animated.View>

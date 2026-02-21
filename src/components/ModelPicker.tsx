@@ -13,6 +13,7 @@ import {
   getSelectedModel,
   setSelectedModel,
 } from '@/lib/ai-keys';
+import { colors } from '@/lib/design-tokens';
 
 interface ModelPickerProps {
   compact?: boolean;
@@ -71,9 +72,9 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
           paddingHorizontal: compact ? 8 : 12,
           paddingVertical: compact ? 4 : 6,
           borderRadius: 20,
-          backgroundColor: 'rgba(30, 41, 59, 0.8)',
+          backgroundColor: colors.bg.elevated,
           borderWidth: 1,
-          borderColor: 'rgba(100, 116, 139, 0.3)',
+          borderColor: colors.border.DEFAULT,
           marginRight: 8,
           alignSelf: 'center',
         })}
@@ -89,7 +90,7 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
         />
         <Text
           style={{
-            color: '#CBD5E1',
+            color: colors.text.secondary,
             fontSize: 11,
             fontWeight: '600',
             letterSpacing: 0.2,
@@ -98,7 +99,7 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
         >
           {displayName}
         </Text>
-        <ChevronDown size={10} color="#64748B" style={{ marginLeft: 3 }} />
+        <ChevronDown size={10} color={colors.text.muted} style={{ marginLeft: 3 }} />
       </Pressable>
 
       {/* Model Dropdown Modal */}
@@ -120,12 +121,12 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
             entering={SlideInDown.duration(250)}
             exiting={FadeOut.duration(150)}
             style={{
-              backgroundColor: '#0F172A',
+              backgroundColor: colors.bg.card,
               borderTopLeftRadius: 20,
               borderTopRightRadius: 20,
               paddingBottom: 40,
               borderTopWidth: 1,
-              borderColor: 'rgba(100, 116, 139, 0.3)',
+              borderColor: colors.border.DEFAULT,
             }}
           >
             {/* Header */}
@@ -140,7 +141,7 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Cpu size={16} color="#F97316" />
                 <Text style={{
-                  color: '#F1F5F9',
+                  color: colors.text.primary,
                   fontSize: 16,
                   fontWeight: '700',
                   marginLeft: 8,
@@ -152,7 +153,7 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
                 onPress={() => setIsOpen(false)}
                 style={{ padding: 4 }}
               >
-                <Text style={{ color: '#64748B', fontSize: 14 }}>Done</Text>
+                <Text style={{ color: colors.text.muted, fontSize: 14 }}>Done</Text>
               </Pressable>
             </View>
 
@@ -165,7 +166,7 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
               width: 40,
               height: 4,
               borderRadius: 2,
-              backgroundColor: 'rgba(100, 116, 139, 0.4)',
+              backgroundColor: colors.border.subtle,
             }} />
 
             {/* Auto option */}
@@ -183,18 +184,18 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
                 width: 32,
                 height: 32,
                 borderRadius: 8,
-                backgroundColor: 'rgba(100, 116, 139, 0.2)',
+                backgroundColor: colors.bg.elevated,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 12,
               }}>
-                <Zap size={16} color="#94A3B8" />
+                <Zap size={16} color={colors.text.muted} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#F1F5F9', fontSize: 15, fontWeight: '600' }}>
+                <Text style={{ color: colors.text.primary, fontSize: 15, fontWeight: '600' }}>
                   Auto
                 </Text>
-                <Text style={{ color: '#64748B', fontSize: 12, marginTop: 1 }}>
+                <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 1 }}>
                   Use default provider order
                 </Text>
               </View>
@@ -206,7 +207,7 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
             {/* Divider */}
             <View style={{
               height: 1,
-              backgroundColor: 'rgba(100, 116, 139, 0.15)',
+              backgroundColor: colors.border.subtle,
               marginHorizontal: 20,
               marginVertical: 4,
             }} />
@@ -241,10 +242,10 @@ export function ModelPicker({ compact = true }: ModelPickerProps) {
                   }} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#F1F5F9', fontSize: 15, fontWeight: '600' }}>
+                  <Text style={{ color: colors.text.primary, fontSize: 15, fontWeight: '600' }}>
                     {model.name}
                   </Text>
-                  <Text style={{ color: '#64748B', fontSize: 12, marginTop: 1 }}>
+                  <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 1 }}>
                     {model.description}
                   </Text>
                 </View>

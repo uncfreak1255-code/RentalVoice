@@ -76,3 +76,4 @@ export function rateLimit(config: RateLimitConfig) {
  */
 export const aiRateLimit = rateLimit({ maxRequests: 100, windowMs: 60 * 60 * 1000 });
 export const apiRateLimit = rateLimit({ maxRequests: 1000, windowMs: 60 * 60 * 1000 });
+export const learnRateLimit = rateLimit({ maxRequests: 30, windowMs: 60 * 60 * 1000 });

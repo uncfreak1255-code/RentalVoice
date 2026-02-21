@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
-import { colors, typography, spacing, radius } from '@/lib/design-tokens';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, TextInput, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import { colors, typography, spacing, radius, elevation } from '@/lib/design-tokens';
+import { PremiumPressable } from '@/components/ui';
 import {
   Send,
   Sparkles,
@@ -8,7 +9,7 @@ import {
   Edit3,
   Check,
   X,
-  Wand2,
+
   Heart,
   ArrowDownNarrowWide,
   ArrowUpNarrowWide,
@@ -18,7 +19,7 @@ import {
   Gauge,
   ChevronDown,
   Paperclip,
-  Shield,
+
   Trash2,
   MoreHorizontal,
 } from 'lucide-react-native';
@@ -129,7 +130,6 @@ export function MessageComposer({
 
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editedDraft, setEditedDraft] = useState('');
-  const [showTooltip, setShowTooltip] = useState(false);
   const [showRegenerateOptions, setShowRegenerateOptions] = useState(false);
   const [showConfidenceDetails, setShowConfidenceDetails] = useState(false);
   const [showReasoning, setShowReasoning] = useState(false);
@@ -198,7 +198,7 @@ export function MessageComposer({
     if (aiDraft && !editedDraft) {
       setEditedDraft(aiDraft.content);
     }
-  }, [aiDraft]);
+  }, [aiDraft, editedDraft]);
 
   // Reset when draft is dismissed
   useEffect(() => {
@@ -250,7 +250,6 @@ export function MessageComposer({
 
   const handleRegenerate = (modifier?: RegenerationOption['modifier']) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowTooltip(false);
     setShowRegenerateOptions(false);
     onRegenerateAiDraft(modifier);
   };
@@ -259,7 +258,6 @@ export function MessageComposer({
 
   const confidenceDetails = aiDraft?.confidenceDetails;
   const sentiment = aiDraft?.sentiment;
-  const actionItems = aiDraft?.actionItems || [];
   const hasWarnings = confidenceDetails?.warnings && confidenceDetails.warnings.length > 0;
   const isBlocked = confidenceDetails?.blockedForAutoSend;
 
@@ -275,424 +273,129 @@ export function MessageComposer({
         />
       )}
 
-      {/* Auto-Pilot Mode: Enhanced AI Draft Preview */}
-      {autoPilotEnabled && (aiDraft || isGenerating) && !isEditingDraft && (
+      {/* AI Draft Preview — V2 Premium Mockup */}
+      {(aiDraft || isGenerating) && !isEditingDraft && (
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={[mcStyles.draftPanel, mcStyles.tealPanel, { maxHeight: 400 }]}
+          style={mcStyles.v2GlassPanel}
         >
-          <ScrollView
-            keyboardShouldPersistTaps="always"
-            showsVerticalScrollIndicator={false}
-            nestedScrollEnabled={true}
-          >
-          <View style={mcStyles.panelInner}>
           {isGenerating ? (
             <View style={mcStyles.rowCenter}>
               <ActivityIndicator size="small" color={colors.primary.DEFAULT} />
-              <Text style={mcStyles.tealLabel}>AI is analyzing and drafting a response...</Text>
+              <Text style={mcStyles.tealLabel}>Drafting a response...</Text>
             </View>
           ) : (
             <>
-              <View style={[mcStyles.rowCenter, { marginBottom: spacing['2'] }]}>
-                <Sparkles size={14} color={colors.primary.DEFAULT} />
-                <Text style={[mcStyles.tealLabel, { fontFamily: typography.fontFamily.medium }]}>
-                  AI Draft Ready
-                </Text>
-
-                <Pressable
-                  onPress={() => setShowConfidenceDetails(!showConfidenceDetails)}
-                  style={mcStyles.confidenceBadge}
-                >
-                  <Gauge size={12} color={getConfidenceColor(aiDraft?.confidence || 0)} />
-                  <Text style={[mcStyles.badgeText, { color: getConfidenceColor(aiDraft?.confidence || 0) }]}>
-                    {aiDraft?.confidence}%
-                  </Text>
-                </Pressable>
-
-                {sentiment && (
-                  <View style={[mcStyles.sentimentBadge, { backgroundColor: `${getSentimentColor(sentiment.primary)}20` }]}>
-                    <Text style={[mcStyles.badgeText, { color: getSentimentColor(sentiment.primary), textTransform: 'capitalize' }]}>
-                      {sentiment.primary}
-                    </Text>
-                  </View>
-                )}
+              {/* 1. Header Row — "AI Draft Ready" + confidence + sentiment */}
+              <View style={mcStyles.v2HeaderRow}>
+                <View style={mcStyles.rowCenter}>
+                  <Sparkles size={18} color={colors.primary.DEFAULT} />
+                  <Text style={mcStyles.v2HeaderTitle}>AI Draft Ready</Text>
+                </View>
+                <View style={mcStyles.rowCenter}>
+                  <Gauge size={14} color={colors.primary.light} />
+                  <Text style={mcStyles.v2ConfidenceText}>{aiDraft?.confidence}%</Text>
+                  {sentiment && (
+                    <View style={mcStyles.v2SentimentBadge}>
+                      <Text style={mcStyles.v2SentimentText}>{sentiment.primary}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
-              {hasWarnings && (
-                <Animated.View entering={FadeIn.duration(200)} style={{ marginBottom: spacing['2'] }}>
-                  {confidenceDetails.warnings.map((warning, idx) => (
-                    <View key={idx} style={mcStyles.warningRow}>
-                      <AlertTriangle size={12} color="#F59E0B" />
-                      <Text style={mcStyles.warningText}>{warning}</Text>
-                    </View>
-                  ))}
-                </Animated.View>
-              )}
+              {/* 2. Draft Text Card — white card, pure black text, subtle teal border */}
+              <View style={mcStyles.v2DraftCard}>
+                <Text style={mcStyles.v2DraftText}>
+                  {aiDraft?.content}
+                </Text>
+              </View>
 
-              {isBlocked && (
-                <View style={mcStyles.blockedBanner}>
-                  <Text style={mcStyles.blockedText}>
-                    Auto-send blocked: {confidenceDetails.blockReason}
-                  </Text>
-                </View>
-              )}
-
-              {showConfidenceDetails && confidenceDetails && (
-                <Animated.View entering={FadeInUp.duration(200)} style={mcStyles.confidencePanel}>
-                  <Text style={mcStyles.confidenceTitle}>Confidence Breakdown</Text>
-                  <View>
-                    {Object.entries(confidenceDetails.factors).map(([key, value]) => (
-                      <View key={key} style={mcStyles.factorRow}>
-                        <Text style={mcStyles.factorLabel}>
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </Text>
-                        <View style={mcStyles.rowCenter}>
-                          <View style={mcStyles.progressTrack}>
-                            <View style={[mcStyles.progressFill, { width: `${value}%`, backgroundColor: getConfidenceColor(value) }]} />
-                          </View>
-                          <Text style={[mcStyles.factorValue, { color: getConfidenceColor(value) }]}>
-                            {value}%
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </Animated.View>
-              )}
-
-              <Text style={mcStyles.draftContent}>
-                {aiDraft?.content}
-              </Text>
-
-              <View style={mcStyles.actionRow}>
-                <Pressable
+              {/* 3. Action Row — Big Send + icon buttons */}
+              <View style={mcStyles.v2ActionRow}>
+                <PremiumPressable
+                  hapticFeedback="medium"
                   onPress={handleApprove}
                   disabled={isBlocked}
-                  style={({ pressed }) => [mcStyles.actionBtn, { backgroundColor: isBlocked ? colors.bg.hover : colors.primary.DEFAULT, opacity: pressed ? 0.8 : 1 }]}
+                  style={mcStyles.v2SendBtn}
                 >
-                  <Check size={14} color={isBlocked ? colors.text.muted : "#FFFFFF"} />
-                  <Text style={[mcStyles.actionBtnText, { color: isBlocked ? colors.text.disabled : '#FFFFFF' }]}>
-                    {isBlocked ? 'Review Required' : 'Send'}
-                  </Text>
-                </Pressable>
+                  <Send size={16} color="#FFFFFF" />
+                  <Text style={mcStyles.v2SendBtnText}>Send Draft</Text>
+                </PremiumPressable>
 
-                <Pressable
+                <PremiumPressable
+                  hapticFeedback="light"
                   onPress={handleEdit}
-                  style={({ pressed }) => [mcStyles.secondaryBtn, { opacity: pressed ? 0.8 : 1 }]}
+                  style={mcStyles.v2IconBtn}
                 >
-                  <Edit3 size={14} color={colors.text.muted} />
-                  <Text style={mcStyles.secondaryBtnText}>Edit</Text>
-                </Pressable>
+                  <Edit3 size={20} color={colors.text.secondary} />
+                </PremiumPressable>
 
-                <Pressable
-                  onPress={() => setShowRegenerateOptions(!showRegenerateOptions)}
-                  style={({ pressed }) => [mcStyles.secondaryBtn, { opacity: pressed ? 0.8 : 1 }]}
+                <PremiumPressable
+                  hapticFeedback="light"
+                  onPress={() => onRegenerateAiDraft()}
+                  style={mcStyles.v2IconBtn}
                 >
-                  <RefreshCw size={14} color={colors.text.muted} />
-                  <Text style={mcStyles.secondaryBtnText}>Regenerate</Text>
-                  <ChevronDown size={12} color={colors.text.disabled} style={{ marginLeft: 2 }} />
-                </Pressable>
-
-                <Pressable
-                  onPress={onDismissAiDraft}
-                  style={({ pressed }) => [mcStyles.iconBtn, { opacity: pressed ? 0.8 : 1 }]}
-                >
-                  <X size={18} color={colors.text.disabled} />
-                </Pressable>
+                  <RefreshCw size={20} color={colors.text.secondary} />
+                </PremiumPressable>
 
                 {onOpenActionsSheet && (
-                  <Pressable
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onOpenActionsSheet(); }}
-                    onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onOpenActionsSheet(); }}
-                    style={({ pressed }) => [mcStyles.iconBtn, { backgroundColor: `${colors.bg.hover}80`, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] }]}
+                  <PremiumPressable
+                    hapticFeedback="light"
+                    onPress={onOpenActionsSheet}
+                    style={mcStyles.v2MoreBtn}
                   >
-                    <MoreHorizontal size={18} color="#6366F1" />
-                  </Pressable>
+                    <MoreHorizontal size={20} color={colors.text.disabled} />
+                  </PremiumPressable>
                 )}
               </View>
 
-              {showRegenerateOptions && (
-                <Animated.View entering={FadeInUp.duration(200)} style={mcStyles.regenRow}>
-                  {(aiDraft?.regenerationOptions || [
-                    { id: 'empathy', label: 'More Empathy', modifier: 'empathy' as const },
-                    { id: 'shorter', label: 'Shorter', modifier: 'shorter' as const },
-                    { id: 'longer', label: 'More Details', modifier: 'longer' as const },
-                    { id: 'formal', label: 'Formal', modifier: 'formal' as const },
-                    { id: 'casual', label: 'Casual', modifier: 'casual' as const },
-                  ]).map((option) => {
-                    const config = regenerationConfig[option.modifier];
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => handleRegenerate(option.modifier)}
-                        style={({ pressed }) => [mcStyles.regenBtn, { backgroundColor: config?.bgColor || colors.bg.hover, opacity: pressed ? 0.8 : 1 }]}
-                      >
-                        {config?.icon}
-                        <Text style={[mcStyles.regenLabel, { color: config?.color || colors.text.muted }]}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </Animated.View>
-              )}
+              {/* 4. Show Reasoning toggle */}
+              <PremiumPressable
+                hapticFeedback="light"
+                onPress={() => setShowReasoning(!showReasoning)}
+                style={mcStyles.v2ReasoningToggle}
+              >
+                <Sparkles size={14} color={colors.text.disabled} />
+                <Text style={mcStyles.v2ReasoningText}>
+                  {showReasoning ? 'Hide reasoning & limits' : 'Show reasoning & limits'}
+                </Text>
+                <ChevronDown size={14} color={colors.text.disabled} style={{ transform: [{ rotate: showReasoning ? '180deg' : '0deg' }] }} />
+              </PremiumPressable>
 
-              {aiDraft && (
-                <Pressable
-                  onPress={() => setShowReasoning(!showReasoning)}
-                  style={({ pressed }) => [mcStyles.reasoningToggle, { opacity: pressed ? 0.7 : 1 }]}
-                >
-                  <Sparkles size={10} color={colors.text.disabled} />
-                  <Text style={mcStyles.reasoningLabel}>
-                    {showReasoning ? 'Hide reasoning' : 'Show reasoning'}
-                  </Text>
-                  <ChevronDown size={10} color={colors.text.disabled} style={{ marginLeft: 2, transform: [{ rotate: showReasoning ? '180deg' : '0deg' }] }} />
-                </Pressable>
-              )}
-              {aiDraft && showReasoning && (
-                <View style={{ marginTop: spacing['1'] }}>
-                <AIReasoningSection
-                  response={{
-                    content: aiDraft.content,
-                    sentiment: aiDraft.sentiment || { primary: 'neutral', intensity: 50, emotions: [], requiresEscalation: false },
-                    topics: [],
-                    confidence: aiDraft.confidenceDetails || {
-                      overall: aiDraft.confidence,
-                      factors: { sentimentMatch: 80, knowledgeAvailable: 70, topicCoverage: 85, styleMatch: 75, safetyCheck: 90 },
-                      warnings: [],
-                      blockedForAutoSend: false,
-                    },
-                    actionItems: aiDraft.actionItems || [],
-                    knowledgeConflicts: aiDraft.knowledgeConflicts || [],
-                    detectedLanguage: 'en',
-                    regenerationOptions: aiDraft.regenerationOptions || [],
-                    historicalMatches: aiDraft.historicalMatches,
-                  }}
-                  onFixConflict={onFixConflict ? (_conflict, field, newValue) => {
-                    onFixConflict(field, newValue);
-                  } : undefined}
-                />
+              {showReasoning && (
+                <View style={{ marginTop: spacing['2'] }}>
+                  <AIReasoningSection
+                    response={{
+                      content: aiDraft?.content || '',
+                      sentiment: aiDraft?.sentiment || { primary: 'neutral', intensity: 50, emotions: [], requiresEscalation: false },
+                      topics: [],
+                      confidence: aiDraft?.confidenceDetails || {
+                        overall: aiDraft?.confidence || 0,
+                        factors: { sentimentMatch: 80, knowledgeAvailable: 70, topicCoverage: 85, styleMatch: 75, safetyCheck: 90 },
+                        warnings: [],
+                        blockedForAutoSend: false,
+                      },
+                      actionItems: aiDraft?.actionItems || [],
+                      knowledgeConflicts: aiDraft?.knowledgeConflicts || [],
+                      detectedLanguage: 'en',
+                      regenerationOptions: aiDraft?.regenerationOptions || [],
+                      historicalMatches: aiDraft?.historicalMatches,
+                    }}
+                    onFixConflict={onFixConflict ? (_conflict, field, newValue) => {
+                      onFixConflict(field, newValue);
+                    } : undefined}
+                  />
                 </View>
               )}
             </>
           )}
-          </View>
-          </ScrollView>
         </Animated.View>
       )}
 
-      {/* Manual Mode: Generating indicator above text box */}
-      {!autoPilotEnabled && isGenerating && !isEditingDraft && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
-          style={[mcStyles.draftPanel, mcStyles.purplePanel, mcStyles.panelInner]}
-        >
-          <View style={mcStyles.rowCenter}>
-            <ActivityIndicator size="small" color="#A855F7" />
-            <Text style={[mcStyles.purpleLabel, { marginLeft: spacing['2'] }]}>Analyzing message and generating suggestion...</Text>
-          </View>
-        </Animated.View>
-      )}
 
-      {/* Edit Draft Mode - Manual mode AI suggestions */}
-      {isEditingDraft && !autoPilotEnabled && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
-          style={[mcStyles.draftPanel, mcStyles.purplePanel]}
-        >
-          <ScrollView
-            keyboardShouldPersistTaps="always"
-            contentContainerStyle={{ flexGrow: 1 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={mcStyles.panelInner}>
-              <View style={mcStyles.headerSpaceBetween}>
-                <View style={[mcStyles.rowCenter, { flex: 1 }]}>
-                  <Wand2 size={14} color="#A855F7" />
-                  <Text style={[mcStyles.purpleLabel, { fontFamily: typography.fontFamily.medium }]}>
-                    AI Suggestion
-                  </Text>
-
-                  {aiDraft && (
-                    <Pressable
-                      onPress={() => setShowConfidenceDetails(!showConfidenceDetails)}
-                      style={[mcStyles.confidenceBadge, { backgroundColor: 'rgba(168,85,247,0.2)' }]}
-                    >
-                      <Gauge size={10} color={getConfidenceColor(aiDraft.confidence)} />
-                      <Text style={[mcStyles.badgeText, { color: getConfidenceColor(aiDraft.confidence) }]}>
-                        {aiDraft.confidence}%
-                      </Text>
-                    </Pressable>
-                  )}
-
-                  {sentiment && (
-                    <View style={[mcStyles.sentimentBadge, { backgroundColor: `${getSentimentColor(sentiment.primary)}20` }]}>
-                      <Text style={[mcStyles.badgeText, { color: getSentimentColor(sentiment.primary), textTransform: 'capitalize' }]}>
-                        {sentiment.primary}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <Pressable
-                  onPress={handleClearSuggestion}
-                  style={({ pressed }) => [{ padding: spacing['1.5'] }, { opacity: pressed ? 0.6 : 1 }]}
-                >
-                  <X size={16} color={colors.text.disabled} />
-                </Pressable>
-              </View>
-
-              {hasWarnings && (
-                <View style={{ marginBottom: spacing['2'] }}>
-                  {confidenceDetails?.warnings.slice(0, 1).map((warning, idx) => (
-                    <View key={idx} style={mcStyles.rowCenter}>
-                      <AlertTriangle size={10} color="#F59E0B" />
-                      <Text style={[mcStyles.warningText, { opacity: 0.8 }]}>{warning}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              {showConfidenceDetails && confidenceDetails && (
-                <Animated.View entering={FadeInUp.duration(200)} style={[mcStyles.confidencePanel, { marginBottom: spacing['2'] }]}>
-                  <Text style={mcStyles.confidenceTitle}>Confidence Breakdown</Text>
-                  {Object.entries(confidenceDetails.factors).map(([key, value]) => (
-                    <View key={key} style={[mcStyles.factorRow, { marginBottom: spacing['1'] }]}>
-                      <Text style={mcStyles.factorLabel}>
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </Text>
-                      <Text style={[mcStyles.factorValue, { color: getConfidenceColor(value) }]}>
-                        {value}%
-                      </Text>
-                    </View>
-                  ))}
-                </Animated.View>
-              )}
-
-              <TextInput
-                ref={draftInputRef}
-                value={editedDraft}
-                onChangeText={setEditedDraft}
-                multiline
-                scrollEnabled={true}
-                style={mcStyles.editDraftInput}
-                placeholderTextColor={colors.text.disabled}
-                placeholder="Edit the suggestion..."
-                selectionColor="#A855F7"
-                textAlignVertical="top"
-                editable={true}
-              />
-
-              <View style={mcStyles.actionRow}>
-                <Pressable
-                  onPress={handleSaveEdit}
-                  style={({ pressed }) => [mcStyles.actionBtn, { backgroundColor: '#A855F7', opacity: pressed ? 0.8 : 1 }]}
-                >
-                  <Send size={14} color="#FFFFFF" />
-                  <Text style={mcStyles.actionBtnText}>Send</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={handleClearSuggestion}
-                  style={({ pressed }) => [mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3`, opacity: pressed ? 0.8 : 1 }]}
-                >
-                  <Trash2 size={14} color={colors.danger.DEFAULT} />
-                  <Text style={[mcStyles.secondaryBtnText, { color: colors.danger.DEFAULT }]}>Clear</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => setShowRegenerateOptions(!showRegenerateOptions)}
-                  style={({ pressed }) => [mcStyles.secondaryBtn, { opacity: pressed ? 0.8 : 1 }]}
-                >
-                  <RefreshCw size={14} color={colors.text.muted} />
-                  <Text style={mcStyles.secondaryBtnText}>Regenerate</Text>
-                  <ChevronDown size={12} color={colors.text.disabled} style={{ marginLeft: 2 }} />
-                </Pressable>
-
-                {onOpenActionsSheet && (
-                  <Pressable
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onOpenActionsSheet(); }}
-                    onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onOpenActionsSheet(); }}
-                    style={({ pressed }) => [mcStyles.actionBtn, { backgroundColor: 'rgba(99,102,241,0.2)', opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.95 : 1 }] }]}
-                  >
-                    <MoreHorizontal size={14} color="#6366F1" />
-                    <Text style={[mcStyles.actionBtnText, { color: '#818CF8' }]}>More</Text>
-                  </Pressable>
-                )}
-              </View>
-
-              {showRegenerateOptions && (
-                <Animated.View entering={FadeInUp.duration(200)} style={mcStyles.regenRow}>
-                  {[
-                    { id: 'empathy', label: 'More Empathy', modifier: 'empathy' as const },
-                    { id: 'shorter', label: 'Shorter', modifier: 'shorter' as const },
-                    { id: 'longer', label: 'Detailed', modifier: 'longer' as const },
-                    { id: 'formal', label: 'Formal', modifier: 'formal' as const },
-                    { id: 'casual', label: 'Casual', modifier: 'casual' as const },
-                  ].map((option) => {
-                    const config = regenerationConfig[option.modifier];
-                    return (
-                      <Pressable
-                        key={option.id}
-                        onPress={() => handleRegenerate(option.modifier)}
-                        style={({ pressed }) => [mcStyles.regenBtn, { backgroundColor: config?.bgColor || colors.bg.hover, opacity: pressed ? 0.8 : 1 }]}
-                      >
-                        {config?.icon}
-                        <Text style={[mcStyles.regenLabel, { color: config?.color || colors.text.muted }]}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </Animated.View>
-              )}
-
-              {aiDraft && (
-                <Pressable
-                  onPress={() => setShowReasoning(!showReasoning)}
-                  style={({ pressed }) => [mcStyles.reasoningToggle, { opacity: pressed ? 0.7 : 1 }]}
-                >
-                  <Sparkles size={10} color={colors.text.disabled} />
-                  <Text style={mcStyles.reasoningLabel}>
-                    {showReasoning ? 'Hide reasoning' : 'Show reasoning'}
-                  </Text>
-                  <ChevronDown size={10} color={colors.text.disabled} style={{ marginLeft: 2, transform: [{ rotate: showReasoning ? '180deg' : '0deg' }] }} />
-                </Pressable>
-              )}
-              {aiDraft && showReasoning && (
-                <AIReasoningSection
-                  response={{
-                    content: aiDraft.content,
-                    sentiment: aiDraft.sentiment || { primary: 'neutral', intensity: 50, emotions: [], requiresEscalation: false },
-                    topics: [],
-                    confidence: aiDraft.confidenceDetails || {
-                      overall: aiDraft.confidence,
-                      factors: { sentimentMatch: 80, knowledgeAvailable: 70, topicCoverage: 85, styleMatch: 75, safetyCheck: 90 },
-                      warnings: [],
-                      blockedForAutoSend: false,
-                    },
-                    actionItems: aiDraft.actionItems || [],
-                    knowledgeConflicts: aiDraft.knowledgeConflicts || [],
-                    detectedLanguage: 'en',
-                    regenerationOptions: aiDraft.regenerationOptions || [],
-                    historicalMatches: aiDraft.historicalMatches,
-                  }}
-                  onFixConflict={onFixConflict ? (_conflict, field, newValue) => {
-                    onFixConflict(field, newValue);
-                  } : undefined}
-                />
-              )}
-            </View>
-          </ScrollView>
-        </Animated.View>
-      )}
-
-      {/* Edit Draft Mode - Auto-pilot mode */}
-      {isEditingDraft && autoPilotEnabled && (
+      {/* Edit Draft Mode — visible in ALL modes */}
+      {isEditingDraft && (
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(200)}
@@ -711,12 +414,13 @@ export function MessageComposer({
                     Editing AI Draft
                   </Text>
                 </View>
-                <Pressable
+                <PremiumPressable
+                  hapticFeedback="light"
                   onPress={handleClearSuggestion}
-                  style={({ pressed }) => [{ padding: spacing['1.5'] }, { opacity: pressed ? 0.6 : 1 }]}
+                  style={{ padding: spacing['1.5'] }}
                 >
                   <X size={16} color={colors.text.disabled} />
-                </Pressable>
+                </PremiumPressable>
               </View>
               <TextInput
                 ref={draftInputRef}
@@ -732,28 +436,31 @@ export function MessageComposer({
                 editable={true}
               />
               <View style={mcStyles.actionRow}>
-                <Pressable
+                <PremiumPressable
+                  hapticFeedback="medium"
                   onPress={handleSaveEdit}
-                  style={({ pressed }) => [mcStyles.actionBtn, { backgroundColor: colors.accent.DEFAULT, opacity: pressed ? 0.8 : 1 }]}
+                  style={[mcStyles.actionBtnActive, { backgroundColor: colors.accent.DEFAULT, flex: 0, paddingHorizontal: spacing['5'] }]}
                 >
-                  <Check size={14} color="#FFFFFF" />
-                  <Text style={mcStyles.actionBtnText}>Save & Send</Text>
-                </Pressable>
+                  <Check size={16} color="#FFFFFF" />
+                  <Text style={[mcStyles.actionBtnText, { fontSize: 14 }]}>Save & Send</Text>
+                </PremiumPressable>
 
-                <Pressable
+                <PremiumPressable
+                  hapticFeedback="light"
                   onPress={handleClearSuggestion}
-                  style={({ pressed }) => [mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3`, opacity: pressed ? 0.8 : 1 }]}
+                  style={[mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3` }]}
                 >
                   <Trash2 size={14} color={colors.danger.DEFAULT} />
                   <Text style={[mcStyles.secondaryBtnText, { color: colors.danger.DEFAULT }]}>Clear</Text>
-                </Pressable>
+                </PremiumPressable>
 
-                <Pressable
+                <PremiumPressable
+                  hapticFeedback="light"
                   onPress={handleCancelEdit}
-                  style={({ pressed }) => [mcStyles.secondaryBtn, { opacity: pressed ? 0.8 : 1 }]}
+                  style={mcStyles.secondaryBtn}
                 >
                   <Text style={mcStyles.secondaryBtnText}>Cancel</Text>
-                </Pressable>
+                </PremiumPressable>
               </View>
             </View>
           </ScrollView>
@@ -775,12 +482,13 @@ export function MessageComposer({
           )}
         <View style={mcStyles.inputRow}>
           {onAttachMedia && (
-            <Pressable
+            <PremiumPressable
+              hapticFeedback="light"
               onPress={onAttachMedia}
-              style={({ pressed }) => [mcStyles.attachBtn, { opacity: pressed ? 0.7 : 1 }]}
+              style={mcStyles.attachBtn}
             >
               <Paperclip size={18} color={colors.text.disabled} />
-            </Pressable>
+            </PremiumPressable>
           )}
 
           <ModelPicker compact />
@@ -803,17 +511,19 @@ export function MessageComposer({
               />
             )}
           </View>
-          <Pressable
+          <PremiumPressable
+            hapticFeedback="medium"
+            springReleaseConfig="bouncy"
             onPress={handleSend}
             disabled={!message.trim() || disabled || isGenerating}
-            style={({ pressed }) => [mcStyles.sendBtn, { backgroundColor: message.trim() && !isGenerating ? colors.accent.DEFAULT : colors.bg.hover, opacity: pressed ? 0.8 : 1 }]}
+            style={[mcStyles.sendBtn, { backgroundColor: message.trim() && !isGenerating ? colors.accent.DEFAULT : colors.bg.hover }]}
           >
             <Send
               size={20}
               color={message.trim() && !isGenerating ? '#FFFFFF' : colors.text.disabled}
               style={{ marginLeft: 2 }}
             />
-          </Pressable>
+          </PremiumPressable>
         </View>
         </View>
       )}
@@ -828,18 +538,30 @@ const mcStyles = StyleSheet.create({
     borderTopColor: colors.border.subtle,
   },
   draftPanel: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
+    paddingBottom: spacing['2'],
   },
   tealPanel: {
-    backgroundColor: `${colors.primary.DEFAULT}10`,
-  },
-  purplePanel: {
-    backgroundColor: 'rgba(168,85,247,0.08)',
+    backgroundColor: colors.bg.elevated,
+    marginHorizontal: spacing['3'],
+    marginBottom: spacing['2'],
+    borderRadius: radius['2xl'],
+    ...elevation.shadows.premium.md,
   },
   panelInner: {
     paddingHorizontal: spacing['4'],
     paddingVertical: spacing['3'],
+  },
+  messageContainer: {
+    paddingVertical: spacing['2'],
+    marginBottom: spacing['2'],
+  },
+  warningContainer: {
+    backgroundColor: '#FFFBEB', // amber-50
+    padding: spacing['2'],
+    borderRadius: radius.md,
+    marginBottom: spacing['3'],
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B', // amber-500
   },
   rowCenter: {
     flexDirection: 'row' as const,
@@ -964,22 +686,33 @@ const mcStyles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    flexWrap: 'wrap' as const,
+    gap: spacing['2'],
   },
-  actionBtn: {
+  actionBtnActive: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     paddingHorizontal: spacing['4'],
-    paddingVertical: spacing['2'],
+    paddingVertical: 12,
     borderRadius: radius.full,
-    marginRight: spacing['2'],
-    marginBottom: spacing['1'],
+    flex: 1,
+    backgroundColor: colors.primary.DEFAULT,
+  },
+  actionBtnDisabled: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: spacing['4'],
+    paddingVertical: 12,
+    borderRadius: radius.full,
+    flex: 1,
+    backgroundColor: colors.bg.hover,
   },
   actionBtnText: {
     color: '#FFFFFF',
-    fontFamily: typography.fontFamily.semibold,
-    marginLeft: spacing['1.5'],
-    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    marginLeft: spacing['2'],
+    fontSize: 15,
   },
   secondaryBtn: {
     flexDirection: 'row' as const,
@@ -1001,8 +734,14 @@ const mcStyles = StyleSheet.create({
     padding: spacing['2'],
     borderRadius: radius.full,
     backgroundColor: colors.bg.hover,
-    marginRight: spacing['1'],
-    marginBottom: spacing['1'],
+  },
+  iconBtnAlt: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: `${colors.primary.DEFAULT}10`,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   regenRow: {
     flexDirection: 'row' as const,
@@ -1106,5 +845,131 @@ const mcStyles = StyleSheet.create({
     borderRadius: radius.full,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+  },
+
+  // ── V2 Premium AI Draft Styles (matching chat-premium-draft.html) ──
+  v2GlassPanel: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 24,
+    padding: 16,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+  },
+  v2HeaderRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 16,
+  },
+  v2HeaderTitle: {
+    fontSize: 16,
+    fontFamily: typography.fontFamily.bold,
+    color: '#0F766E', // teal-700
+    marginLeft: 8,
+    letterSpacing: -0.3,
+  },
+  v2ConfidenceText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary.DEFAULT,
+    marginLeft: 4,
+  },
+  v2SentimentBadge: {
+    backgroundColor: '#ECFDF5', // emerald-50
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: '#D1FAE5', // emerald-100
+    marginLeft: 8,
+  },
+  v2SentimentText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#047857', // emerald-700
+    textTransform: 'capitalize' as const,
+  },
+  v2DraftCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.15)', // teal-100/40
+    shadowColor: 'rgba(20, 184, 166, 0.06)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 2,
+    marginBottom: 12,
+  },
+  v2DraftText: {
+    color: '#000000',
+    fontSize: 16,
+    lineHeight: 23,
+    letterSpacing: -0.16,
+    fontFamily: typography.fontFamily.medium,
+  },
+  v2ActionRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  v2SendBtn: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.primary.DEFAULT,
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 8,
+    shadowColor: colors.primary.DEFAULT,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  v2SendBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: typography.fontFamily.bold,
+  },
+  v2IconBtn: {
+    backgroundColor: '#F1F5F9', // slate-100
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  v2MoreBtn: {
+    backgroundColor: '#F8FAFC', // slate-50
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  v2ReasoningToggle: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingLeft: 4,
+    paddingTop: 4,
+    marginTop: 4,
+  },
+  v2ReasoningText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.text.disabled,
   },
 });

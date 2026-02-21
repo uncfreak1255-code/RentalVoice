@@ -168,6 +168,7 @@
     "prettier": "^3.3.3",
     "react-native-svg-transformer": "^1.5.1",
     "react-test-renderer": "19.0.0",
+    "ts-jest": "^29.4.6",
     "typescript": "~5.8.3"
   },
   "private": true

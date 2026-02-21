@@ -1,32 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeInUp, SlideInRight, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { MessageSquare, Key, ArrowRight, Sparkles, Shield, Zap, User, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { useAppStore, type Property, type Conversation, type Message, type Guest } from '@/lib/store';
+import { useAppStore, type Conversation, type Guest, type PMSProvider } from '@/lib/store';
 import { demoConversations, demoProperties } from '@/lib/mockData';
-import { validateCredentials, fetchListings, fetchConversations, fetchMessages, fetchReservation, extractGuestName, initializeConnection, type HostawayListing, type HostawayConversation, type HostawayMessage } from '@/lib/hostaway';
+import { validateCredentials, fetchListings, fetchConversations, fetchMessages, fetchReservation, extractGuestName, initializeConnection } from '@/lib/hostaway';
+import { convertListingToProperty, getChannelPlatform, convertHostawayMessage } from '@/lib/hostaway-utils';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
+const PMS_OPTIONS: { key: PMSProvider; name: string; color: string; subtitle: string; fieldId: string; fieldKey: string; comingSoon?: boolean }[] = [
+  { key: 'hostaway', name: 'Hostaway', color: '#14B8A6', subtitle: 'Enter your Hostaway credentials to sync properties and conversations', fieldId: 'Account ID', fieldKey: 'API Key' },
+  { key: 'guesty', name: 'Guesty', color: '#6366F1', subtitle: 'Enter your Guesty API token to sync properties and conversations', fieldId: 'Account ID', fieldKey: 'API Token' },
+  { key: 'lodgify', name: 'Lodgify', color: '#F59E0B', subtitle: 'Lodgify integration coming soon', fieldId: 'Property ID', fieldKey: 'API Key', comingSoon: true },
+];
+
 interface OnboardingScreenProps { onComplete: () => void; }
-
-function convertListingToProperty(listing: HostawayListing): Property {
-  return { id: String(listing.id), name: listing.name || listing.externalListingName || 'Unnamed Property', address: [listing.address, listing.city, listing.state].filter(Boolean).join(', '), image: listing.thumbnailUrl || listing.picture };
-}
-
-function getChannelPlatform(channelName?: string): 'airbnb' | 'booking' | 'vrbo' | 'direct' {
-  const n = (channelName || '').toLowerCase();
-  if (n.includes('airbnb')) return 'airbnb';
-  if (n.includes('booking')) return 'booking';
-  if (n.includes('vrbo') || n.includes('homeaway')) return 'vrbo';
-  return 'direct';
-}
-
-function convertHostawayMessage(msg: HostawayMessage, conversationId: string): Message {
-  return { id: String(msg.id), conversationId, content: msg.body || '', sender: msg.isIncoming ? 'guest' : 'host', timestamp: new Date(msg.sentOn || msg.insertedOn), isRead: true };
-}
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
@@ -42,6 +33,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const setCredentials = useAppStore((s) => s.setCredentials);
   const setConversations = useAppStore((s) => s.setConversations);
   const setProperties = useAppStore((s) => s.setProperties);
+  const updateSettings = useAppStore((s) => s.updateSettings);
+  const [selectedPms, setSelectedPms] = useState<PMSProvider>('hostaway');
+  const pmsConfig = PMS_OPTIONS.find((p) => p.key === selectedPms) || PMS_OPTIONS[0];
 
   useEffect(() => { progress.value = withSpring((step + 1) / 3, { damping: 15 }); }, [step, progress]);
 
@@ -80,6 +74,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       }
       await initializeConnection(accountId.trim(), apiKey.trim());
       setCredentials(accountId.trim(), apiKey.trim()); setDemoMode(false); setProperties(properties); setConversations(conversations); setOnboarded(true);
+      updateSettings({ pmsProvider: selectedPms });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setStatusMessage(null); setIsValidating(false); onComplete();
     } catch (err) {
       console.error('[Onboarding]', err); setError('Failed to connect to Hostaway. Please try again.'); setStatusMessage(null); setIsValidating(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -136,18 +131,37 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               <Animated.View entering={SlideInRight.duration(400)} style={ob.stepWrap}>
                 <View style={ob.logoWrap}>
                   <View style={ob.keyBox}><Key size={32} color={colors.primary.DEFAULT} /></View>
-                  <Text style={ob.stepTitle}>Connect Hostaway</Text>
-                  <Text style={ob.stepSub}>Enter your Hostaway credentials to sync your properties and conversations</Text>
+                  <Text style={ob.stepTitle}>Connect Your PMS</Text>
+                  <Text style={ob.stepSub}>{pmsConfig.subtitle}</Text>
                 </View>
-                <View style={ob.inputCard}><Text style={ob.inputLabel}>Account ID</Text><View style={ob.inputRow}><User size={18} color={colors.text.disabled} /><TextInput value={accountId} onChangeText={setAccountId} placeholder="Enter your Account ID" placeholderTextColor={colors.text.disabled} style={ob.input} autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" /></View></View>
-                <View style={ob.inputCard}><Text style={ob.inputLabel}>API Key</Text><View style={ob.inputRow}><Key size={18} color={colors.text.disabled} /><TextInput value={apiKey} onChangeText={setApiKey} placeholder="Enter your Hostaway API key" placeholderTextColor={colors.text.disabled} style={ob.input} secureTextEntry autoCapitalize="none" autoCorrect={false} /></View></View>
+                {/* PMS Provider Pills */}
+                <View style={{ flexDirection: 'row', gap: spacing['2'], marginBottom: spacing['4'] }}>
+                  {PMS_OPTIONS.map((p) => (
+                    <Pressable
+                      key={p.key}
+                      onPress={() => { if (!p.comingSoon) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedPms(p.key); setError(null); } }}
+                      style={({ pressed }) => ({
+                        flex: 1, paddingVertical: spacing['3'], borderRadius: radius.md, alignItems: 'center' as const,
+                        backgroundColor: selectedPms === p.key ? p.color + '20' : colors.bg.elevated + '80',
+                        borderWidth: selectedPms === p.key ? 1.5 : 1,
+                        borderColor: selectedPms === p.key ? p.color : colors.border.subtle,
+                        opacity: p.comingSoon ? 0.4 : pressed ? 0.8 : 1,
+                      })}
+                    >
+                      <Text style={{ color: selectedPms === p.key ? p.color : colors.text.muted, fontFamily: typography.fontFamily.medium, fontSize: 13 }}>{p.name}</Text>
+                      {p.comingSoon && <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>Soon</Text>}
+                    </Pressable>
+                  ))}
+                </View>
+                <View style={ob.inputCard}><Text style={ob.inputLabel}>{pmsConfig.fieldId}</Text><View style={ob.inputRow}><User size={18} color={colors.text.disabled} /><TextInput value={accountId} onChangeText={setAccountId} placeholder={`Enter your ${pmsConfig.fieldId}`} placeholderTextColor={colors.text.disabled} style={ob.input} autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" /></View></View>
+                <View style={ob.inputCard}><Text style={ob.inputLabel}>{pmsConfig.fieldKey}</Text><View style={ob.inputRow}><Key size={18} color={colors.text.disabled} /><TextInput value={apiKey} onChangeText={setApiKey} placeholder={`Enter your ${pmsConfig.name} ${pmsConfig.fieldKey}`} placeholderTextColor={colors.text.disabled} style={ob.input} secureTextEntry autoCapitalize="none" autoCorrect={false} /></View></View>
                 {error && <View style={ob.errRow}><AlertCircle size={18} color={colors.danger.DEFAULT} /><Text style={ob.errText}>{error}</Text></View>}
                 {statusMessage && <View style={ob.statusRow}><Sparkles size={18} color={colors.primary.DEFAULT} /><Text style={ob.statusText}>{statusMessage}</Text></View>}
                 <View style={ob.secRow}><Shield size={18} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} /><Text style={ob.secText}>Your credentials are stored securely on your device and never shared with third parties.</Text></View>
                 <Pressable style={ob.helpLink}><Text style={ob.helpText}>Where do I find my API credentials?</Text></Pressable>
                 <View style={{ paddingBottom: spacing['6'] }}>
-                  <Pressable onPress={handleConnectHostaway} disabled={!hasInput || isValidating} style={({ pressed }) => [ob.ctaBtn, { backgroundColor: hasInput && !isValidating ? colors.accent.DEFAULT : colors.bg.hover, marginBottom: spacing['3'], opacity: pressed ? 0.9 : 1 }]}>
-                    <Text style={[ob.ctaText, { color: hasInput ? '#FFF' : colors.text.disabled }]}>{isValidating ? (statusMessage || 'Connecting...') : 'Connect Hostaway'}</Text>
+                  <Pressable onPress={handleConnectHostaway} disabled={!hasInput || isValidating || pmsConfig.comingSoon} style={({ pressed }) => [ob.ctaBtn, { backgroundColor: hasInput && !isValidating && !pmsConfig.comingSoon ? colors.accent.DEFAULT : colors.bg.hover, marginBottom: spacing['3'], opacity: pressed ? 0.9 : 1 }]}>
+                    <Text style={[ob.ctaText, { color: hasInput ? '#FFF' : colors.text.disabled }]}>{isValidating ? (statusMessage || 'Connecting...') : `Connect ${pmsConfig.name}`}</Text>
                     {!isValidating && <ArrowRight size={20} color={hasInput ? '#FFF' : colors.text.disabled} style={{ marginLeft: spacing['2'] }} />}
                   </Pressable>
                   <Pressable onPress={handleStartDemo} disabled={isValidating} style={({ pressed }) => [ob.demoBtn, { opacity: pressed || isValidating ? 0.7 : 1 }]}>

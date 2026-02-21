@@ -55,7 +55,7 @@ export function GuestPortal({ propertyId, guestName, checkInDate, checkOutDate, 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={gp.header}>
-          <Pressable onPress={onBack} style={({ pressed }) => [gp.headerBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color="#FFFFFF" /></Pressable>
+          <Pressable onPress={onBack} style={({ pressed }) => [gp.headerBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
           <Pressable onPress={handleShare} style={({ pressed }) => [gp.headerBtn, { opacity: pressed ? 0.7 : 1 }]}><Share2 size={20} color="#FFFFFF" /></Pressable>
         </Animated.View>
 
