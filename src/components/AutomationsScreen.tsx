@@ -14,10 +14,10 @@ interface AutomationsScreenProps { onBack: () => void; }
 type TriggerType = ScheduledMessage['triggerType'];
 type CategoryType = NonNullable<ScheduledMessage['category']>;
 
-const triggerLabels: Record<TriggerType, string> = { before_checkin: 'Before Check-in', after_checkin: 'After Check-in', before_checkout: 'Before Check-out', after_checkout: 'After Check-out', custom: 'Custom Schedule' };
-const triggerIcons: Record<TriggerType, React.ReactNode> = { before_checkin: <DoorOpen size={18} color="#14B8A6" />, after_checkin: <DoorOpen size={18} color="#22C55E" />, before_checkout: <DoorClosed size={18} color="#F97316" />, after_checkout: <DoorClosed size={18} color="#EF4444" />, custom: <Calendar size={18} color="#8B5CF6" /> };
-const categoryLabels: Record<CategoryType, string> = { check_in: 'Check-in', check_out: 'Check-out', welcome: 'Welcome', review_request: 'Review Request', issue_response: 'Issue Response', upsell: 'Upsell', custom: 'Custom' };
-const categoryIcons: Record<CategoryType, React.ReactNode> = { check_in: <DoorOpen size={16} color="#14B8A6" />, check_out: <DoorClosed size={16} color="#F97316" />, welcome: <Home size={16} color="#22C55E" />, review_request: <Star size={16} color="#F59E0B" />, issue_response: <AlertCircle size={16} color="#EF4444" />, upsell: <TrendingUp size={16} color="#8B5CF6" />, custom: <Mail size={16} color="#64748B" /> };
+const triggerLabels: Record<TriggerType, string> = { before_checkin: 'Before Check-in', after_checkin: 'After Check-in', before_checkout: 'Before Check-out', after_checkout: 'After Check-out', rent_reminder: 'Rent Reminder', late_rent: 'Late Rent', lease_renewal: 'Lease Renewal', inspection: 'Inspection', seasonal: 'Seasonal', custom: 'Custom Schedule' };
+const triggerIcons: Record<TriggerType, React.ReactNode> = { before_checkin: <DoorOpen size={18} color="#14B8A6" />, after_checkin: <DoorOpen size={18} color="#22C55E" />, before_checkout: <DoorClosed size={18} color="#F97316" />, after_checkout: <DoorClosed size={18} color="#EF4444" />, rent_reminder: <Calendar size={18} color="#F59E0B" />, late_rent: <AlertCircle size={18} color="#EF4444" />, lease_renewal: <Calendar size={18} color="#14B8A6" />, inspection: <Home size={18} color="#3B82F6" />, seasonal: <Star size={18} color="#F59E0B" />, custom: <Calendar size={18} color="#8B5CF6" /> };
+const categoryLabels: Record<CategoryType, string> = { check_in: 'Check-in', check_out: 'Check-out', welcome: 'Welcome', review_request: 'Review Request', issue_response: 'Issue Response', upsell: 'Upsell', rent: 'Rent', lease: 'Lease', maintenance: 'Maintenance', custom: 'Custom' };
+const categoryIcons: Record<CategoryType, React.ReactNode> = { check_in: <DoorOpen size={16} color="#14B8A6" />, check_out: <DoorClosed size={16} color="#F97316" />, welcome: <Home size={16} color="#22C55E" />, review_request: <Star size={16} color="#F59E0B" />, issue_response: <AlertCircle size={16} color="#EF4444" />, upsell: <TrendingUp size={16} color="#8B5CF6" />, rent: <Calendar size={16} color="#22C55E" />, lease: <Mail size={16} color="#3B82F6" />, maintenance: <AlertCircle size={16} color="#F97316" />, custom: <Mail size={16} color="#64748B" /> };
 
 interface SmartTemplatePreset { name: string; trigger: TriggerType; hours: number; template: string; category: CategoryType; aiPersonalization: boolean; personalizationInstructions?: string; }
 
@@ -131,7 +131,7 @@ export function AutomationsScreen({ onBack }: AutomationsScreenProps) {
               </Pressable>
             </View>
           ) : (
-            <FlashList data={scheduledMessages} renderItem={renderMessage} keyExtractor={(item) => item.id} estimatedItemSize={140} showsVerticalScrollIndicator={false} />
+            <FlashList data={scheduledMessages} renderItem={renderMessage} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} />
           )}
         </View>
       </SafeAreaView>
@@ -237,7 +237,7 @@ const au = StyleSheet.create({
   circBtn: { width: 40, height: 40, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   infoBanner: { backgroundColor: '#A855F720', borderRadius: radius.xl, padding: spacing['4'], flexDirection: 'row', alignItems: 'flex-start' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: colors.bg.base, borderTopLeftRadius: radius['3xl'], borderTopRightRadius: radius['3xl'], maxHeight: '90%' },
+  modalSheet: { backgroundColor: colors.bg.base, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], maxHeight: '90%' },
   modalHeader: { padding: spacing['4'], borderBottomWidth: 1, borderBottomColor: colors.border.DEFAULT },
   modalTitle: { color: colors.text.primary, fontSize: 20, fontFamily: typography.fontFamily.bold },
   label: { color: colors.text.muted, fontSize: 14, marginBottom: spacing['2'] },

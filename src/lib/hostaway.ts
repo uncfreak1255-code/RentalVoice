@@ -32,6 +32,55 @@ interface HostawayListing {
   picture?: string;
   propertyTypeId?: number;
   externalListingName?: string;
+
+  // ── Detailed fields (from /listings/{id}) ──
+  description?: string;
+  houseRules?: string;
+  wifiName?: string;
+  wifiPassword?: string;
+  checkInTimeStart?: number; // 0-23 or time int like 16 = 4pm
+  checkInTimeEnd?: number;
+  checkOutTime?: number;     // 0-23 or time int like 10 = 10am
+  personCapacity?: number;
+  maxNumberOfGuests?: number;
+  numberOfBedrooms?: number;
+  numberOfBathrooms?: number;
+  numberOfBeds?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  beds?: number;
+  price?: number;
+  cleaningFee?: number;
+  securityDepositFee?: number;
+  priceForExtraPerson?: number;
+  extraPersonFee?: number;
+  minimumStay?: number;
+  maximumStay?: number;
+  doorCode?: string;
+  doorSecurityCode?: string;
+  cancellationPolicy?: string;
+  cancellationPolicyAirbnb?: string;
+  cancellationPolicyBookingCom?: string;
+  checkInInstructions?: string;
+  checkOutInstructions?: string;
+  latitude?: number;
+  longitude?: number;
+  squareFeet?: number;
+  floor?: number;
+  propertyType?: string;
+  roomType?: string;
+
+  // Amenities as array of objects
+  listingAmenities?: { amenityId: number; amenityName?: string }[];
+  amenities?: number[];
+
+  // Bed type details
+  listingBedTypes?: {
+    bedTypeId: number;
+    quantity: number;
+    roomName?: string;
+    bedTypeName?: string;
+  }[];
 }
 
 interface HostawayConversation {
@@ -330,6 +379,37 @@ export async function fetchListings(
   const data: HostawayApiResponse<HostawayListing[]> = await response.json();
   console.log(`[Hostaway] Fetched ${data.result?.length || 0} listings`);
   return data.result || [];
+}
+
+/**
+ * Fetch detailed listing data for a single property.
+ * Returns the full listing object with WiFi, description, amenities, pricing, etc.
+ */
+export async function fetchListingDetail(
+  accountId: string,
+  apiKey: string,
+  listingId: number
+): Promise<HostawayListing | null> {
+  try {
+    const token = await getAccessToken(accountId, apiKey);
+    console.log(`[Hostaway] Fetching detail for listing ${listingId}...`);
+
+    const response = await fetch(`${HOSTAWAY_API_BASE}/listings/${listingId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      console.error(`[Hostaway] Listing detail error: ${response.status}`);
+      return null;
+    }
+
+    const data: HostawayApiResponse<HostawayListing> = await response.json();
+    console.log(`[Hostaway] Fetched detail for listing ${listingId}: ${data.result?.name || 'unknown'}`);
+    return data.result || null;
+  } catch (err) {
+    console.error('[Hostaway] fetchListingDetail error:', err);
+    return null;
+  }
 }
 
 /**

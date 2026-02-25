@@ -1,7 +1,7 @@
 // Guest Type Detection Service
 // Automatically detects guest type and adapts AI responses accordingly
 
-import type { Conversation, Message } from './store';
+import type { Conversation } from './store';
 
 export type GuestType =
   | 'family' // Families with children

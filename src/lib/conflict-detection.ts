@@ -29,6 +29,7 @@ export interface ConflictScanResult {
 // Field label mapping for display
 const FIELD_LABELS: Record<keyof PropertyKnowledge, string> = {
   propertyId: 'Property ID',
+  propertyType: 'Property Type',
   wifiName: 'WiFi Network Name',
   wifiPassword: 'WiFi Password',
   checkInTime: 'Check-in Time',
@@ -46,6 +47,25 @@ const FIELD_LABELS: Record<keyof PropertyKnowledge, string> = {
   earlyCheckInFee: 'Early Check-in Fee',
   lateCheckOutAvailable: 'Late Check-out Available',
   lateCheckOutFee: 'Late Check-out Fee',
+  leaseStartDate: 'Lease Start Date',
+  leaseEndDate: 'Lease End Date',
+  monthlyRent: 'Monthly Rent',
+  rentDueDay: 'Rent Due Day',
+  lateFeeAmount: 'Late Fee Amount',
+  lateFeeGracePeriod: 'Late Fee Grace Period',
+  paymentMethods: 'Payment Methods',
+  tenantPortalUrl: 'Tenant Portal URL',
+  maintenanceContactName: 'Maintenance Contact Name',
+  maintenanceContactPhone: 'Maintenance Contact Phone',
+  maintenanceEmergencyPhone: 'Maintenance Emergency Phone',
+  maintenanceHours: 'Maintenance Hours',
+  quietHoursPolicy: 'Quiet Hours Policy',
+  parkingPolicy: 'Parking Policy',
+  petPolicy: 'Pet Policy',
+  guestPolicy: 'Guest Policy',
+  smokingPolicy: 'Smoking Policy',
+  trashPolicy: 'Trash Policy',
+  utilityResponsibility: 'Utility Responsibility',
 };
 
 // Patterns for extracting information from messages

@@ -3,7 +3,6 @@
 // Identifies gaps and suggests improvements
 
 import type { Message, Conversation, QuickReplyTemplate, PropertyKnowledge } from './store';
-import { detectLanguage } from './ai-service';
 
 // Question category for analysis
 export interface QuestionCategory {
@@ -277,9 +276,9 @@ function questionSimilarity(q1: string, q2: string): number {
  * Group similar questions together
  */
 export function groupSimilarQuestions(
-  questions: Array<{ content: string; conversationId: string; timestamp: Date; propertyId: string }>
-): Map<string, Array<{ content: string; conversationId: string; timestamp: Date; propertyId: string }>> {
-  const groups = new Map<string, Array<{ content: string; conversationId: string; timestamp: Date; propertyId: string }>>();
+  questions: { content: string; conversationId: string; timestamp: Date; propertyId: string }[]
+): Map<string, { content: string; conversationId: string; timestamp: Date; propertyId: string }[]> {
+  const groups = new Map<string, { content: string; conversationId: string; timestamp: Date; propertyId: string }[]>();
   const threshold = 0.5; // Similarity threshold for grouping
 
   for (const question of questions) {
@@ -316,7 +315,7 @@ export function analyzeKnowledgeCoverage(
     : conversations;
 
   // Extract all guest questions
-  const allQuestions: Array<{ content: string; conversationId: string; timestamp: Date; propertyId: string }> = [];
+  const allQuestions: { content: string; conversationId: string; timestamp: Date; propertyId: string }[] = [];
 
   for (const conv of relevantConversations) {
     const questions = extractQuestionsFromMessages(conv.messages);

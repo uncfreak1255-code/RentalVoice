@@ -1,8 +1,8 @@
 // Proactive Messaging Service
 // Detects when the host should send messages proactively
 
-import type { Conversation, Property } from './store';
-import { differenceInHours, differenceInDays, isAfter, isBefore, addDays, parseISO } from 'date-fns';
+import type { Conversation } from './store';
+import { differenceInHours, differenceInDays } from 'date-fns';
 
 export type AlertType =
   | 'missing_check_in_instructions'
@@ -68,7 +68,7 @@ export function analyzeConversationForAlerts(conversation: Conversation): Proact
     ? differenceInHours(now, new Date(lastGuestMessage.timestamp))
     : null;
 
-  const hoursSinceLastHost = lastHostMessage
+  const _hoursSinceLastHost = lastHostMessage
     ? differenceInHours(now, new Date(lastHostMessage.timestamp))
     : null;
 

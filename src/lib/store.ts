@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveCold, removeCold } from './cold-storage';
+import type { CalibrationEntry, ConversationFlow, ReplyDelta } from './ai-intelligence';
 
 // Types
 export interface Guest {
@@ -176,7 +177,6 @@ export interface AILearningProgress {
 
 // Tier 3 re-exports
 export type { CalibrationEntry, ConversationFlow, ReplyDelta, CalibrationSummary } from './ai-intelligence';
-import type { CalibrationEntry, ConversationFlow, ReplyDelta } from './ai-intelligence';
 
 // Draft Outcome Tracking for Accuracy Dashboard (Tier 2)
 export type DraftOutcomeType = 'approved' | 'edited' | 'rejected' | 'independent';
@@ -213,12 +213,12 @@ export interface HistorySyncStatus {
   currentBatch: number;
   totalBatches: number;
   errorCount: number;
-  errorLog: Array<{
+  errorLog: {
     timestamp: number;
     phase: string;
     message: string;
     conversationId?: number;
-  }>;
+  }[];
   // Resumability
   canResume: boolean;
 }
@@ -573,6 +573,12 @@ interface AppState {
   incrementProviderUsage: (provider: string, tokens: number) => void;
   setProviderModel: (provider: string, model: string) => void;
   resetProviderUsage: (provider: string) => void;
+
+  // Subscription
+  currentTier: 'free' | 'starter' | 'pro' | 'business';
+  setCurrentTier: (tier: 'free' | 'starter' | 'pro' | 'business') => void;
+  connectedPMSProvider: 'hostaway' | 'guesty' | 'ownerrez' | 'hospitable' | 'lodgify' | null;
+  setConnectedPMSProvider: (provider: 'hostaway' | 'guesty' | 'ownerrez' | 'hospitable' | 'lodgify' | null) => void;
 
   // Active conversation
   activeConversationId: string | null;
@@ -1228,6 +1234,12 @@ export const useAppStore = create<AppState>()(
       // Active conversation
       activeConversationId: null,
       setActiveConversation: (id) => set({ activeConversationId: id }),
+
+      // Subscription
+      currentTier: 'free',
+      setCurrentTier: (tier) => set({ currentTier: tier }),
+      connectedPMSProvider: null,
+      setConnectedPMSProvider: (provider) => set({ connectedPMSProvider: provider }),
 
       // Demo mode
       isDemoMode: false,

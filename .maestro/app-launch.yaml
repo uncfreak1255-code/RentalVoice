@@ -1,0 +1,7 @@
+appId: com.rentalvoice.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Welcome" # Check if unauthenticated (needs adjustment based on exact login screen text)
+    timeout: 30000

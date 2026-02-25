@@ -1,8 +1,8 @@
 // Booking Probability Scoring Service
 // Predicts likelihood of an inquiry converting to a booking
 
-import type { Conversation, Message } from './store';
-import { differenceInHours, differenceInDays } from 'date-fns';
+import type { Conversation } from './store';
+import { differenceInHours } from 'date-fns';
 
 export interface BookingProbabilityScore {
   score: number; // 0-100

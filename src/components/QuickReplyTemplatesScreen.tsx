@@ -313,7 +313,7 @@ const st = StyleSheet.create({
   iconBtn: { width: 32, height: 32, borderRadius: radius.full, backgroundColor: colors.border.DEFAULT, alignItems: 'center', justifyContent: 'center' },
   infoCard: { backgroundColor: colors.bg.elevated, borderRadius: radius.xl, padding: spacing['4'] },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: colors.bg.card, borderTopLeftRadius: radius['3xl'], borderTopRightRadius: radius['3xl'], maxHeight: '90%' },
+  modalContent: { backgroundColor: colors.bg.card, borderTopLeftRadius: radius['2xl'], borderTopRightRadius: radius['2xl'], maxHeight: '90%' },
   modalHeader: { padding: spacing['4'], borderBottomWidth: 1, borderBottomColor: colors.border.DEFAULT, flexDirection: 'row', alignItems: 'center' },
   closeBtn: { width: 32, height: 32, borderRadius: radius.full, backgroundColor: colors.border.DEFAULT, alignItems: 'center', justifyContent: 'center' },
   label: { color: colors.text.muted, fontSize: 14, marginBottom: spacing['2'] },

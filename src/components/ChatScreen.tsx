@@ -91,7 +91,9 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const hasScrolledToBottom = useRef(false);
+  const lastGeneratedForMessageId = useRef<string | null>(null);
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [showGuestInfo, setShowGuestInfo] = useState(false);
   const [currentEnhancedDraft, setCurrentEnhancedDraft] = useState<EnhancedAiDraft | null>(null);
@@ -196,55 +198,42 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
     }
   }, [conversationId, conversation, markAsRead]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change (inverted list: bottom = offset 0)
   useEffect(() => {
     if (messages.length > 0 && listRef.current) {
-      // On initial load, use a longer delay and no animation
-      const isInitial = !hasScrolledToBottom.current;
-      const delay = isInitial ? 400 : 150;
-      const animated = !isInitial;
-      setTimeout(() => {
-        try {
-          listRef.current?.scrollToEnd?.({ animated });
-          hasScrolledToBottom.current = true;
-        } catch (e) {
-          // FlatList may not be ready yet
-        }
-      }, delay);
+      if (!hasScrolledToBottom.current) {
+        hasScrolledToBottom.current = true;
+      } else {
+        // For new messages, scroll to top of inverted list (= bottom of chat)
+        setTimeout(() => {
+          try {
+            listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+          } catch (e) {}
+        }, 150);
+      }
     }
   }, [messages.length]);
 
-  // Scroll to bottom when AI draft appears (composer grows, pushing messages up)
+  // Scroll to bottom when AI draft appears (inverted: offset 0 = bottom)
   useEffect(() => {
     if (currentEnhancedDraft && listRef.current) {
       setTimeout(() => {
         try {
-          listRef.current?.scrollToEnd?.({ animated: true });
-        } catch (e) {
-          // ignore
-        }
+          listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
+        } catch (e) {}
       }, 300);
     }
   }, [currentEnhancedDraft]);
 
   // Handlers for FlatList auto-scroll
   const handleContentSizeChange = useCallback(() => {
-    // Only auto-scroll on content size change after we've done the initial scroll
-    // This prevents jumping around during layout but scrolls for new messages
-    if (hasScrolledToBottom.current && listRef.current) {
-      listRef.current.scrollToEnd({ animated: true });
-    }
+    // No-op for inverted list — it stays at bottom naturally
   }, []);
 
   const handleListLayout = useCallback(() => {
-    // On initial layout, scroll to end without animation
-    if (messages.length > 0 && listRef.current && !hasScrolledToBottom.current) {
-      setTimeout(() => {
-        listRef.current?.scrollToEnd?.({ animated: false });
-        hasScrolledToBottom.current = true;
-      }, 100);
-    }
-  }, [messages.length]);
+    // No-op for inverted list — it starts at bottom
+    hasScrolledToBottom.current = true;
+  }, []);
 
   // Auto-generate AI draft when new guest message arrives
   useEffect(() => {
@@ -290,11 +279,17 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
       return;
     }
 
-    if (lastMessage?.sender === 'guest' && !conversation.hasAiDraft) {
+    if (lastMessage?.sender === 'guest' && !conversation.hasAiDraft && !isGeneratingDraft) {
+      // Prevent re-triggering for the same guest message
+      if (lastGeneratedForMessageId.current === lastMessage.id) {
+        console.log('[ChatScreen] Already generated draft for this message, skipping...');
+        return;
+      }
       console.log('[ChatScreen] Triggering AI draft generation...');
+      lastGeneratedForMessageId.current = lastMessage.id;
       generateDraftForConversation();
     }
-  }, [messages.length, conversation?.hasAiDraft, conversation?.aiDraftContent, currentEnhancedDraft]);
+  }, [messages.length, conversation?.hasAiDraft, conversation?.aiDraftContent, currentEnhancedDraft, isGeneratingDraft]);
 
   // Create action items in store when detected
   const handleActionItems = useCallback((actionItems: ActionItem[]) => {
@@ -456,6 +451,13 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg.startsWith('RATE_LIMIT:')) {
+        const reason = errMsg.replace('RATE_LIMIT: ', '');
+        setRateLimitError(reason);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setTimeout(() => setRateLimitError(null), 8000);
+      }
       console.error('[ChatScreen] Error generating AI draft:', error);
     } finally {
       setIsGeneratingDraft(false);
@@ -939,70 +941,48 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           </Animated.View>
         )}
 
-        {/* Header */}
+        {/* Header — Rork style: Done | Name | search */}
         <Animated.View entering={FadeIn.duration(300)} style={chatStyles.header}>
           <View style={chatStyles.headerInner}>
+            {/* Done button */}
             <Pressable
               onPress={onBack}
-              style={({ pressed }) => [chatStyles.backButton, { opacity: pressed ? 0.7 : 1 }]}
+              hitSlop={12}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
-              <ArrowLeft size={20} color={colors.text.primary} />
+              <Text style={chatStyles.doneButton}>Done</Text>
             </Pressable>
 
+            {/* Centered guest name */}
             <Pressable
               onPress={() => setShowGuestProfile(true)}
-              style={({ pressed }) => [chatStyles.guestPressable, { opacity: pressed ? 0.8 : 1 }]}
+              style={{ flex: 1, alignItems: 'center' }}
             >
-              <Avatar
-                name={guest.name}
-                imageUrl={guest.avatar}
-                size="lg"
-                platformIcon={platform}
-              />
-              <View style={chatStyles.guestInfo}>
-                <Text style={chatStyles.guestName} numberOfLines={1}>
-                  {guest.name}
-                </Text>
-                <Text style={chatStyles.guestSubtitle} numberOfLines={1}>
-                  {property.name} • {platform.charAt(0).toUpperCase() + platform.slice(1)}
-                </Text>
-              </View>
+              <Text style={chatStyles.guestName} numberOfLines={1}>
+                {guest.name}
+              </Text>
             </Pressable>
 
-            <Pressable
-              onPress={toggleAutoPilot}
-              style={({ pressed }) => [
-                chatStyles.autoPilotBtn,
-                { backgroundColor: autoPilotEnabled ? colors.primary.muted : colors.bg.elevated },
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
-            >
-              {autoPilotEnabled ? (
-                <ToggleRight size={18} color={colors.primary.DEFAULT} />
-              ) : (
-                <ToggleLeft size={18} color={colors.text.muted} />
-              )}
-              <Sparkles
-                size={12}
-                color={autoPilotEnabled ? colors.primary.DEFAULT : colors.text.muted}
-                style={{ marginLeft: spacing['1'] }}
-              />
-            </Pressable>
-
+            {/* Search toggle */}
             <Pressable
               onPress={() => {
                 setIsSearchOpen(!isSearchOpen);
                 if (isSearchOpen) setSearchQuery('');
               }}
-              style={({ pressed }) => [
-                chatStyles.autoPilotBtn,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
+              hitSlop={12}
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.8 : 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+              })}
             >
+              {autoPilotEnabled && (
+                <View style={chatStyles.autoPilotDot} />
+              )}
               {isSearchOpen ? (
-                <X size={18} color={colors.text.muted} />
+                <X size={20} color={colors.text.muted} />
               ) : (
-                <Search size={18} color={colors.text.muted} />
+                <Search size={20} color={colors.text.muted} />
               )}
             </Pressable>
           </View>
@@ -1083,14 +1063,15 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={chatStyles.flex1}
-          keyboardVerticalOffset={0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
         >
           <View style={chatStyles.flex1}>
             <FlatList
               ref={listRef}
-              data={displayMessages}
+              data={[...displayMessages].reverse()}
               renderItem={({ item, index }) => {
-                const prevMessage = index > 0 ? displayMessages[index - 1] : null;
+                const reversedMessages = [...displayMessages].reverse();
+                const prevMessage = index > 0 ? reversedMessages[index - 1] : null;
                 const showAvatar = !prevMessage || prevMessage.sender !== item.sender;
                 return (
                   <MessageBubble
@@ -1104,11 +1085,12 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                 );
               }}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingTop: spacing['4'], paddingBottom: spacing['2'] }}
-              inverted={false}
-              initialNumToRender={30}
+              contentContainerStyle={{ paddingTop: spacing['2'], paddingBottom: spacing['4'] }}
+              inverted={true}
+              initialNumToRender={20}
               onContentSizeChange={handleContentSizeChange}
               onLayout={handleListLayout}
+              keyboardDismissMode="on-drag"
             />
           </View>
 
@@ -1125,6 +1107,8 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             autoPilotEnabled={autoPilotEnabled}
             onFixConflict={handleFixConflict}
             onOpenActionsSheet={() => bottomSheetRef.current?.snapToIndex(0)}
+            rateLimitError={rateLimitError}
+            onDismissRateLimitError={() => setRateLimitError(null)}
           />
         </KeyboardAvoidingView>
 
@@ -1148,7 +1132,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
 const chatStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg.base,
+    backgroundColor: '#F2F2F7',
   },
   flex1: {
     flex: 1,
@@ -1247,23 +1231,23 @@ const chatStyles = StyleSheet.create({
   },
   // Header
   header: {
-    paddingHorizontal: spacing['4'],
-    paddingVertical: spacing['3'],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E5E7EB',
   },
   headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  doneButton: {
+    color: colors.primary.DEFAULT,
+    fontSize: 17,
+    fontFamily: typography.fontFamily.regular,
+  },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-    backgroundColor: `${colors.bg.elevated}80`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing['3'],
+    marginRight: 12,
   },
   guestPressable: {
     flexDirection: 'row',
@@ -1277,7 +1261,7 @@ const chatStyles = StyleSheet.create({
   guestName: {
     color: colors.text.primary,
     fontFamily: typography.fontFamily.semibold,
-    fontSize: 16,
+    fontSize: 17,
   },
   guestSubtitle: {
     color: colors.text.muted,
@@ -1314,5 +1298,12 @@ const chatStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     fontSize: 13,
     marginLeft: spacing['2'],
+  },
+  autoPilotDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary.DEFAULT,
+    marginRight: 6,
   },
 });

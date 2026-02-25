@@ -57,3 +57,5 @@ server/.env
 
 # Coverage
 coverage/
+src/components/AILearningScreen.tsx.bak
+arch-previews.html

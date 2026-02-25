@@ -13,9 +13,51 @@
 
 import { API_BASE_URL, isPersonal } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const AUTH_TOKEN_KEY = 'rv-auth-token';
 const REFRESH_TOKEN_KEY = 'rv-refresh-token';
+
+let secureStoreAvailable: boolean | null = null;
+async function isSecureStoreAvailable(): Promise<boolean> {
+  if (secureStoreAvailable !== null) return secureStoreAvailable;
+  if (Platform.OS === 'web') {
+    secureStoreAvailable = false;
+    return false;
+  }
+  try {
+    await SecureStore.getItemAsync('__test_api_client__');
+    secureStoreAvailable = true;
+    return true;
+  } catch {
+    secureStoreAvailable = false;
+    return false;
+  }
+}
+
+async function setItem(key: string, value: string): Promise<void> {
+  if (await isSecureStoreAvailable()) {
+    await SecureStore.setItemAsync(key, value);
+  } else {
+    await AsyncStorage.setItem(key, value);
+  }
+}
+
+async function getItem(key: string): Promise<string | null> {
+  if (await isSecureStoreAvailable()) {
+    return SecureStore.getItemAsync(key);
+  }
+  return AsyncStorage.getItem(key);
+}
+
+async function deleteItem(key: string): Promise<void> {
+  if (await isSecureStoreAvailable()) {
+    await SecureStore.deleteItemAsync(key);
+  } else {
+    await AsyncStorage.removeItem(key);
+  }
+}
 
 interface ApiResponse<T = unknown> {
   data: T;
@@ -34,7 +76,7 @@ interface ApiError {
  */
 async function getAuthToken(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    return await getItem(AUTH_TOKEN_KEY);
   } catch {
     return null;
   }
@@ -44,9 +86,9 @@ async function getAuthToken(): Promise<string | null> {
  * Store auth tokens after login
  */
 export async function setAuthTokens(token: string, refreshToken?: string): Promise<void> {
-  await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
+  await setItem(AUTH_TOKEN_KEY, token);
   if (refreshToken) {
-    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    await setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
 }
 
@@ -54,7 +96,8 @@ export async function setAuthTokens(token: string, refreshToken?: string): Promi
  * Clear auth tokens on logout
  */
 export async function clearAuthTokens(): Promise<void> {
-  await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY]);
+  await deleteItem(AUTH_TOKEN_KEY);
+  await deleteItem(REFRESH_TOKEN_KEY);
 }
 
 /**
@@ -312,13 +355,13 @@ export interface AuthResponseData {
 }
 
 export async function signup(req: SignupRequest): Promise<AuthResponseData> {
-  const { data } = await apiClient.post<AuthResponseData>('/api/auth/signup', req);
+  const { data } = await apiClient.post<AuthResponseData>('/api/auth/signup', req as unknown as Record<string, unknown>);
   await setAuthTokens(data.token, data.refreshToken);
   return data;
 }
 
 export async function login(req: LoginRequest): Promise<AuthResponseData> {
-  const { data } = await apiClient.post<AuthResponseData>('/api/auth/login', req);
+  const { data } = await apiClient.post<AuthResponseData>('/api/auth/login', req as unknown as Record<string, unknown>);
   await setAuthTokens(data.token, data.refreshToken);
   return data;
 }
@@ -332,7 +375,7 @@ export async function getCurrentUser(): Promise<{
 }
 
 export async function refreshTokens(): Promise<{ token: string; refreshToken: string }> {
-  const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+  const refreshToken = await getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) throw new Error('No refresh token');
   const { data } = await apiClient.post<{ token: string; refreshToken: string }>(
     '/api/auth/refresh',

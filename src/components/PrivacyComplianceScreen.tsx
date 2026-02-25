@@ -1,19 +1,19 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, Switch, Alert, Share, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft, Shield, Lock, Eye, Download, CheckCircle, AlertTriangle, FileText, BarChart3,
   Settings, ScanLine, ShieldCheck, ShieldAlert, ChevronRight, RefreshCw, Trash2, Share2,
-  Calendar, MessageSquare, Home, User,
+  Calendar, MessageSquare, User,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import * as FileSystem from 'expo-file-system';
+import { Paths, File as ExpoFile } from 'expo-file-system';
 import { useAppStore } from '@/lib/store';
 import {
-  scanForSensitiveData, getDataTypeLabel, getSeverityColor, getSeverityBgColor,
-  type SensitiveDataType, type ScanResult, type PrivacyScanSettings, DEFAULT_PRIVACY_SETTINGS,
+  scanForSensitiveData, getDataTypeLabel,
+  type SensitiveDataType, type PrivacyScanSettings, DEFAULT_PRIVACY_SETTINGS,
 } from '@/lib/privacy-scanner';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
@@ -108,8 +108,9 @@ export function PrivacyComplianceScreen({ onBack }: PrivacyComplianceScreenProps
       };
       const jsonString = JSON.stringify(exportData, null, 2);
       const fileName = `rentalreply-export-${new Date().toISOString().split('T')[0]}.json`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(filePath, jsonString);
+      const exportFile = new ExpoFile(Paths.document, fileName);
+      exportFile.write(jsonString);
+      const filePath = exportFile.uri;
       await Share.share({ title: 'Rental Voice Data Export', url: filePath, message: `Rental Voice data export - ${conversations.length} conversations` });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) { console.error('Export error:', error); Alert.alert('Export Failed', 'Unable to export data. Please try again.'); }
@@ -130,8 +131,9 @@ export function PrivacyComplianceScreen({ onBack }: PrivacyComplianceScreenProps
       };
       const jsonString = JSON.stringify(reportData, null, 2);
       const fileName = `compliance-report-${new Date().toISOString().split('T')[0]}.json`;
-      const filePath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.writeAsStringAsync(filePath, jsonString);
+      const reportFile = new ExpoFile(Paths.document, fileName);
+      reportFile.write(jsonString);
+      const filePath = reportFile.uri;
       await Share.share({ title: 'Privacy Compliance Report', url: filePath, message: `Privacy compliance report - Risk Score: ${complianceReport.riskScore}%` });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) { console.error('Export error:', error); Alert.alert('Export Failed', 'Unable to export report. Please try again.'); }
@@ -255,7 +257,7 @@ export function PrivacyComplianceScreen({ onBack }: PrivacyComplianceScreenProps
                     style={s.settingRow}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      const levels: Array<'low' | 'medium' | 'high'> = ['low', 'medium', 'high'];
+                      const levels: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
                       const ci = levels.indexOf(privacySettings.sensitivityLevel);
                       setPrivacySettings(p => ({ ...p, sensitivityLevel: levels[(ci + 1) % levels.length] }));
                     }}
@@ -344,8 +346,8 @@ export function PrivacyComplianceScreen({ onBack }: PrivacyComplianceScreenProps
                     <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ marginBottom: spacing['4'] }}>
                       <Text style={s.sectionLabel}>Recommendations</Text>
                       <View style={s.card}>
-                        {complianceReport.recommendations.map((rec, index) => (
-                          <View key={index} style={[s.row, { alignItems: 'flex-start', marginBottom: spacing['2'] }]}>
+                        {complianceReport.recommendations.map((rec) => (
+                          <View key={rec} style={[s.row, { alignItems: 'flex-start', marginBottom: spacing['2'] }]}>
                             <CheckCircle size={16} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} />
                             <Text style={{ color: colors.text.secondary, fontSize: 14, marginLeft: spacing['2'], flex: 1 }}>{rec}</Text>
                           </View>
@@ -414,7 +416,7 @@ export function PrivacyComplianceScreen({ onBack }: PrivacyComplianceScreenProps
                 <Text style={s.sectionLabel}>Data Rights (GDPR/CCPA)</Text>
                 <View style={s.card}>
                   {['Right to access your personal data', 'Right to data portability (export)', 'Right to rectification (correct errors)', 'Right to erasure (delete your data)'].map((text, i) => (
-                    <View key={i} style={[s.row, { alignItems: 'flex-start', marginBottom: i < 3 ? spacing['3'] : 0 }]}>
+                    <View key={text} style={[s.row, { alignItems: 'flex-start', marginBottom: i < 3 ? spacing['3'] : 0 }]}>
                       <CheckCircle size={16} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} />
                       <Text style={{ color: colors.text.secondary, fontSize: 14, marginLeft: spacing['2'], flex: 1 }}>{text}</Text>
                     </View>
@@ -448,11 +450,11 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg.base },
   row: { flexDirection: 'row', alignItems: 'center' },
   header: { paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], flexDirection: 'row', alignItems: 'center' },
-  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
+  backBtn: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
   title: { color: colors.text.primary, fontSize: 20, fontFamily: typography.fontFamily.bold },
   subtitle: { color: colors.text.muted, fontSize: 14 },
   tabBar: { flexDirection: 'row', backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: 4 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: radius.lg },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: radius.lg, minHeight: 44 },
   tabActive: { backgroundColor: colors.primary.DEFAULT },
   tabLabel: { fontFamily: typography.fontFamily.medium, marginLeft: spacing['1.5'], fontSize: 14, color: colors.text.disabled },
   tabLabelActive: { color: colors.text.primary },
@@ -466,7 +468,7 @@ const s = StyleSheet.create({
   primaryBtnText: { color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['2'] },
   sectionLabel: { color: colors.text.disabled, fontSize: 12, fontFamily: typography.fontFamily.semibold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing['2'], marginLeft: 4 },
   settingsCard: { backgroundColor: colors.bg.card, borderRadius: radius['2xl'], overflow: 'hidden' },
-  settingRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing['4'], paddingVertical: spacing['4'] },
+  settingRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing['4'], paddingVertical: spacing['4'], minHeight: 44 },
   borderBottom: { borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
   iconBox: { width: 40, height: 40, borderRadius: radius.xl, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
   settingTitle: { color: colors.text.primary, fontFamily: typography.fontFamily.medium },

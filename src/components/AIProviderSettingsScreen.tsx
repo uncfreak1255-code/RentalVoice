@@ -282,7 +282,7 @@ const ai = StyleSheet.create({
   priorityNum: { width: 28, height: 28, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
   providerName: { color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 16 },
   providerDesc: { color: colors.text.disabled, fontSize: 12, marginTop: 2 },
-  offBadge: { backgroundColor: colors.bg.hover, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.xs, marginLeft: spacing['2'] },
+  offBadge: { backgroundColor: colors.bg.hover, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, marginLeft: spacing['2'] },
   statusBadge: { paddingHorizontal: spacing['2'], paddingVertical: 4, borderRadius: radius.full, marginRight: spacing['2'] },
   expandedWrap: { borderTopWidth: 1, borderTopColor: colors.border.subtle, paddingHorizontal: spacing['4'], paddingVertical: spacing['4'] },
   label: { color: colors.text.secondary, fontSize: 14, fontFamily: typography.fontFamily.medium },

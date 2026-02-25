@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TextInput, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Keyboard, Platform, InputAccessoryView } from 'react-native';
 import { colors, typography, spacing, radius, elevation } from '@/lib/design-tokens';
 import { PremiumPressable } from '@/components/ui';
 import {
@@ -9,21 +9,13 @@ import {
   Edit3,
   Check,
   X,
-
-  Heart,
-  ArrowDownNarrowWide,
-  ArrowUpNarrowWide,
-  Briefcase,
-  Coffee,
-  AlertTriangle,
   Gauge,
   ChevronDown,
   Paperclip,
-
   Trash2,
   MoreHorizontal,
 } from 'lucide-react-native';
-import Animated, { FadeIn, FadeOut, SlideInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import type { RegenerationOption, ConfidenceScore, SentimentAnalysis, ActionItem, KnowledgeConflict, HistoricalMatchInfo } from '@/lib/ai-enhanced';
 import { scanForSensitiveData, type ScanResult } from '@/lib/privacy-scanner';
@@ -59,56 +51,13 @@ interface MessageComposerProps {
   onAttachMedia?: () => void;
   privacyScanEnabled?: boolean;
   onFixConflict?: (field: string, newValue: string) => void;
-  onOpenActionsSheet?: () => void; // Open premium bottom sheet
+  onOpenActionsSheet?: () => void;
+  rateLimitError?: string | null;
+  onDismissRateLimitError?: () => void;
 }
 
-// Regeneration option icons and colors
-const regenerationConfig: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
-  empathy: {
-    icon: <Heart size={14} color="#EC4899" />,
-    color: '#EC4899',
-    bgColor: 'rgba(236,72,153,0.2)',
-  },
-  shorter: {
-    icon: <ArrowDownNarrowWide size={14} color="#3B82F6" />,
-    color: '#3B82F6',
-    bgColor: 'rgba(59,130,246,0.2)',
-  },
-  longer: {
-    icon: <ArrowUpNarrowWide size={14} color="#8B5CF6" />,
-    color: '#8B5CF6',
-    bgColor: 'rgba(139,92,246,0.2)',
-  },
-  formal: {
-    icon: <Briefcase size={14} color="#6366F1" />,
-    color: '#6366F1',
-    bgColor: 'rgba(99,102,241,0.2)',
-  },
-  casual: {
-    icon: <Coffee size={14} color="#F59E0B" />,
-    color: '#F59E0B',
-    bgColor: 'rgba(245,158,11,0.2)',
-  },
-};
 
-// Get confidence color
-function getConfidenceColor(confidence: number): string {
-  if (confidence >= 90) return '#22C55E';
-  if (confidence >= 75) return colors.primary.DEFAULT;
-  if (confidence >= 60) return '#F59E0B';
-  return colors.danger.DEFAULT;
-}
 
-// Get sentiment color
-function getSentimentColor(sentiment?: SentimentAnalysis['primary']): string {
-  switch (sentiment) {
-    case 'positive': return '#22C55E';
-    case 'neutral': return colors.text.muted;
-    case 'negative': return '#F59E0B';
-    case 'urgent': return colors.danger.DEFAULT;
-    default: return colors.text.muted;
-  }
-}
 
 export function MessageComposer({
   onSend,
@@ -125,13 +74,14 @@ export function MessageComposer({
   privacyScanEnabled = true,
   onFixConflict,
   onOpenActionsSheet,
+  rateLimitError,
+  onDismissRateLimitError,
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
 
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editedDraft, setEditedDraft] = useState('');
-  const [showRegenerateOptions, setShowRegenerateOptions] = useState(false);
-  const [showConfidenceDetails, setShowConfidenceDetails] = useState(false);
+
   const [showReasoning, setShowReasoning] = useState(false);
   const [privacyScanResult, setPrivacyScanResult] = useState<ScanResult | null>(null);
   const [showPrivacyAlert, setShowPrivacyAlert] = useState(true);
@@ -192,6 +142,20 @@ export function MessageComposer({
     setShowPrivacyAlert(false);
   }, [privacyScanResult, isEditingDraft]);
 
+  // Track keyboard visibility to collapse draft panel
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
+
   // When we have an AI draft, populate the editing field but don't auto-enter edit mode
   // This allows the host to use either the AI suggestion OR write their own message
   useEffect(() => {
@@ -213,6 +177,7 @@ export function MessageComposer({
   };
 
   const handleClearSuggestion = () => {
+    Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsEditingDraft(false);
     setEditedDraft('');
@@ -227,38 +192,38 @@ export function MessageComposer({
   };
 
   const handleApprove = () => {
+    Keyboard.dismiss();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onApproveAiDraft();
   };
 
   const handleEdit = () => {
+    Keyboard.dismiss();
     setEditedDraft(aiDraft?.content || '');
     setIsEditingDraft(true);
   };
 
   const handleSaveEdit = () => {
     if (editedDraft.trim()) {
+      Keyboard.dismiss();
       onEditAiDraft(editedDraft.trim());
       setIsEditingDraft(false);
     }
   };
 
   const handleCancelEdit = () => {
+    Keyboard.dismiss();
     setIsEditingDraft(false);
     setEditedDraft('');
   };
 
-  const handleRegenerate = (modifier?: RegenerationOption['modifier']) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowRegenerateOptions(false);
-    onRegenerateAiDraft(modifier);
-  };
+
 
 
 
   const confidenceDetails = aiDraft?.confidenceDetails;
   const sentiment = aiDraft?.sentiment;
-  const hasWarnings = confidenceDetails?.warnings && confidenceDetails.warnings.length > 0;
+
   const isBlocked = confidenceDetails?.blockedForAutoSend;
 
   return (
@@ -273,13 +238,73 @@ export function MessageComposer({
         />
       )}
 
+      {/* Rate Limit Banner */}
+      {rateLimitError && (
+        <Animated.View
+          entering={FadeInDown.duration(300)}
+          exiting={FadeOut.duration(200)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.bg.elevated,
+            paddingHorizontal: spacing['4'],
+            paddingVertical: spacing['3'],
+            gap: spacing['3'],
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border.subtle,
+          }}
+        >
+          <View style={{
+            width: 32,
+            height: 32,
+            borderRadius: radius.full,
+            backgroundColor: colors.warning.muted,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 14 }}>⚡</Text>
+          </View>
+          <Text style={{
+            flex: 1,
+            fontSize: 13,
+            lineHeight: 18,
+            color: colors.text.secondary,
+            fontFamily: typography.fontFamily.medium,
+          }}>
+            {rateLimitError}
+          </Text>
+          <Pressable
+            onPress={onDismissRateLimitError}
+            hitSlop={8}
+            style={{
+              paddingHorizontal: spacing['3'],
+              paddingVertical: spacing['1'],
+              borderRadius: radius.md,
+              backgroundColor: colors.primary.muted,
+            }}
+          >
+            <Text style={{
+              fontSize: 12,
+              color: colors.primary.DEFAULT,
+              fontFamily: typography.fontFamily.semibold,
+            }}>OK</Text>
+          </Pressable>
+        </Animated.View>
+      )}
+
       {/* AI Draft Preview — V2 Premium Mockup */}
       {(aiDraft || isGenerating) && !isEditingDraft && (
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={mcStyles.v2GlassPanel}
+          style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 140 : 420 }]}
         >
+          <ScrollView
+            keyboardShouldPersistTaps="always"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
           {isGenerating ? (
             <View style={mcStyles.rowCenter}>
               <ActivityIndicator size="small" color={colors.primary.DEFAULT} />
@@ -313,40 +338,27 @@ export function MessageComposer({
 
               {/* 3. Action Row — Big Send + icon buttons */}
               <View style={mcStyles.v2ActionRow}>
-                <PremiumPressable
-                  hapticFeedback="medium"
+                <Pressable
                   onPress={handleApprove}
                   disabled={isBlocked}
                   style={mcStyles.v2SendBtn}
                 >
                   <Send size={16} color="#FFFFFF" />
                   <Text style={mcStyles.v2SendBtnText}>Send Draft</Text>
-                </PremiumPressable>
+                </Pressable>
 
-                <PremiumPressable
-                  hapticFeedback="light"
-                  onPress={handleEdit}
-                  style={mcStyles.v2IconBtn}
-                >
+                <Pressable onPress={handleEdit} style={mcStyles.v2IconBtn}>
                   <Edit3 size={20} color={colors.text.secondary} />
-                </PremiumPressable>
+                </Pressable>
 
-                <PremiumPressable
-                  hapticFeedback="light"
-                  onPress={() => onRegenerateAiDraft()}
-                  style={mcStyles.v2IconBtn}
-                >
+                <Pressable onPress={() => onRegenerateAiDraft()} style={mcStyles.v2IconBtn}>
                   <RefreshCw size={20} color={colors.text.secondary} />
-                </PremiumPressable>
+                </Pressable>
 
                 {onOpenActionsSheet && (
-                  <PremiumPressable
-                    hapticFeedback="light"
-                    onPress={onOpenActionsSheet}
-                    style={mcStyles.v2MoreBtn}
-                  >
+                  <Pressable onPress={onOpenActionsSheet} style={mcStyles.v2MoreBtn}>
                     <MoreHorizontal size={20} color={colors.text.disabled} />
-                  </PremiumPressable>
+                  </Pressable>
                 )}
               </View>
 
@@ -390,6 +402,7 @@ export function MessageComposer({
               )}
             </>
           )}
+          </ScrollView>
         </Animated.View>
       )}
 
@@ -399,10 +412,11 @@ export function MessageComposer({
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(200)}
-          style={{ backgroundColor: colors.bg.card }}
+          style={{ backgroundColor: colors.bg.card, flex: 0 }}
         >
           <ScrollView
             keyboardShouldPersistTaps="always"
+            keyboardDismissMode="on-drag"
             contentContainerStyle={{ flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
           >
@@ -435,35 +449,47 @@ export function MessageComposer({
                 selectionColor={colors.accent.DEFAULT}
                 editable={true}
               />
-              <View style={mcStyles.actionRow}>
-                <PremiumPressable
-                  hapticFeedback="medium"
-                  onPress={handleSaveEdit}
-                  style={[mcStyles.actionBtnActive, { backgroundColor: colors.accent.DEFAULT, flex: 0, paddingHorizontal: spacing['5'] }]}
-                >
-                  <Check size={16} color="#FFFFFF" />
-                  <Text style={[mcStyles.actionBtnText, { fontSize: 14 }]}>Save & Send</Text>
-                </PremiumPressable>
-
-                <PremiumPressable
-                  hapticFeedback="light"
-                  onPress={handleClearSuggestion}
-                  style={[mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3` }]}
-                >
-                  <Trash2 size={14} color={colors.danger.DEFAULT} />
-                  <Text style={[mcStyles.secondaryBtnText, { color: colors.danger.DEFAULT }]}>Clear</Text>
-                </PremiumPressable>
-
-                <PremiumPressable
-                  hapticFeedback="light"
-                  onPress={handleCancelEdit}
-                  style={mcStyles.secondaryBtn}
-                >
-                  <Text style={mcStyles.secondaryBtnText}>Cancel</Text>
-                </PremiumPressable>
-              </View>
             </View>
           </ScrollView>
+          {/* Keyboard Done bar — only on iOS */}
+          {Platform.OS === 'ios' && (
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: spacing['4'], paddingVertical: spacing['2'], backgroundColor: colors.bg.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border.subtle }}>
+              <Pressable onPress={() => Keyboard.dismiss()}>
+                <Text style={{ fontSize: 16, fontFamily: typography.fontFamily.semibold, color: colors.accent.DEFAULT }}>Done</Text>
+              </Pressable>
+            </View>
+          )}
+          {/* Action buttons pinned outside ScrollView — always visible above keyboard */}
+          <View style={mcStyles.editActionBar}>
+            <PremiumPressable
+              hapticFeedback="medium"
+              onPress={handleSaveEdit}
+            >
+              <View style={[mcStyles.actionBtnActive, { backgroundColor: colors.accent.DEFAULT, flex: 0, paddingHorizontal: spacing['5'] }]}>
+                <Check size={16} color="#FFFFFF" />
+                <Text style={[mcStyles.actionBtnText, { fontSize: 14 }]}>Save & Send</Text>
+              </View>
+            </PremiumPressable>
+
+            <PremiumPressable
+              hapticFeedback="light"
+              onPress={handleClearSuggestion}
+            >
+              <View style={[mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3` }]}>
+                <Trash2 size={14} color={colors.danger.DEFAULT} />
+                <Text style={[mcStyles.secondaryBtnText, { color: colors.danger.DEFAULT }]}>Clear</Text>
+              </View>
+            </PremiumPressable>
+
+            <PremiumPressable
+              hapticFeedback="light"
+              onPress={handleCancelEdit}
+            >
+              <View style={mcStyles.secondaryBtn}>
+                <Text style={mcStyles.secondaryBtnText}>Cancel</Text>
+              </View>
+            </PremiumPressable>
+          </View>
         </Animated.View>
       )}
 
@@ -682,6 +708,16 @@ const mcStyles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginBottom: spacing['3'],
+  },
+  editActionBar: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing['2'],
+    paddingHorizontal: spacing['4'],
+    paddingVertical: spacing['3'],
+    borderTopWidth: 1,
+    borderTopColor: colors.border.subtle,
+    backgroundColor: colors.bg.card,
   },
   actionRow: {
     flexDirection: 'row' as const,

@@ -3,9 +3,11 @@
 // Historical Response Matching for accurate host-style replies
 
 import type { Conversation, Message, PropertyKnowledge, HostStyleProfile } from './store';
+import { useAppStore } from './store';
 import { generateStyleInstructions } from './ai-learning';
-import { aiTrainingService, type ResponsePattern } from './ai-training-service';
+import { aiTrainingService } from './ai-training-service';
 import { getPromptAdjustments, getRejectionAdjustments } from './edit-diff-analysis';
+import { computeCalibrationSummary, type CalibrationSummary } from './ai-intelligence';
 import { detectGuestType, getGuestTypePromptAdjustments, type GuestProfile } from './guest-type-detection';
 import {
   buildAdvancedAIPrompt,
@@ -16,6 +18,69 @@ import {
   negativeExampleManager,
 } from './advanced-training';
 import { getAIKey, getProviderOrder, isProviderEnabled, getSelectedModel, getGoogleAuthMethod, AI_MODELS } from './ai-keys';
+import { canGenerateDraft, recordDraftGeneration } from './ai-usage-limiter';
+
+// ── CALIBRATION FEEDBACK LOOP ──
+// Caches the calibration summary for 60 seconds to avoid recomputing on every draft.
+// This is the self-correcting loop: past outcomes adjust future confidence predictions.
+let _cachedCalibration: { summary: CalibrationSummary; intentMap: Map<string, number>; timestamp: number } | null = null;
+const CALIBRATION_CACHE_TTL = 60_000; // 60 seconds
+
+function getCalibrationAdjustment(primaryIntent?: string): {
+  globalAdj: number;
+  intentAdj: number;
+  warnings: string[];
+} {
+  const now = Date.now();
+
+  // Rebuild cache if stale or missing
+  if (!_cachedCalibration || now - _cachedCalibration.timestamp > CALIBRATION_CACHE_TTL) {
+    const entries = useAppStore.getState().calibrationEntries;
+    if (entries.length < 5) {
+      // Not enough data yet for meaningful calibration
+      return { globalAdj: 0, intentAdj: 0, warnings: [] };
+    }
+
+    // Use only recent entries (last 200) — recency matters more than volume
+    const recentEntries = entries.slice(-200);
+    const summary = computeCalibrationSummary(recentEntries);
+
+    // Build a fast lookup map: intent → penalty
+    const intentMap = new Map<string, number>();
+    for (const pi of summary.problemIntents) {
+      if (pi.issue === 'overconfident') {
+        // Overconfident on this intent → penalize by 5-15 based on frequency
+        intentMap.set(pi.intent, -Math.min(15, pi.count * 2));
+      } else {
+        // Underconfident → slight boost (up to +10)
+        intentMap.set(pi.intent, Math.min(10, pi.count));
+      }
+    }
+
+    _cachedCalibration = { summary, intentMap, timestamp: now };
+    console.log(`[Calibration] Recomputed: score=${summary.calibrationScore}, adj=${summary.confidenceAdjustment}, problems=${summary.problemIntents.length}`);
+  }
+
+  const { summary, intentMap } = _cachedCalibration;
+  const warnings: string[] = [];
+
+  // Global adjustment (applies to all drafts)
+  const globalAdj = summary.confidenceAdjustment; // -20 to +20
+
+  // Per-intent adjustment (if we know the primary intent)
+  let intentAdj = 0;
+  if (primaryIntent && intentMap.has(primaryIntent)) {
+    intentAdj = intentMap.get(primaryIntent)!;
+    const dir = intentAdj < 0 ? 'overconfident' : 'underconfident';
+    warnings.push(`Calibration: historically ${dir} on ${primaryIntent.replace(/_/g, ' ')} topics (${intentAdj > 0 ? '+' : ''}${intentAdj})`);
+  }
+
+  if (summary.calibrationScore < 50 && summary.totalEntries > 10) {
+    warnings.push(`Overall calibration: ${summary.calibrationScore}% — system is still learning your preferences`);
+  }
+
+  return { globalAdj, intentAdj, warnings };
+}
 
 // API Configuration
 const GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -163,11 +228,11 @@ export interface HistoricalMatchInfo {
   matchCount: number;
   topMatchScore: number;
   usedHistoricalBasis: boolean;
-  matchedPatterns: Array<{
+  matchedPatterns: {
     intent: string;
     score: number;
     responsePreview: string;
-  }>;
+  }[];
 }
 
 // Regeneration Options
@@ -296,8 +361,7 @@ export function analyzeSentimentAdvanced(content: string): SentimentAnalysis {
 // Detect multiple topics in a message
 export function detectTopics(content: string, knowledge?: PropertyKnowledge): DetectedTopic[] {
   const topics: DetectedTopic[] = [];
-  const lowerContent = content.toLowerCase();
-
+  // Topic patterns use case-insensitive regex, no need for lowercase variable
   // Define topic patterns with their intents
   const topicPatterns: { pattern: RegExp; topic: string; intent: string; priority: number }[] = [
     // WiFi
@@ -419,9 +483,9 @@ export function calculateConfidence(
   }
 
   // Factor: Topic Coverage
-  let topicCoverage = 90;
+  let topicCoverage = 75;
   if (topics.length > 3) {
-    topicCoverage = 75;
+    topicCoverage = 60;
     warnings.push('Complex message with multiple topics');
   }
 
@@ -435,16 +499,21 @@ export function calculateConfidence(
     blockReason = blockReason || 'Sensitive topic requires human review';
   }
 
-  // Factor: Style Match
-  let styleMatch = 75;
-  if (styleProfile && styleProfile.samplesAnalyzed > 10) {
-    styleMatch = 90;
+  // Factor: Style Match — measures training data availability (NOT output quality)
+  // Post-generation validation adds/subtracts based on actual output match
+  let styleMatch = 40; // Low base without any profile
+  if (styleProfile && styleProfile.samplesAnalyzed > 20) {
+    styleMatch = 75; // Good training data, but output quality checked post-generation
+  } else if (styleProfile && styleProfile.samplesAnalyzed > 10) {
+    styleMatch = 65;
   } else if (styleProfile && styleProfile.samplesAnalyzed > 5) {
-    styleMatch = 80;
+    styleMatch = 55;
+  } else if (styleProfile && styleProfile.samplesAnalyzed > 0) {
+    styleMatch = 45;
   }
 
   // Factor: Safety Check (hallucination prevention)
-  let safetyCheck = 90;
+  let safetyCheck = 80;
   const moneyMentioned = /\$|refund|payment|charge|fee|price|cost/i.test(topics.map(t => t.topic).join(' '));
   if (moneyMentioned && !knowledge) {
     safetyCheck = 60;
@@ -487,7 +556,7 @@ export function detectActionItems(
   propertyId: string
 ): ActionItem[] {
   const items: ActionItem[] = [];
-  const lowerContent = content.toLowerCase();
+  // content accessed directly via regex patterns below
 
   // Maintenance issues
   if (topics.some(t => t.intent === 'maintenance_issue')) {
@@ -581,7 +650,7 @@ export function detectActionItems(
 // Check for knowledge base conflicts
 export function detectKnowledgeConflicts(knowledge: PropertyKnowledge): KnowledgeConflict[] {
   const conflicts: KnowledgeConflict[] = [];
-  const now = new Date();
+  // Date comparisons handled inline below
 
   // Check for obviously outdated info
   if (knowledge.wifiPassword && knowledge.wifiPassword.includes('2023')) {
@@ -727,7 +796,7 @@ export function analyzeConversationContext(
 
   for (const topic of currentGuestTopics) {
     const topicLower = topic.topic.toLowerCase();
-    const intentLower = topic.intent.toLowerCase();
+    // intent used directly below
 
     // Check if this topic was recently addressed
     let wasAddressed = false;
@@ -798,7 +867,7 @@ export function analyzeConversationContext(
 // Detect topics mentioned in text (simpler version for host messages)
 function detectTopicsInText(content: string): string[] {
   const topics: string[] = [];
-  const lowerContent = content.toLowerCase();
+  // content tested via regex directly below
 
   const topicKeywords: { keywords: RegExp; topic: string }[] = [
     { keywords: /\b(wifi|wi-fi|internet|password|network)\b/i, topic: 'WiFi' },
@@ -890,7 +959,7 @@ function determineThreadDirection(
   recentHostMessages: string[],
   hasSkippedTopics: boolean
 ): ConversationContextAnalysis['threadDirection'] {
-  const lowerMessage = currentGuestMessage.toLowerCase();
+  // currentGuestMessage tested via regex directly below
 
   // Check for follow-up indicators
   const followUpPatterns = [
@@ -1107,7 +1176,7 @@ export function detectThreadContinuity(
   }
 
   const guestContent = currentGuestMessage.content.toLowerCase();
-  const hostContent = previousHostMessage.content.toLowerCase();
+  // host content compared via regex patterns below
 
   // Check if guest references something from host reply
   const referencePatterns = [
@@ -1179,7 +1248,7 @@ export function detectThreadContinuity(
   };
 }
 
-// Calculate confidence modifier based on thread alignment
+// Calculate confidence modifier based on thread alignment (True Confidence: Only Penalties)
 function calculateThreadConfidenceModifier(
   styleAnchor: ThreadStyleAnchor,
   continuity: ThreadContinuityInfo
@@ -1187,28 +1256,10 @@ function calculateThreadConfidenceModifier(
   let modifier = 0;
   let reasons: string[] = [];
 
-  // Boost confidence if we have a style anchor to follow
-  if (styleAnchor.hasAnchor) {
-    modifier += 5;
-    reasons.push('Following your established thread style');
-  }
-
-  // Boost if guest positively received prior reply
-  if (continuity.sentimentTowardPriorReply === 'positive') {
-    modifier += 10;
-    reasons.push('Guest positively received your last reply');
-  }
-
   // Lower confidence if guest had issues with prior reply
   if (continuity.sentimentTowardPriorReply === 'negative') {
     modifier -= 15;
     reasons.push('Guest had issues with prior reply - being careful');
-  }
-
-  // Boost if topics were previously resolved successfully
-  if (styleAnchor.resolvedTopics.length > 0) {
-    modifier += 5;
-    reasons.push(`${styleAnchor.resolvedTopics.length} topic(s) already resolved in thread`);
   }
 
   return {
@@ -1312,7 +1363,45 @@ export function buildEnhancedSystemPrompt(
     }
   }
 
-  let prompt = `You are an AI assistant helping manage guest communications for a vacation rental property.
+  // Build identity based on whether we have a learned style profile
+  const hasLearnedStyle = hostStyleProfile && hostStyleProfile.samplesAnalyzed > 5;
+  const styleInstructions = hasLearnedStyle ? generateStyleInstructions(hostStyleProfile!) : '';
+
+  let prompt: string;
+  
+  if (hasLearnedStyle) {
+    // STRONG IDENTITY: AI acts AS the host, style is the core identity
+    prompt = `You are ${hostName || 'the host'}, responding to a guest at your vacation rental property. You are NOT an AI assistant — you are writing as yourself, the property host. Your responses must sound exactly like YOUR previous messages. If someone read this response alongside your real messages, they should not be able to tell which is which.
+
+PROPERTY: ${propertyName}
+ADDRESS: ${propertyAddress}
+
+YOUR COMMUNICATION STYLE (learned from ${hostStyleProfile!.samplesAnalyzed} of your real messages — this is WHO YOU ARE):
+${styleInstructions}
+
+These style rules are MANDATORY. They define your voice. Do NOT deviate from them.
+
+TONE GUIDANCE FOR THIS MESSAGE:
+${toneGuidance}
+
+DETECTED TOPICS IN GUEST MESSAGE:
+${topics.map(t => `- ${t.topic} (${t.hasAnswer ? 'knowledge available' : 'no specific knowledge'})`).join('\n')}
+
+MULTI-TOPIC HANDLING:
+If the guest asked multiple questions, address EACH one clearly. Use paragraph breaks or numbered points for clarity. Don't skip any topic.
+
+GUIDELINES:
+- Write as yourself (${hostName || 'the host'}), not as an AI
+- Answer questions directly and proactively offer relevant information
+- If you don't have specific information, be honest but offer to help find it
+- Never make up information about the property that isn't provided
+- Keep responses concise but complete
+- CRITICAL LANGUAGE RULE: YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. Do NOT write in Italian, Spanish, or any other language, even if the guest wrote in that language or if historical examples are in that language. Hostaway handles translation automatically. English only.
+- For urgent issues, express immediate concern and offer solutions
+`;
+  } else {
+    // FALLBACK: Generic assistant when no style profile exists yet
+    prompt = `You are an AI assistant helping manage guest communications for a vacation rental property.
 
 PROPERTY: ${propertyName}
 ADDRESS: ${propertyAddress}
@@ -1333,15 +1422,8 @@ GUIDELINES:
 - If you don't have specific information, be honest but offer to help find it
 - Never make up information about the property that isn't provided
 - Keep responses concise but complete
-- Match the guest's language if they write in a non-English language
+- ALWAYS respond in English — Hostaway handles translation to the guest's language automatically
 - For urgent issues, express immediate concern and offer solutions
-`;
-
-  // Add learned host style
-  if (hostStyleProfile && hostStyleProfile.samplesAnalyzed > 5) {
-    const styleInstructions = generateStyleInstructions(hostStyleProfile);
-    prompt += `\nHOST'S PERSONAL STYLE (learned from their messages):
-${styleInstructions}
 `;
   }
 
@@ -1615,7 +1697,14 @@ export async function generateEnhancedAIResponse(options: {
   responseLanguageMode?: 'match_guest' | 'host_language';
   hostDefaultLanguage?: string;
 }): Promise<EnhancedAIResponse> {
-  const { conversation, propertyKnowledge, hostName, hostStyleProfile, regenerationModifier, responseLanguageMode = 'match_guest', hostDefaultLanguage = 'en' } = options;
+  const { conversation, propertyKnowledge, hostName, hostStyleProfile, regenerationModifier } = options;
+
+  // ── RATE LIMIT CHECK ──
+  const rateLimitResult = await canGenerateDraft();
+  if (!rateLimitResult.allowed) {
+    throw new Error(`RATE_LIMIT: ${rateLimitResult.reason}`);
+  }
+
   // Keys are now fetched dynamically via getAIKey() in the provider fallback chain
 
   // Get last guest message
@@ -1660,11 +1749,8 @@ export async function generateEnhancedAIResponse(options: {
     : [];
   const regenerationOptions = getRegenerationOptions(sentiment);
 
-  // Detect guest language, then determine response language based on mode
-  const guestLanguage = detectLanguageEnhanced(lastGuestMessage.content);
-  const detectedLanguage = responseLanguageMode === 'host_language'
-    ? hostDefaultLanguage
-    : guestLanguage;
+  // Language: always English — Hostaway translates on the channel side
+  const detectedLanguage = 'en';
 
   // Search historical responses for similar guest questions
   const historicalMatches = searchAndPrepareHistoricalContext(
@@ -1698,11 +1784,34 @@ export async function generateEnhancedAIResponse(options: {
   if (intraThreadLearning.confidenceModifier !== 0) {
     confidence = {
       ...confidence,
-      overall: Math.max(30, Math.min(100, confidence.overall + intraThreadLearning.confidenceModifier)),
+      overall: Math.max(30, Math.min(92, confidence.overall + intraThreadLearning.confidenceModifier)),
       warnings: intraThreadLearning.confidenceReason
         ? [...confidence.warnings, intraThreadLearning.confidenceReason]
         : confidence.warnings,
     };
+  }
+
+  // ── CALIBRATION FEEDBACK LOOP ──
+  // Apply self-correcting adjustment based on past draft outcomes.
+  // If the AI has been consistently overconfident, lower confidence.
+  // If consistently underconfident on certain intents, slightly boost.
+  const primaryIntent = topics[0]?.intent;
+  const calibration = getCalibrationAdjustment(primaryIntent);
+  if (calibration.globalAdj !== 0 || calibration.intentAdj !== 0) {
+    const totalCalAdj = calibration.globalAdj + calibration.intentAdj;
+    confidence = {
+      ...confidence,
+      overall: Math.max(20, Math.min(90, confidence.overall + totalCalAdj)),
+      warnings: [...confidence.warnings, ...calibration.warnings],
+    };
+    console.log(`[Calibration] Applied adjustment: global=${calibration.globalAdj}, intent=${calibration.intentAdj}, newConfidence=${confidence.overall}`);
+  }
+
+  // HARD SAFETY CAP: Never allow auto-sendable confidence above 85%
+  // Confidence measures "readiness to send" — only post-generation validation can push above 80%
+  if (confidence.overall > 85) {
+    confidence.overall = 85;
+    confidence.warnings.push('Confidence capped at 85% pre-generation safety limit');
   }
 
   // Build prompts with historical context, context awareness, AND intra-thread learning
@@ -1874,7 +1983,87 @@ export async function generateEnhancedAIResponse(options: {
     ],
   } : confidence;
 
-  return {
+  // ── POST-GENERATION STYLE VALIDATION ──
+  // Check if the generated response matches the host's style profile.
+  // This catches cases where confidence was high (based on input recognition)
+  // but the AI's actual OUTPUT is wrong (e.g. emojis when host never uses them).
+  if (generatedContent && hostStyleProfile && hostStyleProfile.samplesAnalyzed >= 5) {
+    const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}]/gu;
+    const responseHasEmojis = emojiRegex.test(generatedContent);
+    const hostUsesEmojis = hostStyleProfile.usesEmojis && hostStyleProfile.emojiFrequency > 0;
+
+    if (responseHasEmojis && !hostUsesEmojis) {
+      // AI used emojis but host NEVER uses them — major style mismatch
+      console.log('[AI Enhanced] ⚠️ STYLE MISMATCH: Response contains emojis but host does not use them');
+      finalConfidence.overall = Math.min(finalConfidence.overall, 60);
+      finalConfidence.blockedForAutoSend = true;
+      finalConfidence.blockReason = 'Response contains emojis but your style profile shows you don\'t use them';
+      finalConfidence.warnings.push('Style mismatch: emojis detected in response but host doesn\'t use emojis');
+    }
+
+    // Check for factual accuracy / hallucinations (e.g. placeholders)
+    if (generatedContent) {
+      const placeholderRegex = /\[(.*?)\]|\((insert.*?)\)/i;
+      if (placeholderRegex.test(generatedContent)) {
+        console.log('[AI Enhanced] ⚠️ FACTUAL MISMATCH: Response contains placeholders');
+        finalConfidence.overall = Math.min(finalConfidence.overall, 20); // Crush confidence
+        finalConfidence.blockedForAutoSend = true;
+        finalConfidence.blockReason = 'Response contains placeholders that require manual input';
+        finalConfidence.warnings.push('Factual mismatch: AI generated placeholders instead of concrete facts');
+      }
+    }
+
+    // Check if response is significantly longer/shorter than host's typical style
+    const responseLength = generatedContent.trim().length;
+    const avgLength = hostStyleProfile.averageResponseLength || 150;
+    if (responseLength > avgLength * 2.5) {
+      console.log('[AI Enhanced] ⚠️ Response much longer than host\'s typical style');
+      finalConfidence.overall = Math.min(finalConfidence.overall, 75);
+      finalConfidence.warnings.push('Response significantly longer than your typical messages');
+    }
+
+    // Check excessive exclamation marks (more than host uses)
+    const exclamationCount = (generatedContent.match(/!/g) || []).length;
+    if (exclamationCount > 4) {
+      console.log('[AI Enhanced] ⚠️ Excessive exclamation marks:', exclamationCount);
+      finalConfidence.overall = Math.min(finalConfidence.overall, 70);
+      finalConfidence.warnings.push('Response uses excessive exclamation marks');
+    }
+
+    // Check formality mismatch
+    const hostFormality = hostStyleProfile.formalityLevel || 50;
+    const casualMarkers = (generatedContent.match(/\b(hey|lol|yeah|gonna|wanna|gotta|awesome|cool|sweet|dude|bro)\b/gi) || []).length;
+    const formalMarkers = (generatedContent.match(/\b(dear|sincerely|regards|esteemed|pursuant|hereby|kindly note)\b/gi) || []).length;
+    if (hostFormality > 70 && casualMarkers > 2) {
+      console.log('[AI Enhanced] ⚠️ STYLE MISMATCH: Response too casual for host\'s formal style');
+      finalConfidence.overall = Math.min(finalConfidence.overall, 65);
+      finalConfidence.warnings.push('Style mismatch: response is too casual for your typical communication style');
+    } else if (hostFormality < 30 && formalMarkers > 1) {
+      console.log('[AI Enhanced] ⚠️ STYLE MISMATCH: Response too formal for host\'s casual style');
+      finalConfidence.overall = Math.min(finalConfidence.overall, 65);
+      finalConfidence.warnings.push('Style mismatch: response is too formal for your typical communication style');
+    }
+
+    // Check greeting style mismatch
+    const hostGreeting = hostStyleProfile.commonGreetings?.[0]?.toLowerCase() || '';
+    const responseStart = generatedContent.trim().substring(0, 50).toLowerCase();
+    if (hostGreeting && !responseStart.includes(hostGreeting.split(' ')[0])) {
+      // Host typically says "Hi" but AI said "Hello" or "Hey" — mild penalty
+      finalConfidence.overall = Math.max(finalConfidence.overall - 3, 30);
+      finalConfidence.warnings.push(`Greeting doesn't match your typical style ("${hostStyleProfile.commonGreetings?.[0]}")`);
+    }
+
+    // Check warmth mismatch using warmthLevel
+    const hostWarmth = hostStyleProfile.warmthLevel || 50;
+    const highWarmthMarkers = (generatedContent.match(/(!{2,}|❤|💕|🥰|so excited|can't wait|thrilled|absolutely love)/gi) || []).length;
+    if (hostWarmth < 30 && highWarmthMarkers > 1) {
+      console.log('[AI Enhanced] ⚠️ Response too warm/enthusiastic for host\'s direct style');
+      finalConfidence.overall = Math.min(finalConfidence.overall, 65);
+      finalConfidence.warnings.push('Style mismatch: response is more enthusiastic than your typical tone');
+    }
+  }
+
+  const response: EnhancedAIResponse = {
     content: generatedContent,
     sentiment,
     topics,
@@ -1889,8 +2078,12 @@ export async function generateEnhancedAIResponse(options: {
     intraThreadLearning,
     guestProfile,
   };
-}
 
+  // ── RECORD USAGE ──
+  await recordDraftGeneration((generatedContent?.length ?? 400) * 2).catch(console.error);
+
+  return response;
+}
 // Search historical responses and prepare context for AI
 function searchAndPrepareHistoricalContext(
   guestMessage: string,
@@ -1925,7 +2118,7 @@ function searchAndPrepareHistoricalContext(
   };
 }
 
-// Calculate confidence with historical match boost
+// Calculate confidence without artificial history boost (True Confidence)
 function calculateConfidenceWithHistory(
   sentiment: SentimentAnalysis,
   topics: DetectedTopic[],
@@ -1933,16 +2126,12 @@ function calculateConfidenceWithHistory(
   styleProfile?: HostStyleProfile,
   historicalMatches?: HistoricalMatchInfo
 ): ConfidenceScore {
-  // Get base confidence
+  // Get true base confidence from semantic understanding
   const baseConfidence = calculateConfidence(sentiment, topics, knowledge, styleProfile);
 
-  // Apply historical match boost
-  if (historicalMatches?.usedHistoricalBasis && historicalMatches.topMatchScore >= 60) {
-    // Boost confidence when we have strong historical matches
-    const boost = Math.min(15, Math.round(historicalMatches.topMatchScore / 6));
-    baseConfidence.overall = Math.min(100, baseConfidence.overall + boost);
-    baseConfidence.factors.knowledgeAvailable = Math.min(100, baseConfidence.factors.knowledgeAvailable + boost);
-  }
+  // We no longer add artificial boosts for historical matches.
+  // The LLM will use the historical matches to generate a better response,
+  // but confidence reflects factual readiness and style match, not just "I've seen this before".
 
   return baseConfidence;
 }
@@ -2144,7 +2333,7 @@ ${conversationContext}
 PRIMARY FOCUS: The LAST guest message is what you're responding to. Earlier messages are context only.
 The guest's sentiment is: ${sentiment.primary} (${sentiment.emotions.join(', ')})
 Topics to address: ${topicsText || 'General inquiry'}
-${detectedLanguage !== 'en' ? `Respond in: ${getLanguageNameEnhanced(detectedLanguage)}` : ''}
+
 
 `;
 
@@ -2177,30 +2366,44 @@ Your response should:
 4. Provides specific, accurate information from property knowledge when available
 5. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
 
-Respond with ONLY the message content, no additional formatting or explanation.`;
+Respond with ONLY the message content in ENGLISH. No additional formatting or explanation.
+CRITICAL: Your response MUST be in English regardless of the guest's language. Hostaway handles translation.`;
 
   return prompt;
 }
 
-// Enhanced language detection
-function detectLanguageEnhanced(text: string): string {
-  const patterns: { lang: string; regex: RegExp }[] = [
-    { lang: 'es', regex: /\b(hola|gracias|buenos|días|noches|por favor|cómo|está|qué|para|tengo|puede)\b/i },
-    { lang: 'fr', regex: /\b(bonjour|merci|s'il vous plaît|comment|êtes|avez|pour|avec|nous|je suis)\b/i },
-    { lang: 'de', regex: /\b(guten|danke|bitte|wie|sind|haben|für|mit|wir|können|ich bin)\b/i },
-    { lang: 'it', regex: /\b(buongiorno|grazie|prego|come|siete|avete|per|con|noi|sono)\b/i },
-    { lang: 'pt', regex: /\b(olá|obrigado|por favor|como|está|vocês|para|com|nós|estou)\b/i },
-    { lang: 'zh', regex: /[\u4e00-\u9fff]/ },
-    { lang: 'ja', regex: /[\u3040-\u309f\u30a0-\u30ff]/ },
-    { lang: 'ko', regex: /[\uac00-\ud7af]/ },
-    { lang: 'ar', regex: /[\u0600-\u06ff]/ },
-    { lang: 'ru', regex: /[\u0400-\u04ff]/ },
-    { lang: 'nl', regex: /\b(hallo|dank|alstublieft|hoe|bent|heeft|voor|met|wij)\b/i },
+// Enhanced language detection — requires multiple keyword matches for Latin-script
+// languages to avoid false positives from words shared with English (e.g. "per", "con")
+function _detectLanguageEnhanced(text: string): string {
+  const lower = text.toLowerCase();
+
+  // Character-set based detection (single match is conclusive)
+  if (/[\u4e00-\u9fff]/.test(text)) return 'zh';
+  if (/[\u3040-\u309f\u30a0-\u30ff]/.test(text)) return 'ja';
+  if (/[\uac00-\ud7af]/.test(text)) return 'ko';
+  if (/[\u0600-\u06ff]/.test(text)) return 'ar';
+  if (/[\u0400-\u04ff]/.test(text)) return 'ru';
+
+  // Latin-script languages: require ≥2 distinct keyword matches to avoid
+  // false positives from words that also exist in English (e.g. "per", "con", "come")
+  const keywordSets: { lang: string; keywords: string[] }[] = [
+    { lang: 'es', keywords: ['hola', 'gracias', 'buenos', 'días', 'noches', 'por favor', 'cómo', 'está', 'qué', 'tengo', 'puede', 'necesito', 'habitación', 'reserva'] },
+    { lang: 'fr', keywords: ['bonjour', 'merci', 'comment', 'êtes', 'avez', 'nous', 'je suis', 'réservation', 's\'il vous plaît', 'chambre', 'séjour'] },
+    { lang: 'de', keywords: ['guten', 'danke', 'bitte', 'sind', 'haben', 'für', 'können', 'ich bin', 'zimmer', 'buchung', 'ankunft'] },
+    { lang: 'it', keywords: ['buongiorno', 'grazie', 'prego', 'siete', 'avete', 'possiamo', 'prenotazione', 'arrivo', 'soggiorno', 'buonasera', 'salve'] },
+    { lang: 'pt', keywords: ['olá', 'obrigado', 'obrigada', 'está', 'vocês', 'estou', 'reserva', 'chegada', 'hospedagem', 'quarto'] },
+    { lang: 'nl', keywords: ['hallo', 'dank', 'alstublieft', 'bent', 'heeft', 'wij', 'kamer', 'boeking', 'verblijf'] },
   ];
 
-  for (const { lang, regex } of patterns) {
-    if (regex.test(text)) {
-      return lang;
+  for (const { lang, keywords } of keywordSets) {
+    let matches = 0;
+    for (const kw of keywords) {
+      // Use word boundary check for multi-word phrases and single words
+      const regex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      if (regex.test(lower)) {
+        matches++;
+        if (matches >= 2) return lang;
+      }
     }
   }
 
@@ -2208,7 +2411,7 @@ function detectLanguageEnhanced(text: string): string {
 }
 
 // Get language name
-function getLanguageNameEnhanced(code: string): string {
+function _getLanguageNameEnhanced(code: string): string {
   const languages: Record<string, string> = {
     en: 'English',
     es: 'Spanish',

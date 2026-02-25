@@ -28,14 +28,10 @@ import {
 import * as Haptics from 'expo-haptics';
 import Animated, {
   SlideInRight,
-  FadeIn,
 } from 'react-native-reanimated';
 import {
   format,
   addDays,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
   isSameDay,
   isWithinInterval,
   parseISO,
@@ -43,14 +39,12 @@ import {
   addMonths,
   subMonths,
   isToday as dateFnsIsToday,
-  getDay,
   startOfWeek,
 } from 'date-fns';
 import { useAppStore, type Property } from '@/lib/store';
 import {
   fetchCalendarReservations,
   fetchListings,
-  type HostawayCalendarReservation,
   type HostawayListing,
 } from '@/lib/hostaway';
 
@@ -925,9 +919,13 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
           style={{ flex: 1 }}
         >
           {dates.map((date, index) => {
-            const price = getDailyPrice(Number(listing.id), date, allEntries);
-            // Show base price for empty days (demo purposes)
-            const displayPrice = price || (100 + (Number(listing.id) % 5) * 50);
+            // Use numeric ID if possible, otherwise hash the string ID
+            const numericId = Number(listing.id);
+            const safeId = isNaN(numericId) ? Math.abs([...listing.id].reduce((h, c) => (h << 5) - h + c.charCodeAt(0), 0)) : numericId;
+            const price = getDailyPrice(safeId, date, allEntries);
+            // Show base price for empty days (demo purposes), "—" if still NaN
+            const fallback = 100 + (safeId % 5) * 50;
+            const displayPrice = price || fallback;
 
             return (
               <View
@@ -943,7 +941,7 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
                 }}
               >
                 <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500' }}>
-                  {displayPrice}$
+                  {isNaN(displayPrice) ? '—' : `${displayPrice}$`}
                 </Text>
               </View>
             );

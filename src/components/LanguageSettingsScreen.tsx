@@ -70,8 +70,8 @@ function CulturalTonePreview({ languageCode }: { languageCode: string }) {
               <View style={{ marginTop: spacing['4'] }}>
                 <Text style={ls.sectionLabel}>Adaptations Applied</Text>
                 <View style={ls.tagWrap}>
-                  {summary.adaptations.slice(0, 4).map((a, i) => (
-                    <View key={i} style={ls.tag}><Text style={ls.tagText}>{a}</Text></View>
+                  {summary.adaptations.slice(0, 4).map((a) => (
+                    <View key={a} style={ls.tag}><Text style={ls.tagText}>{a}</Text></View>
                   ))}
                 </View>
               </View>
@@ -84,8 +84,8 @@ function CulturalTonePreview({ languageCode }: { languageCode: string }) {
               {profile.culturalNotes.length > 0 && (
                 <View style={{ marginTop: spacing['4'] }}>
                   <Text style={ls.sectionLabel}>Cultural Notes</Text>
-                  {profile.culturalNotes.slice(0, 2).map((note, i) => (
-                    <View key={i} style={ls.noteRow}>
+                  {profile.culturalNotes.slice(0, 2).map((note) => (
+                    <View key={note} style={ls.noteRow}>
                       <View style={ls.noteDot} />
                       <Text style={[ls.meterText, { flex: 1 }]}>{note}</Text>
                     </View>
@@ -248,7 +248,7 @@ export function LanguageSettingsScreen({ onBack }: LanguageSettingsScreenProps) 
                   { label: 'Spanish (Warm)', color: '#F97316', text: '"La contraseña WiFi es \'welcome2024\'. No dudes en escribirme si necesitas algo!"' },
                   { label: 'Japanese (Highly Formal)', color: '#EC4899', text: '"WiFiのパスワードは「welcome2024」でございます。何かございましたらお気軽にお申し付けください。"' },
                 ].map((ex, i, arr) => (
-                  <View key={i} style={[{ marginBottom: spacing['3'], paddingBottom: spacing['3'] }, i < arr.length - 1 && ls.borderBottom]}>
+                  <View key={ex.label} style={[{ marginBottom: spacing['3'], paddingBottom: spacing['3'] }, i < arr.length - 1 && ls.borderBottom]}>
                     <Text style={{ color: ex.color, fontSize: 12, fontFamily: typography.fontFamily.medium, marginBottom: 4 }}>{ex.label}</Text>
                     <Text style={{ color: colors.text.secondary, fontSize: 14 }}>{ex.text}</Text>
                   </View>
@@ -265,7 +265,7 @@ export function LanguageSettingsScreen({ onBack }: LanguageSettingsScreenProps) 
 const ls = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg.base },
   header: { paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], flexDirection: 'row', alignItems: 'center' },
-  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
+  backBtn: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
   title: { fontSize: 20, fontFamily: typography.fontFamily.bold, color: colors.text.primary },
   scroll: { flex: 1, paddingHorizontal: spacing['4'] },
   card: { backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: spacing['4'] },
@@ -277,7 +277,7 @@ const ls = StyleSheet.create({
   hint: { color: colors.text.disabled, fontSize: 14, marginTop: 2 },
   sectionGap: { marginBottom: spacing['4'] },
   sectionLabel: { color: colors.text.disabled, fontSize: 12, fontFamily: typography.fontFamily.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: spacing['2'], marginLeft: 4 },
-  langRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing['4'], paddingVertical: spacing['4'] },
+  langRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing['4'], paddingVertical: spacing['4'], minHeight: 44 },
   borderBottom: { borderBottomWidth: 1, borderBottomColor: colors.border.subtle },
   checkCircle: { width: 24, height: 24, borderRadius: radius.full, backgroundColor: '#A855F7', alignItems: 'center', justifyContent: 'center' },
   expandedPanel: { marginTop: spacing['4'], paddingTop: spacing['4'], borderTopWidth: 1, borderTopColor: colors.border.subtle },
@@ -293,7 +293,7 @@ const ls = StyleSheet.create({
   greetingText: { color: colors.text.secondary, fontSize: 14 },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   noteDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#A855F7', marginTop: 5, marginRight: spacing['2'] },
-  modeBtn: { flex: 1, paddingVertical: spacing['2'], paddingHorizontal: spacing['3'], borderRadius: radius.md, backgroundColor: colors.bg.hover, alignItems: 'center' },
+  modeBtn: { flex: 1, paddingVertical: spacing['2'], paddingHorizontal: spacing['3'], borderRadius: radius.md, backgroundColor: colors.bg.hover, alignItems: 'center', minHeight: 44, justifyContent: 'center' },
   modeBtnActive: { backgroundColor: colors.accent.DEFAULT + '20' },
   modeBtnText: { color: colors.text.disabled, fontSize: 14, fontFamily: typography.fontFamily.medium },
   modeBtnTextActive: { color: colors.accent.DEFAULT },

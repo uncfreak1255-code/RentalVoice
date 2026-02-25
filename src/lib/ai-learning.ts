@@ -357,11 +357,11 @@ export function generateStyleInstructions(profile: HostStyleProfile): string {
     instructions.push('Keep responses professional and to-the-point.');
   }
 
-  // Emojis
+  // Emojis — STRONG enforcement because LLMs tend to add emojis by default
   if (profile.usesEmojis) {
     instructions.push(`Include occasional emojis (about ${Math.round(profile.emojiFrequency / 10)} per message on average).`);
   } else {
-    instructions.push('Do not use emojis.');
+    instructions.push('CRITICAL: NEVER use emojis, emoticons, or unicode symbols like 😊🥳👍 in the response. The host NEVER uses emojis in their messages. Any emoji in the response is WRONG and does not represent the host\'s voice. This is non-negotiable.');
   }
 
   // Length

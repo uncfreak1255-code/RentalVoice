@@ -155,7 +155,7 @@ LANDLORD-TENANT GUIDELINES:
     );
     prompt += culturalInstructions;
   } else {
-    prompt += '\n- Match the guest\'s language if they write in a non-English language';
+    prompt += '\n- CRITICAL: ALWAYS respond in English — Hostaway handles translation to the guest\'s language automatically';
   }
 
   // Add learned host style if available
@@ -293,24 +293,24 @@ function analyzeMessage(content: string): { sentiment: 'positive' | 'neutral' | 
   const urgentKeywords = ['emergency', 'urgent', 'help', 'locked out', 'broken', 'flood', 'fire', 'safety', 'immediately', 'asap', 'police', 'ambulance'];
   const isUrgent = urgentKeywords.some((kw) => lowerContent.includes(kw));
   if (isUrgent) {
-    return { sentiment: 'urgent', confidence: 95 };
+    return { sentiment: 'urgent', confidence: 60 };
   }
 
   // Negative keywords
   const negativeKeywords = ['problem', 'issue', 'complaint', 'disappointed', 'dirty', 'broken', 'not working', 'unhappy', 'refund', 'terrible', 'awful'];
   const isNegative = negativeKeywords.some((kw) => lowerContent.includes(kw));
   if (isNegative) {
-    return { sentiment: 'negative', confidence: 85 };
+    return { sentiment: 'negative', confidence: 55 };
   }
 
   // Positive keywords
   const positiveKeywords = ['thank', 'great', 'amazing', 'wonderful', 'love', 'perfect', 'beautiful', 'excellent', 'happy', 'appreciate'];
   const isPositive = positiveKeywords.some((kw) => lowerContent.includes(kw));
   if (isPositive) {
-    return { sentiment: 'positive', confidence: 90 };
+    return { sentiment: 'positive', confidence: 70 };
   }
 
-  return { sentiment: 'neutral', confidence: 85 };
+  return { sentiment: 'neutral', confidence: 60 };
 }
 
 /**
@@ -496,7 +496,7 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
 `;
   }
 
-  userPrompt += `\nRespond with ONLY the message content in ${languageName}, no additional formatting or explanation.`;
+  userPrompt += `\nRespond with ONLY the message content in English, no additional formatting or explanation.`;
 
   console.log('[AI Service] Generating response for intent:', detectedIntent);
 
@@ -540,28 +540,38 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
     // Calculate confidence based on various factors
     let confidence = sentimentConfidence;
 
-    // Boost confidence if we used a matching template
-    if (templateMatch && templateMatch.matchScore >= 40) {
-      confidence = Math.min(98, confidence + 10);
-      console.log('[AI Service] Boosted confidence due to template match');
+    // Style profile gate: without adequate style learning, cap confidence
+    // This prevents auto-sending messages that don't match the host's voice
+    if (!hostStyleProfile || hostStyleProfile.samplesAnalyzed < 10) {
+      confidence = Math.min(confidence, 70);
+      console.log('[AI Service] Style profile insufficient — confidence capped at 70');
+    } else if (hostStyleProfile.samplesAnalyzed < 20) {
+      confidence = Math.min(confidence, 80);
+      console.log('[AI Service] Style profile developing — confidence capped at 80');
     }
 
-    // Boost confidence if we have learned style for this language
+    // Small boost if we used a matching template (proven response pattern)
+    if (templateMatch && templateMatch.matchScore >= 40) {
+      confidence = Math.min(90, confidence + 5);
+      console.log('[AI Service] Small boost for template match');
+    }
+
+    // Small boost if we have learned style for this language
     if (learnedStyle && learnedStyle.samplesAnalyzed >= 3) {
-      confidence = Math.min(98, confidence + 5);
-      console.log('[AI Service] Boosted confidence due to learned language style');
+      confidence = Math.min(90, confidence + 3);
+      console.log('[AI Service] Small boost for learned language style');
     }
 
     // Reduce confidence for complex situations
-    if (sentiment === 'urgent') confidence = Math.min(confidence, 75); // Urgent needs human review
-    if (sentiment === 'negative') confidence = Math.min(confidence, 80);
-    if (detectedIntent === 'maintenance_issue') confidence = Math.min(confidence, 78);
+    if (sentiment === 'urgent') confidence = Math.min(confidence, 55);
+    if (sentiment === 'negative') confidence = Math.min(confidence, 60);
+    if (detectedIntent === 'maintenance_issue') confidence = Math.min(confidence, 65);
 
-    // Boost confidence for straightforward queries with knowledge
-    if (propertyKnowledge) {
-      if (detectedIntent === 'wifi_inquiry' && propertyKnowledge.wifiPassword) confidence = Math.min(95, confidence + 5);
-      if (detectedIntent === 'checkin_inquiry' && propertyKnowledge.checkInInstructions) confidence = Math.min(95, confidence + 5);
-      if (detectedIntent === 'parking_inquiry' && propertyKnowledge.parkingInfo) confidence = Math.min(95, confidence + 5);
+    // Boost for straightforward queries with verified knowledge
+    if (propertyKnowledge && hostStyleProfile && hostStyleProfile.samplesAnalyzed >= 10) {
+      if (detectedIntent === 'wifi_inquiry' && propertyKnowledge.wifiPassword) confidence = Math.min(88, confidence + 5);
+      if (detectedIntent === 'checkin_inquiry' && propertyKnowledge.checkInInstructions) confidence = Math.min(88, confidence + 5);
+      if (detectedIntent === 'parking_inquiry' && propertyKnowledge.parkingInfo) confidence = Math.min(88, confidence + 5);
     }
 
     console.log('[AI Service] Response generated with confidence:', confidence);
@@ -714,9 +724,25 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
     content = fallbackResponses[intent] || fallbackResponses['general_inquiry'] || demoResponses.general_inquiry.en;
   }
 
+  // Demo confidence: realistic values based on intent, NOT inflated random
+  // Without a real AI call and style profile, confidence should never be high enough to auto-send
+  const intentConfidenceMap: Record<string, number> = {
+    wifi_inquiry: 72,
+    checkin_inquiry: 70,
+    checkout_inquiry: 68,
+    parking_inquiry: 70,
+    general_inquiry: 65,
+    local_recommendation: 68,
+    maintenance_issue: 55,
+    noise_complaint: 50,
+    refund_request: 45,
+    early_checkin_request: 60,
+    late_checkout_request: 60,
+  };
+
   return {
     content,
-    confidence: Math.floor(Math.random() * 10) + 85,
+    confidence: intentConfidenceMap[intent] || 65,
     sentiment,
     detectedIntent: intent,
     detectedLanguage,

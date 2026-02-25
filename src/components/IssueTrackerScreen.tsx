@@ -155,7 +155,7 @@ export function IssueTrackerScreen({ onBack }: IssueTrackerScreenProps) {
               <Text style={{ color: colors.text.disabled, fontSize: 14, marginTop: 4 }}>{filterStatus === 'all' ? 'Create an issue to get started' : `No ${filterStatus} issues`}</Text>
             </View>
           ) : (
-            <FlashList data={filteredIssues} renderItem={renderIssueItem} keyExtractor={(item) => item.id} estimatedItemSize={120} showsVerticalScrollIndicator={false} />
+            <FlashList data={filteredIssues} renderItem={renderIssueItem} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} />
           )}
         </View>
       </SafeAreaView>

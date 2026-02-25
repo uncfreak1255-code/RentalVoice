@@ -66,11 +66,11 @@ export interface UseAIDraftOptions {
 }
 
 export interface UseAIDraftResult {
-  // State
   draft: EnhancedAiDraft | null;
   isGenerating: boolean;
   isSending: boolean;
   learningToast: { type: 'approval' | 'edit' | 'independent' | 'rejection'; message: string } | null;
+  rateLimitError: string | null;
 
   // Actions
   generateDraft: (modifier?: RegenerationOption['modifier']) => Promise<void>;
@@ -81,6 +81,7 @@ export interface UseAIDraftResult {
   sendIndependentMessage: (content: string) => Promise<void>;
   clearDraft: () => void;
   preloadDraft: (content: string, confidence: number) => void;
+  clearRateLimitError: () => void;
 }
 
 export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions): UseAIDraftResult {
@@ -88,6 +89,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [learningToast, setLearningToast] = useState<UseAIDraftResult['learningToast']>(null);
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
 
   // Zustand selectors
   const conversations = useAppStore((s) => s.conversations);
@@ -279,13 +281,30 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
         aiDraftConfidence: enhancedResponse.confidence.overall,
       });
 
-      // Auto-send check
-      if (autoPilotEnabled && enhancedResponse.confidence.overall >= autoPilotThreshold && !enhancedResponse.confidence.blockedForAutoSend) {
+      // Auto-send check — SAFETY GUARDS:
+      // 1. Never auto-send in demo mode (demo confidence is not real)
+      // 2. Never auto-send if style profile has < 10 samples (AI hasn't learned your voice)
+      // 3. Never auto-send if confidence scoring explicitly blocked it
+      const hasAdequateStyleProfile = currentHostStyleProfile && currentHostStyleProfile.samplesAnalyzed >= 10;
+      const canAutoSend = autoPilotEnabled
+        && !isDemoMode
+        && hasAdequateStyleProfile
+        && enhancedResponse.confidence.overall >= autoPilotThreshold
+        && !enhancedResponse.confidence.blockedForAutoSend;
+
+      if (canAutoSend) {
         await handleAutoSend(enhancedResponse.content);
-      } else if (autoPilotEnabled && enhancedResponse.confidence.blockedForAutoSend) {
+      } else if (autoPilotEnabled && (enhancedResponse.confidence.blockedForAutoSend || isDemoMode)) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg.startsWith('RATE_LIMIT:')) {
+        const reason = errMsg.replace('RATE_LIMIT: ', '');
+        setRateLimitError(reason);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setTimeout(() => setRateLimitError(null), 8000);
+      }
       console.error('[useAIDraft] Error generating draft:', error);
     } finally {
       setIsGenerating(false);
@@ -557,6 +576,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
     isGenerating,
     isSending,
     learningToast,
+    rateLimitError,
     generateDraft,
     approveDraft,
     editDraft,
@@ -565,5 +585,6 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
     sendIndependentMessage,
     clearDraft,
     preloadDraft,
+    clearRateLimitError: () => setRateLimitError(null),
   };
 }

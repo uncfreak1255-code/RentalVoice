@@ -5,6 +5,15 @@
  */
 
 // Mock AsyncStorage
+import {
+  saveCold,
+  saveColdImmediate,
+  loadCold,
+  removeCold,
+  loadAllColdData,
+  flushAllPending,
+} from '../cold-storage';
+
 const mockSetItem = jest.fn().mockResolvedValue(undefined);
 const mockGetItem = jest.fn().mockResolvedValue(null);
 const mockRemoveItem = jest.fn().mockResolvedValue(undefined);
@@ -17,15 +26,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     removeItem: (...args: unknown[]) => mockRemoveItem(...args),
   },
 }));
-
-import {
-  saveCold,
-  saveColdImmediate,
-  loadCold,
-  removeCold,
-  loadAllColdData,
-  flushAllPending,
-} from '../cold-storage';
 
 beforeEach(() => {
   jest.clearAllMocks();

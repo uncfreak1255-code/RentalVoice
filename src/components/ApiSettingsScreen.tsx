@@ -8,6 +8,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { initializeConnection, disconnectHostaway, validateCredentials } from '@/lib/hostaway';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
+import { startAutoImportAfterConnect } from '@/lib/auto-import';
 
 const PMS_PROVIDERS: { key: PMSProvider; name: string; color: string; helpText: string; fields: { id: string; key: string }; comingSoon?: boolean }[] = [
   {
@@ -101,6 +102,8 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
         updateSettings({ pmsProvider: selectedPms });
         setDemoMode(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Auto-start 12-month history import + AI training in background
+        startAutoImportAfterConnect(accountId.trim(), apiKey.trim());
       } else {
         setError('Failed to initialize connection. Please try again.');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

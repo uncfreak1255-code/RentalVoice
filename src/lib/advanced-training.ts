@@ -253,7 +253,7 @@ class MultiPassTrainer {
 
   // Run all 5 training passes
   async runDeepTraining(
-    messages: Array<{ content: string; prevGuestContent?: string; propertyId?: string; timestamp: Date }>,
+    messages: { content: string; prevGuestContent?: string; propertyId?: string; timestamp: Date }[],
     onProgress?: (pass: TrainingPass, progress: number) => void
   ): Promise<MultiPassState> {
     if (this.state.isRunning) {
@@ -300,7 +300,7 @@ class MultiPassTrainer {
 
   private async runPass(
     pass: TrainingPass,
-    messages: Array<{ content: string; prevGuestContent?: string; propertyId?: string; timestamp: Date }>,
+    messages: { content: string; prevGuestContent?: string; propertyId?: string; timestamp: Date }[],
     onProgress: (progress: number) => void
   ): Promise<MultiPassResult> {
     const startTime = Date.now();
@@ -360,7 +360,7 @@ class MultiPassTrainer {
   }
 
   private async runStyleTonePass(
-    messages: Array<{ content: string }>,
+    messages: { content: string }[],
     onProgress: (progress: number) => void
   ): Promise<{ patterns: number; avgFormality: number; avgWarmth: number; avgLength: number }> {
     let totalFormality = 0;
@@ -390,7 +390,7 @@ class MultiPassTrainer {
   }
 
   private async runIntentMappingPass(
-    messages: Array<{ content: string; prevGuestContent?: string }>,
+    messages: { content: string; prevGuestContent?: string }[],
     onProgress: (progress: number) => void
   ): Promise<{ patterns: number; uniqueIntents: number; coveredIntents: number }> {
     const intentMap = new Map<string, string[]>();
@@ -419,7 +419,7 @@ class MultiPassTrainer {
   }
 
   private async runPhraseMiningPass(
-    messages: Array<{ content: string }>,
+    messages: { content: string }[],
     onProgress: (progress: number) => void
   ): Promise<{ patterns: number; uniquePhrases: number; frequentPhrases: number }> {
     const phraseCount = new Map<string, number>();
@@ -448,7 +448,7 @@ class MultiPassTrainer {
   }
 
   private async runContextualPass(
-    messages: Array<{ content: string; propertyId?: string; timestamp: Date }>,
+    messages: { content: string; propertyId?: string; timestamp: Date }[],
     onProgress: (progress: number) => void
   ): Promise<{ patterns: number; propertyPatterns: number; timePatterns: number }> {
     const propertySet = new Set<string>();
@@ -482,7 +482,7 @@ class MultiPassTrainer {
   }
 
   private async runEdgeCasePass(
-    messages: Array<{ content: string; prevGuestContent?: string }>,
+    messages: { content: string; prevGuestContent?: string }[],
     onProgress: (progress: number) => void
   ): Promise<{ patterns: number; complaintPatterns: number; urgentPatterns: number }> {
     let complaintPatterns = 0;
@@ -612,7 +612,7 @@ class PropertyLexiconManager {
   async buildLexicon(
     propertyId: string,
     propertyName: string,
-    messages: Array<{ content: string }>
+    messages: { content: string }[]
   ): Promise<PropertyLexicon> {
     const amenities = new Set<string>();
     const locations = new Set<string>();
@@ -959,7 +959,7 @@ class TrainingQualityAnalyzer {
 
   // Analyze training quality from indexed data
   async analyzeQuality(
-    messages: Array<{ content: string; prevGuestContent?: string; propertyId?: string; timestamp: Date }>,
+    messages: { content: string; prevGuestContent?: string; propertyId?: string; timestamp: Date }[],
     confidenceHistory: number[]
   ): Promise<TrainingQuality> {
     const allIntents = ['wifi', 'check_in', 'check_out', 'parking', 'maintenance', 'thanks', 'question', 'refund', 'amenity', 'local_tips', 'booking'];
@@ -1420,7 +1420,7 @@ class FewShotIndexer {
     const keywords = this.extractKeywords(guestMessage);
 
     // Score each example
-    const scored: Array<{ example: FewShotExample; score: number }> = [];
+    const scored: { example: FewShotExample; score: number }[] = [];
 
     for (const example of this.examples) {
       let score = 0;
@@ -1671,13 +1671,13 @@ export const conversationFlowLearner = new ConversationFlowLearner();
 export interface GuestMemory {
   guestHash: string;  // Privacy-safe hash of email/phone
   properties: string[];
-  conversationHistory: Array<{
+  conversationHistory: {
     date: Date;
     property: string;
     topics: string[];
     sentiment: string;
     specialRequests: string[];
-  }>;
+  }[];
   preferences: {
     preferredTone: 'formal' | 'casual' | 'warm' | null;
     typicalQuestions: string[];

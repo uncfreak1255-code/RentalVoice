@@ -368,8 +368,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: radius.full,
     backgroundColor: colors.bg.elevated + '80',
     alignItems: 'center',
@@ -425,6 +425,8 @@ const s = StyleSheet.create({
     paddingVertical: spacing['2'],
     borderRadius: radius.md,
     borderWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   pillText: { fontSize: 13, fontFamily: typography.fontFamily.medium },
 
@@ -495,8 +497,8 @@ const s = StyleSheet.create({
     fontFamily: typography.fontFamily.semibold,
   },
   iconBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     borderRadius: radius.md,
     backgroundColor: colors.bg.hover,
     alignItems: 'center',

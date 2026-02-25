@@ -561,8 +561,8 @@ class BackgroundSyncManager {
 
   // Filter conversations by date range
   private filterByDateRange(
-    conversations: Array<{ id: number; lastMessageSentAt?: string; arrivalDate?: string }>
-  ): Array<{ id: number; lastMessageSentAt?: string; arrivalDate?: string }> {
+    conversations: { id: number; lastMessageSentAt?: string; arrivalDate?: string }[]
+  ): { id: number; lastMessageSentAt?: string; arrivalDate?: string }[] {
     if (!this.state.dateRangeMonths) {
       return conversations;
     }

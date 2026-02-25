@@ -427,20 +427,20 @@ class AITrainingService {
   private collectHostMessages(
     conversations: HostawayConversation[],
     messagesByConversation: Record<number, HostawayMessage[]>
-  ): Array<{
+  ): {
     content: string;
     prevGuestContent?: string;
     propertyId?: string;
     timestamp: Date;
     conversationId: number;
-  }> {
-    const hostMessages: Array<{
+  }[] {
+    const hostMessages: {
       content: string;
       prevGuestContent?: string;
       propertyId?: string;
       timestamp: Date;
       conversationId: number;
-    }> = [];
+    }[] = [];
 
     for (const conv of conversations) {
       const messages = messagesByConversation[conv.id] || [];
@@ -487,13 +487,13 @@ class AITrainingService {
    * - Question types
    */
   private async smartSampleForStyle(
-    allMessages: Array<{
+    allMessages: {
       content: string;
       prevGuestContent?: string;
       propertyId?: string;
       timestamp: Date;
       conversationId: number;
-    }>
+    }[]
   ): Promise<typeof allMessages> {
     // If dataset is small, use all messages
     if (allMessages.length <= TRAINING_CONFIG.maxStyleSampleSize) {
@@ -580,13 +580,13 @@ class AITrainingService {
    * Analyze style in ultra-safe batches (250 messages, 2-3s pauses)
    */
   private async analyzeStyleInBatches(
-    messages: Array<{
+    messages: {
       content: string;
       prevGuestContent?: string;
       propertyId?: string;
       timestamp: Date;
       conversationId: number;
-    }>,
+    }[],
     existingProfile?: HostStyleProfile
   ): Promise<Partial<HostStyleProfile>> {
     const batchSize = TRAINING_CONFIG.batchSize;
@@ -688,13 +688,13 @@ class AITrainingService {
    * Creates searchable patterns for response matching
    */
   private async indexMessagesForRecall(
-    messages: Array<{
+    messages: {
       content: string;
       prevGuestContent?: string;
       propertyId?: string;
       timestamp: Date;
       conversationId: number;
-    }>
+    }[]
   ): Promise<void> {
     const batchSize = TRAINING_CONFIG.batchSize;
     const totalBatches = Math.ceil(messages.length / batchSize);

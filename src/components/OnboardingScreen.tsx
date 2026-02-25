@@ -7,9 +7,10 @@ import { MessageSquare, Key, ArrowRight, Sparkles, Shield, Zap, User, AlertCircl
 import * as Haptics from 'expo-haptics';
 import { useAppStore, type Conversation, type Guest, type PMSProvider } from '@/lib/store';
 import { demoConversations, demoProperties } from '@/lib/mockData';
-import { validateCredentials, fetchListings, fetchConversations, fetchMessages, fetchReservation, extractGuestName, initializeConnection } from '@/lib/hostaway';
+import { validateCredentials, fetchListings, fetchConversations, fetchMessages, fetchReservation, extractGuestName, initializeConnection, fetchListingDetail } from '@/lib/hostaway';
 import { convertListingToProperty, getChannelPlatform, convertHostawayMessage } from '@/lib/hostaway-utils';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
+import { startAutoImportAfterConnect } from '@/lib/auto-import';
 
 const PMS_OPTIONS: { key: PMSProvider; name: string; color: string; subtitle: string; fieldId: string; fieldKey: string; comingSoon?: boolean }[] = [
   { key: 'hostaway', name: 'Hostaway', color: '#14B8A6', subtitle: 'Enter your Hostaway credentials to sync properties and conversations', fieldId: 'Account ID', fieldKey: 'API Key' },
@@ -34,6 +35,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const setConversations = useAppStore((s) => s.setConversations);
   const setProperties = useAppStore((s) => s.setProperties);
   const updateSettings = useAppStore((s) => s.updateSettings);
+  const setPropertyKnowledge = useAppStore((s) => s.setPropertyKnowledge);
   const [selectedPms, setSelectedPms] = useState<PMSProvider>('hostaway');
   const pmsConfig = PMS_OPTIONS.find((p) => p.key === selectedPms) || PMS_OPTIONS[0];
 
@@ -54,6 +56,30 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       setStatusMessage('Fetching your properties...');
       const listings = await fetchListings(accountId.trim(), apiKey.trim());
       const properties = listings.map(convertListingToProperty);
+
+      // ── Auto-import Knowledge Base from listing details ──
+      setStatusMessage('Importing property knowledge...');
+      const { extractKnowledgeFromListing } = await import('@/lib/listing-import');
+      for (const listing of listings) {
+        try {
+          const detail = await fetchListingDetail(accountId.trim(), apiKey.trim(), listing.id);
+          const property = properties.find((p) => p.id === String(listing.id));
+          if (property && detail) {
+            const { extracted } = extractKnowledgeFromListing(property, undefined, detail);
+            if (Object.keys(extracted).length > 1) { // more than just propertyId
+              setPropertyKnowledge(String(listing.id), {
+                propertyId: String(listing.id),
+                propertyType: 'vacation_rental',
+                ...extracted,
+              });
+              console.log(`[KB] Auto-imported ${Object.keys(extracted).length} fields for ${property.name}`);
+            }
+          }
+        } catch (err) {
+          console.warn(`[KB] Failed to import knowledge for listing ${listing.id}:`, err);
+        }
+      }
+
       setStatusMessage('Fetching conversations...');
       const hostawayConvos = await fetchConversations(accountId.trim(), apiKey.trim());
       setStatusMessage('Loading messages...');
@@ -75,7 +101,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       await initializeConnection(accountId.trim(), apiKey.trim());
       setCredentials(accountId.trim(), apiKey.trim()); setDemoMode(false); setProperties(properties); setConversations(conversations); setOnboarded(true);
       updateSettings({ pmsProvider: selectedPms });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setStatusMessage(null); setIsValidating(false); onComplete();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setStatusMessage(null); setIsValidating(false);
+      // Auto-start 12-month history import + AI training in background
+      startAutoImportAfterConnect(accountId.trim(), apiKey.trim());
+      onComplete();
     } catch (err) {
       console.error('[Onboarding]', err); setError('Failed to connect to Hostaway. Please try again.'); setStatusMessage(null); setIsValidating(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }

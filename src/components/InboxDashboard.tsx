@@ -1,27 +1,20 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl, AppState, type AppStateStatus, Animated as RNAnimated, Easing, FlatList } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState, type AppStateStatus, Animated as RNAnimated, Easing, FlatList } from 'react-native';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, type Conversation, type InboxSortPreference, type Guest } from '@/lib/store';
 import { ConversationItem } from './ConversationItem';
-import { PropertySelector } from './PropertySelector';
 
-import { PremiumPressable } from '@/components/ui';
 import {
   Inbox,
   Archive,
-  AlertTriangle,
-  Settings,
-  Sparkles,
-  CheckCircle,
   Clock,
   ListTodo,
-  Frown,
-  Calendar,
   RefreshCw,
   CheckSquare,
   Square,
   X,
+  Search,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -158,7 +151,7 @@ function applySortPreference(conversations: Conversation[], preference: InboxSor
   }
 }
 
-type FilterTab = 'all' | 'todo' | 'follow_up' | 'urgent' | 'ai_drafts' | 'resolved' | 'archived' | 'negative';
+type FilterTab = 'all' | 'unread' | 'check_in' | 'check_out';
 
 interface InboxDashboardProps {
   onSelectConversation: (id: string) => void;
@@ -173,6 +166,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const [isPropertySelectorOpen, setPropertySelectorOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const flatListRef = useRef<FlatList<any>>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const conversations = useAppStore((s) => s.conversations);
   const properties = useAppStore((s) => s.properties);
@@ -207,108 +201,72 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       result = result.filter((c) => c.property.id === selectedPropertyId);
     }
 
+    // Filter by active tab
     switch (activeFilter) {
-      case 'todo':
-        result = result.filter((c) => c.workflowStatus === 'todo' || (!c.workflowStatus && c.unreadCount > 0));
+      case 'unread':
+        result = result.filter((c) => c.unreadCount > 0);
         break;
-      case 'follow_up':
-        result = result.filter((c) => c.workflowStatus === 'follow_up');
-        break;
-      case 'urgent':
-        result = result.filter((c) => c.status === 'urgent');
-        break;
-      case 'ai_drafts':
-        result = result.filter((c) => c.hasAiDraft === true);
-        break;
-      case 'resolved':
-        result = result.filter((c) => c.workflowStatus === 'resolved');
-        break;
-      case 'archived':
-        result = result.filter((c) => c.status === 'archived' || c.workflowStatus === 'archived');
-        break;
-      case 'negative':
+      case 'check_in': {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 2);
         result = result.filter((c) => {
-          const sentiment = analyzeConversationSentiment(c);
-          return sentiment.currentSentiment === 'negative' ||
-            sentiment.currentSentiment === 'frustrated' ||
-            sentiment.currentSentiment === 'urgent' ||
-            sentiment.escalationRequired;
+          if (!c.checkInDate) return false;
+          const checkIn = new Date(c.checkInDate);
+          return checkIn >= now && checkIn <= tomorrow;
         });
         break;
+      }
+      case 'check_out': {
+        const now2 = new Date();
+        const tomorrow2 = new Date(now2);
+        tomorrow2.setDate(tomorrow2.getDate() + 2);
+        result = result.filter((c) => {
+          if (!c.checkOutDate) return false;
+          const checkOut = new Date(c.checkOutDate);
+          return checkOut >= now2 && checkOut <= tomorrow2;
+        });
+        break;
+      }
       default:
         result = result.filter((c) => c.status !== 'archived' && c.workflowStatus !== 'archived');
         break;
     }
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((c) =>
+        (c.guest?.name || '').toLowerCase().includes(q) ||
+        (c.property?.name || '').toLowerCase().includes(q) ||
+        (c.lastMessage?.content || '').toLowerCase().includes(q)
+      );
+    }
+
     return applySortPreference(result, inboxSortPreference);
-  }, [conversations, selectedPropertyId, activeFilter, inboxSortPreference]);
+  }, [conversations, selectedPropertyId, activeFilter, inboxSortPreference, searchQuery]);
 
-  // Smart Inbox: split into "Needs Reply" and "Responded" sections
-  const { needsReply, responded } = useMemo(() => {
-    const needs: Conversation[] = [];
-    const done: Conversation[] = [];
-
-    for (const conv of filteredConversations) {
-      const lastMsg = conv.messages?.[conv.messages.length - 1];
-      const isNeedsReply =
-        conv.unreadCount > 0 ||
-        conv.hasAiDraft ||
-        (lastMsg?.sender === 'guest') ||
-        conv.status === 'urgent' ||
-        conv.workflowStatus === 'todo';
-
-      if (isNeedsReply) {
-        needs.push(conv);
-      } else {
-        done.push(conv);
-      }
-    }
-
-    return { needsReply: needs, responded: done };
-  }, [filteredConversations]);
-
-  // Build sectioned data for FlatList (type-tagged for rendering)
-  type SectionItem = { type: 'header'; title: string; count: number } | { type: 'conversation'; data: Conversation; dimmed: boolean };
-  const sectionedData = useMemo((): SectionItem[] => {
-    const items: SectionItem[] = [];
-
-    if (needsReply.length > 0) {
-      items.push({ type: 'header', title: 'Needs Reply', count: needsReply.length });
-      for (const conv of needsReply) {
-        items.push({ type: 'conversation', data: conv, dimmed: false });
-      }
-    }
-
-    if (responded.length > 0) {
-      items.push({ type: 'header', title: 'Responded', count: responded.length });
-      for (const conv of responded) {
-        items.push({ type: 'conversation', data: conv, dimmed: true });
-      }
-    }
-
-    return items;
-  }, [needsReply, responded]);
+  // Flat list — no Needs Reply/Responded sections (Rork style)
 
   const stats = useMemo(() => {
     const active = conversations.filter((c) => c.status !== 'archived' && c.workflowStatus !== 'archived');
-
-    const negativeCount = active.filter((c) => {
-      const sentiment = analyzeConversationSentiment(c);
-      return sentiment.currentSentiment === 'negative' ||
-        sentiment.currentSentiment === 'frustrated' ||
-        sentiment.currentSentiment === 'urgent' ||
-        sentiment.escalationRequired;
-    }).length;
+    const now = new Date();
+    const soon = new Date(now);
+    soon.setDate(soon.getDate() + 2);
 
     return {
       total: active.length,
-      urgent: conversations.filter((c) => c.status === 'urgent').length,
       unread: active.reduce((sum, c) => sum + c.unreadCount, 0),
-      drafts: conversations.filter((c) => c.hasAiDraft === true).length,
-      todo: conversations.filter((c) => c.workflowStatus === 'todo' || (!c.workflowStatus && c.unreadCount > 0)).length,
-      followUp: conversations.filter((c) => c.workflowStatus === 'follow_up').length,
-      resolved: conversations.filter((c) => c.workflowStatus === 'resolved').length,
-      negative: negativeCount,
+      checkIn: active.filter((c) => {
+        if (!c.checkInDate) return false;
+        const d = new Date(c.checkInDate);
+        return d >= now && d <= soon;
+      }).length,
+      checkOut: active.filter((c) => {
+        if (!c.checkOutDate) return false;
+        const d = new Date(c.checkOutDate);
+        return d >= now && d <= soon;
+      }).length,
     };
   }, [conversations]);
 
@@ -337,12 +295,73 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
       const hostawayConversations = await fetchConversations(accountId, apiKey);
       console.log(`[Refresh] Found ${hostawayConversations.length} conversations`);
-      const convSlice = hostawayConversations.slice(0, 20);
+
+      // Build a lookup of existing conversations to preserve local state
+      const existingMap = new Map(conversations.map(c => [c.id, c]));
 
       const newConversations: Conversation[] = [];
 
-      for (let i = 0; i < convSlice.length; i++) {
-        const conv = convSlice[i];
+      // Fetch full message details for the most recent 30 conversations
+      // Beyond that, show them in the list using summary data from API
+      const DETAIL_LIMIT = 30;
+
+      for (let i = 0; i < hostawayConversations.length; i++) {
+        const conv = hostawayConversations[i];
+
+        // For conversations beyond the detail limit, create lightweight entries
+        if (i >= DETAIL_LIMIT) {
+          const guestName = extractGuestName(conv);
+          const property = newProperties.find((p) => p.id === String(conv.listingMapId)) || {
+            id: String(conv.listingMapId),
+            name: conv.listingName || 'Unknown Property',
+            address: '',
+          };
+          const lightConv: Conversation = {
+            id: String(conv.id),
+            guest: {
+              id: String(conv.id),
+              name: guestName,
+              avatar: conv.guestPicture || conv.guest?.picture,
+              email: conv.guestEmail || conv.guest?.email,
+              phone: conv.guestPhone || conv.guest?.phone,
+            },
+            property,
+            messages: [],
+            lastMessage: conv.lastMessage ? {
+              id: `last-${conv.id}`,
+              conversationId: String(conv.id),
+              content: conv.lastMessage,
+              sender: 'guest',
+              timestamp: new Date(conv.lastMessageSentAt || Date.now()),
+              isRead: true,
+            } : undefined,
+            unreadCount: (() => {
+              const existing = existingMap.get(String(conv.id));
+              if (!existing) return conv.isRead ? 0 : 1; // New conversation: use Hostaway
+              if (existing.unreadCount === 0) {
+                // Was read locally — only mark unread if there's a genuinely new message
+                const existingTs = existing.lastMessage?.timestamp ? new Date(existing.lastMessage.timestamp).getTime() : 0;
+                const newTs = conv.lastMessageSentAt ? new Date(conv.lastMessageSentAt).getTime() : 0;
+                return newTs > existingTs ? 1 : 0;
+              }
+              return existing.unreadCount; // Preserve existing unread count
+            })(),
+            status: conv.isArchived ? 'archived' : 'active',
+            checkInDate: conv.arrivalDate ? new Date(conv.arrivalDate) : undefined,
+            checkOutDate: conv.departureDate ? new Date(conv.departureDate) : undefined,
+            platform: getChannelPlatform(conv.channelName, conv.channelId, conv.source),
+            hasAiDraft: false,
+          };
+          // Preserve local state
+          const existing = existingMap.get(lightConv.id);
+          if (existing) {
+            lightConv.hasAiDraft = existing.hasAiDraft;
+            lightConv.workflowStatus = existing.workflowStatus;
+            lightConv.lastActivityTimestamp = existing.lastActivityTimestamp;
+          }
+          newConversations.push(lightConv);
+          continue;
+        }
         try {
           const messages = await fetchMessages(accountId, apiKey, conv.id);
 
@@ -409,7 +428,18 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             property,
             messages: sortedMessages,
             lastMessage: sortedMessages[sortedMessages.length - 1],
-            unreadCount: conv.isRead ? 0 : 1,
+            unreadCount: (() => {
+              const existing = existingMap.get(String(conv.id));
+              if (!existing) return conv.isRead ? 0 : 1; // New conversation: use Hostaway
+              if (existing.unreadCount === 0) {
+                // Was read locally — only mark unread if there's a genuinely new message
+                const existingTs = existing.lastMessage?.timestamp ? new Date(existing.lastMessage.timestamp).getTime() : 0;
+                const newLastMsg = sortedMessages[sortedMessages.length - 1];
+                const newTs = newLastMsg?.timestamp ? new Date(newLastMsg.timestamp).getTime() : 0;
+                return newTs > existingTs ? 1 : 0;
+              }
+              return existing.unreadCount; // Preserve existing unread count
+            })(),
             status: conv.isArchived ? 'archived' : 'active',
             checkInDate,
             checkOutDate,
@@ -417,6 +447,19 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             platform: getChannelPlatform(conv.channelName, conv.channelId, conv.source),
             hasAiDraft: false,
           };
+
+          // Preserve local state from existing conversation
+          const existing = existingMap.get(conversation.id);
+          if (existing) {
+            conversation.hasAiDraft = existing.hasAiDraft;
+            conversation.aiDraftContent = existing.aiDraftContent;
+            conversation.aiDraftConfidence = existing.aiDraftConfidence;
+            conversation.aiDraftSentAt = existing.aiDraftSentAt;
+            conversation.workflowStatus = existing.workflowStatus;
+            conversation.autoPilotEnabled = existing.autoPilotEnabled;
+            conversation.lastActivityTimestamp = existing.lastActivityTimestamp;
+            conversation.lastActivityType = existing.lastActivityType;
+          }
 
           newConversations.push(conversation);
         } catch (msgError) {
@@ -547,288 +590,167 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     setSelectedIds(new Set());
   }, [setActiveFilter, setIsSelectMode, setSelectedIds]);
 
+  // Rork-style filter tabs: All, Unread, Check-in, Check-out
   const tabs: { id: FilterTab; label: string; icon: React.ComponentType<{ size: number; color: string }>; count?: number }[] = [
     { id: 'all', label: 'All', icon: Inbox, count: stats.total },
-    { id: 'todo', label: 'Unread', icon: ListTodo, count: stats.unread },
-    { id: 'negative', label: 'Attention', icon: Frown, count: stats.negative },
-    { id: 'urgent', label: 'Urgent', icon: AlertTriangle, count: stats.urgent },
-    { id: 'ai_drafts', label: 'AI Drafts', icon: Sparkles, count: stats.drafts },
-    { id: 'follow_up', label: 'Follow-Up', icon: Clock, count: stats.followUp },
-    { id: 'resolved', label: 'Done', icon: CheckCircle, count: stats.resolved },
-    { id: 'archived', label: 'Archived', icon: Archive },
+    { id: 'unread', label: 'Unread', icon: ListTodo, count: stats.unread },
+    { id: 'check_in', label: 'Check-in', icon: Clock, count: stats.checkIn },
+    { id: 'check_out', label: 'Check-out', icon: Clock, count: stats.checkOut },
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg.base }}>
+    <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
-        <View
-          style={{
-            paddingHorizontal: spacing['4'],
-            paddingTop: spacing['3'],
-            paddingBottom: spacing['2'],
-            backgroundColor: colors.bg.card,
-          }}
-        >
-          {/* Title Row */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 28, fontFamily: typography.fontFamily.bold, color: colors.text.primary, letterSpacing: -0.5 }}>
-              Inbox
-            </Text>
+        {/* ── Rork-style Header ── */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#F2F2F7' }}>
+          <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }}>
+            Inbox
+          </Text>
+        </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {/* Connection Status */}
-              {isDemoMode ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing['3'] }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary.DEFAULT, marginRight: 6 }} />
-                  <Text style={{ fontSize: 12, color: colors.primary.DEFAULT, fontFamily: typography.fontFamily.semibold }}>Demo</Text>
-                </View>
-              ) : accountId ? (
-                <PremiumPressable
-                  hapticFeedback="light"
-                  onPress={() => handleRefresh(false)}
-                  style={{ flexDirection: 'row', alignItems: 'center', marginRight: spacing['3'] }}
-                >
-                  <SyncIndicator isSyncing={isSilentRefreshing || isRefreshing} />
-                  <Text style={{ fontSize: 11, color: isSilentRefreshing ? colors.primary.DEFAULT : colors.text.muted, fontFamily: typography.fontFamily.medium, marginLeft: 4 }}>
-                    {isSilentRefreshing ? 'Syncing...' : lastSyncTime ? formatLastSync(lastSyncTime) : 'Tap to sync'}
-                  </Text>
-                </PremiumPressable>
-              ) : null}
-
-              {autoPilotEnabled && (
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: colors.primary.muted,
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: radius.sm,
-                    marginRight: 10,
-                  }}
-                >
-                  <Sparkles size={14} color={colors.primary.DEFAULT} />
-                  <Text style={{ color: colors.primary.DEFAULT, fontSize: 12, fontFamily: typography.fontFamily.semibold, marginLeft: 5 }}>Auto</Text>
-                </View>
-              )}
-
-              {onOpenCalendar && (
-                <PremiumPressable
-                  hapticFeedback="light"
-                  onPress={onOpenCalendar}
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: radius.md,
-                    backgroundColor: colors.bg.elevated,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 8,
-                  }}
-                >
-                  <Calendar size={20} color={colors.text.muted} />
-                </PremiumPressable>
-              )}
-
-              <PremiumPressable
-                hapticFeedback="light"
-                onPress={onOpenSettings}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  backgroundColor: '#F3F4F6',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Settings size={20} color={colors.text.muted} />
-              </PremiumPressable>
-            </View>
-          </View>
-
-          {/* Property Selector - Larger, More Prominent */}
-          <View style={{ marginTop: 16, marginBottom: 12 }}>
-            <PropertySelector
-              properties={properties}
-              selectedId={selectedPropertyId}
-              onSelect={setSelectedProperty}
-              isOpen={isPropertySelectorOpen}
-              onToggle={() => setPropertySelectorOpen(!isPropertySelectorOpen)}
+        {/* ── Search Bar ── */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 4, backgroundColor: '#F2F2F7' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5E5EA', borderRadius: 10, paddingHorizontal: 10, height: 36 }}>
+            <Search size={16} color="#8E8E93" />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search guests, properties..."
+              placeholderTextColor="#8E8E93"
+              style={{ flex: 1, fontSize: 16, color: '#000', marginLeft: 6, paddingVertical: 0 }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
             />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <X size={16} color="#8E8E93" />
+              </Pressable>
+            )}
           </View>
         </View>
 
-        {/* Filter Chips — Apple-clean text pills */}
-        <View style={{ paddingVertical: spacing['2'], backgroundColor: colors.bg.subtle }}>
+        {/* ── Rork-style Filter Pills (horizontal scroll) ── */}
+        <View style={{ paddingVertical: 8, backgroundColor: '#F2F2F7' }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: spacing['4'], gap: 6 }}
+            contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
             style={{ flexGrow: 0 }}
           >
             {tabs.map((tab) => {
               const isActive = activeFilter === tab.id;
+              const TabIcon = tab.icon;
               return (
-                <PremiumPressable
-                  hapticFeedback="light"
+                <Pressable
                   key={tab.id}
                   onPress={() => handleFilterChange(tab.id)}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
                     paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    borderRadius: radius.full,
-                    backgroundColor: isActive ? colors.primary.DEFAULT : 'transparent',
-                    borderWidth: isActive ? 0 : 1,
-                    borderColor: isActive ? 'transparent' : colors.border.DEFAULT,
+                    paddingHorizontal: 14,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? colors.primary.DEFAULT : '#FFFFFF',
                   }}
                 >
+                  <TabIcon size={14} color={isActive ? '#FFFFFF' : '#6B7280'} />
                   <Text
                     style={{
                       fontFamily: typography.fontFamily.medium,
                       fontSize: 14,
-                      color: isActive ? '#FFFFFF' : colors.text.primary,
+                      color: isActive ? '#FFFFFF' : '#1F2937',
+                      marginLeft: 6,
                     }}
                   >
                     {tab.label}
                   </Text>
                   {tab.count !== undefined && tab.count > 0 && (
-                    <Text
-                      style={{
-                        marginLeft: 6,
-                        fontSize: 12,
-                        fontFamily: typography.fontFamily.semibold,
-                        color: isActive ? 'rgba(255,255,255,0.8)' : colors.text.muted,
-                      }}
-                    >
-                      {tab.count}
-                    </Text>
+                    <View style={{
+                      marginLeft: 6,
+                      backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : colors.primary.DEFAULT,
+                      borderRadius: 10,
+                      minWidth: 20,
+                      height: 20,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 5,
+                    }}>
+                      <Text style={{ fontSize: 11, fontFamily: typography.fontFamily.semibold, color: '#FFFFFF' }}>
+                        {tab.count}
+                      </Text>
+                    </View>
                   )}
-                </PremiumPressable>
+                </Pressable>
               );
             })}
           </ScrollView>
         </View>
 
         {/* Conversation List - Light gray background for card separation */}
-        <View style={{ flex: 1, backgroundColor: colors.bg.base }}>
+        <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
           {filteredConversations.length > 0 ? (
             <FlatList
               ref={flatListRef}
-              data={sectionedData}
+              data={filteredConversations}
               windowSize={5}
               maxToRenderPerBatch={8}
               initialNumToRender={10}
               removeClippedSubviews={false}
-              renderItem={({ item: sectionItem }) => {
-                if (sectionItem.type === 'header') {
-                  return (
-                    <View style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingHorizontal: spacing['4'],
-                      paddingTop: spacing['4'],
-                      paddingBottom: spacing['2'],
-                      backgroundColor: colors.bg.base,
-                    }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{
-                          width: 8,
-                          height: 8,
-                          borderRadius: 4,
-                          backgroundColor: sectionItem.title === 'Needs Reply' ? colors.accent.DEFAULT : colors.text.disabled,
-                          marginRight: 8,
-                        }} />
-                        <Text style={{
-                          fontSize: 13,
-                          fontFamily: typography.fontFamily.bold,
-                          color: colors.text.primary,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.8,
-                        }}>
-                          {sectionItem.title}
-                        </Text>
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => {
+                    if (isSelectMode) {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.id)) next.delete(item.id);
+                        else next.add(item.id);
+                        return next;
+                      });
+                    } else {
+                      onSelectConversation(item.id);
+                    }
+                  }}
+                  onLongPress={() => {
+                    if (!isSelectMode) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setIsSelectMode(true);
+                      setSelectedIds(new Set([item.id]));
+                    }
+                  }}
+                  delayLongPress={400}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {isSelectMode && (
+                      <View style={{ paddingLeft: spacing['3'], justifyContent: 'center' }}>
+                        {selectedIds.has(item.id) ? (
+                          <CheckSquare size={22} color={colors.primary.DEFAULT} />
+                        ) : (
+                          <Square size={22} color={colors.text.muted} />
+                        )}
                       </View>
-                      <View style={{
-                        backgroundColor: sectionItem.title === 'Needs Reply' ? colors.accent.muted : colors.bg.elevated,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: radius.full,
-                      }}>
-                        <Text style={{
-                          fontSize: 12,
-                          fontFamily: typography.fontFamily.semibold,
-                          color: sectionItem.title === 'Needs Reply' ? colors.accent.DEFAULT : colors.text.muted,
-                        }}>
-                          {sectionItem.count}
-                        </Text>
-                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <ConversationItem
+                        conversation={item}
+                        onPress={() => {
+                          if (isSelectMode) {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(item.id)) next.delete(item.id);
+                              else next.add(item.id);
+                              return next;
+                            });
+                          } else {
+                            onSelectConversation(item.id);
+                          }
+                        }}
+                      />
                     </View>
-                  );
-                }
-
-                const item = sectionItem.data;
-                return (
-                  <Pressable
-                    onPress={() => {
-                      if (isSelectMode) {
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(item.id)) next.delete(item.id);
-                          else next.add(item.id);
-                          return next;
-                        });
-                      } else {
-                        onSelectConversation(item.id);
-                      }
-                    }}
-                    onLongPress={() => {
-                      if (!isSelectMode) {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setIsSelectMode(true);
-                        setSelectedIds(new Set([item.id]));
-                      }
-                    }}
-                    delayLongPress={400}
-                    style={{ opacity: sectionItem.dimmed ? 0.6 : 1 }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      {isSelectMode && (
-                        <View style={{ paddingLeft: spacing['3'], justifyContent: 'center' }}>
-                          {selectedIds.has(item.id) ? (
-                            <CheckSquare size={22} color={colors.primary.DEFAULT} />
-                          ) : (
-                            <Square size={22} color={colors.text.muted} />
-                          )}
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <ConversationItem
-                          conversation={item}
-                          onPress={() => {
-                            if (isSelectMode) {
-                              setSelectedIds((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(item.id)) next.delete(item.id);
-                                else next.add(item.id);
-                                return next;
-                              });
-                            } else {
-                              onSelectConversation(item.id);
-                            }
-                          }}
-                        />
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              }}
-              keyExtractor={(item) => item.type === 'header' ? `header-${item.title}` : item.data.id}
+                  </View>
+                </Pressable>
+              )}
+              keyExtractor={(item) => item.id}
               contentContainerStyle={{ paddingTop: 4, paddingBottom: 24 }}
               refreshControl={
                 <RefreshControl
@@ -868,12 +790,12 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                 <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.muted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
                   {selectedPropertyId
                     ? `Try selecting "All Properties" to see all conversations.`
-                    : activeFilter === 'urgent'
-                    ? "No urgent messages at the moment."
-                    : activeFilter === 'archived'
-                    ? "No archived conversations."
-                    : activeFilter === 'ai_drafts'
-                    ? "No AI drafts pending review."
+                    : activeFilter === 'unread'
+                    ? "No unread messages. You're all caught up!"
+                    : activeFilter === 'check_in'
+                    ? "No upcoming check-ins in the next 48 hours."
+                    : activeFilter === 'check_out'
+                    ? "No upcoming check-outs in the next 48 hours."
                     : "Pull down to refresh your inbox."}
                 </Text>
                 {selectedPropertyId && (

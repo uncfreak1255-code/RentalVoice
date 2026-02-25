@@ -6,7 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Uses fetch-based connectivity check (no extra npm deps)
 // ============================================================
 
-const CONNECTIVITY_CHECK_URL = 'https://clients3.google.com/generate_204';
+const BACKEND_HEALTH_URL = `${process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'}/api/health`;
+const FALLBACK_CHECK_URL = 'https://clients3.google.com/generate_204';
 const CHECK_INTERVAL_MS = 15_000; // Check every 15s when foregrounded
 const QUEUE_STORAGE_KEY = '@rental_voice_message_queue';
 
@@ -33,10 +34,20 @@ export function useNetworkStatus() {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch(CONNECTIVITY_CHECK_URL, {
-        method: 'HEAD',
-        signal: controller.signal,
-      });
+      // Try backend health first, fall back to Google connectivity check
+      let response: Response;
+      try {
+        response = await fetch(BACKEND_HEALTH_URL, {
+          method: 'GET',
+          signal: controller.signal,
+        });
+      } catch {
+        // Backend unreachable, try Google as fallback
+        response = await fetch(FALLBACK_CHECK_URL, {
+          method: 'HEAD',
+          signal: controller.signal,
+        });
+      }
 
       clearTimeout(timeout);
       setStatus(response.ok ? 'online' : 'offline');

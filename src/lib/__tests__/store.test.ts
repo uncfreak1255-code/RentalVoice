@@ -5,6 +5,9 @@
  */
 
 // Mock AsyncStorage to avoid window.localStorage crash in Node
+import { useAppStore } from '../store';
+import type { Message, Conversation } from '../store';
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
   default: {
@@ -22,9 +25,6 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn().mockResolvedValue(null),
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
-
-import { useAppStore } from '../store';
-import type { Message, Conversation } from '../store';
 
 // Reset store before each test to avoid state leakage
 beforeEach(() => {

@@ -43,11 +43,11 @@ export interface PrivacyScanSettings {
   enableAutoScan: boolean;
   autoAnonymize: boolean;
   sensitivityLevel: 'low' | 'medium' | 'high';
-  customPatterns: Array<{
+  customPatterns: {
     name: string;
     pattern: string;
     severity: SensitiveDataMatch['severity'];
-  }>;
+  }[];
   excludedTypes: SensitiveDataType[];
 }
 

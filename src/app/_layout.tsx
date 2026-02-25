@@ -3,11 +3,13 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import * as Sentry from '@sentry/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { NotificationProvider } from '@/lib/NotificationProvider';
 import { registerForPushNotifications } from '@/lib/push-notifications';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors } from '@/lib/design-tokens';
 import { loadAllColdData } from '@/lib/cold-storage';
 import { useAppStore } from '@/lib/store';
@@ -27,6 +29,15 @@ export const unstable_settings = {
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Initialize Sentry
+Sentry.init({
+  dsn: 'https://8883e72ba0e15d6d70a498e1fdaab8a0@o4510836318273536.ingest.us.sentry.io/4510944284180480',
+  debug: false,
+  integrations: [
+    Sentry.mobileReplayIntegration(),
+  ],
+});
 
 const queryClient = new QueryClient();
 
@@ -68,7 +79,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function RootLayoutComponent() {
   const [fontsLoaded] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -131,8 +142,10 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
           <NotificationProvider>
-            <StatusBar style="dark" />
-            <RootLayoutNav />
+            <ErrorBoundary fallbackTitle="Something went wrong">
+              <StatusBar style="dark" />
+              <RootLayoutNav />
+            </ErrorBoundary>
           </NotificationProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>
