@@ -21,7 +21,8 @@ import {
   DMSans_700Bold,
 } from '@expo-google-fonts/dm-sans';
 
-import '../../global.css';
+// NativeWind global.css removed — needs proper plugin config for standalone builds
+// import '../../global.css';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -30,14 +31,15 @@ export const unstable_settings = {
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// Initialize Sentry
-Sentry.init({
-  dsn: 'https://8883e72ba0e15d6d70a498e1fdaab8a0@o4510836318273536.ingest.us.sentry.io/4510944284180480',
-  debug: false,
-  integrations: [
-    Sentry.mobileReplayIntegration(),
-  ],
-});
+// Initialize Sentry (wrapped in try/catch to prevent crash-on-launch)
+try {
+  Sentry.init({
+    dsn: 'https://8883e72ba0e15d6d70a498e1fdaab8a0@o4510836318273536.ingest.us.sentry.io/4510944284180480',
+    debug: false,
+  });
+} catch (e) {
+  console.warn('[Sentry] Init failed:', e);
+}
 
 const queryClient = new QueryClient();
 
@@ -152,3 +154,5 @@ function RootLayoutComponent() {
     </QueryClientProvider>
   );
 }
+
+export default Sentry.wrap(RootLayoutComponent);
