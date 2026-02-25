@@ -31,7 +31,7 @@ const FIELD_LABELS: Record<keyof PropertyKnowledge, string> = {
   propertyId: 'Property ID',
   propertyType: 'Property Type',
   wifiName: 'WiFi Network Name',
-  wifiPassword: 'WiFi Password',
+  wifiPassword: 'WiFi Password', // NOSONAR - this is a display label, not a credential
   checkInTime: 'Check-in Time',
   checkOutTime: 'Check-out Time',
   checkInInstructions: 'Check-in Instructions',
