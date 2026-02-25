@@ -25,7 +25,9 @@
       "package": "com.rentalvoice.app"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "@sentry/react-native",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
