@@ -3,7 +3,9 @@ import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState,
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, type Conversation, type InboxSortPreference, type Guest } from '@/lib/store';
+import { getDemoConversations } from '@/lib/demo-data';
 import { ConversationItem } from './ConversationItem';
+import { DemoModeBanner } from './DemoModeBanner';
 
 import {
   Inbox,
@@ -279,7 +281,11 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     }
 
     if (isDemoMode || !accountId || !apiKey) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Load demo data so Apple reviewers / first-time users see a populated inbox
+      if (conversations.length === 0) {
+        setConversations(getDemoConversations());
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
       setIsRefreshing(false);
       setIsSilentRefreshing(false);
       return;
@@ -535,14 +541,22 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     setIsSilentRefreshing(false);
   }, [isDemoMode, accountId, apiKey, setProperties, setConversations, conversations, scheduledMessages, settings]);
 
-  // Auto-refresh on mount
+  // Auto-refresh on mount (or load demo data)
   useEffect(() => {
-    if (!hasInitialLoaded.current && !isDemoMode && accountId && apiKey) {
+    if (!hasInitialLoaded.current) {
       hasInitialLoaded.current = true;
-      console.log('[Inbox] Auto-refreshing on mount...');
-      handleRefresh();
+      if (!isDemoMode && accountId && apiKey) {
+        console.log('[Inbox] Auto-refreshing on mount...');
+        handleRefresh();
+      } else if (isDemoMode || (!accountId && !apiKey)) {
+        // Load demo conversations for reviewers / first-time users
+        if (conversations.length === 0) {
+          console.log('[Inbox] Loading demo data...');
+          setConversations(getDemoConversations());
+        }
+      }
     }
-  }, [isDemoMode, accountId, apiKey, handleRefresh]);
+  }, [isDemoMode, accountId, apiKey, handleRefresh, conversations.length, setConversations]);
 
   // Auto-refresh every 30 seconds while inbox is open
   useEffect(() => {
@@ -686,6 +700,16 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             })}
           </ScrollView>
         </View>
+
+        {/* Demo Mode Banner */}
+        {(isDemoMode || (!accountId && !apiKey)) && (
+          <DemoModeBanner
+            onConnectPMS={() => {
+              // Navigate to settings to connect PMS — use dynamic import to avoid circular deps
+              import('expo-router').then(({ router }) => router.push('/(tabs)/settings'));
+            }}
+          />
+        )}
 
         {/* Conversation List - Light gray background for card separation */}
         <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
