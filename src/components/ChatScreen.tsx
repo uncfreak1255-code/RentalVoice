@@ -860,6 +860,16 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
     setShowEscalationAlert(false);
   };
 
+  // Filter out AI drafts for display (shown in composer)
+  // NOTE: Must be above the !conversation guard to satisfy React's rules of hooks
+  const displayMessages = useMemo(() => {
+    if (!conversation) return [];
+    const nonDraft = messages.filter((m) => m.sender !== 'ai_draft');
+    if (!searchQuery.trim()) return nonDraft;
+    const q = searchQuery.toLowerCase();
+    return nonDraft.filter((m) => m.content.toLowerCase().includes(q));
+  }, [conversation, messages, searchQuery]);
+
   if (!conversation) {
     return (
       <View style={chatStyles.emptyContainer}>
@@ -869,14 +879,6 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   }
 
   const { guest, property, checkInDate, checkOutDate, platform, numberOfGuests } = conversation;
-
-  // Filter out AI drafts for display (shown in composer)
-  const displayMessages = useMemo(() => {
-    const nonDraft = messages.filter((m) => m.sender !== 'ai_draft');
-    if (!searchQuery.trim()) return nonDraft;
-    const q = searchQuery.toLowerCase();
-    return nonDraft.filter((m) => m.content.toLowerCase().includes(q));
-  }, [messages, searchQuery]);
 
   if (showGuestProfile) {
     return (
