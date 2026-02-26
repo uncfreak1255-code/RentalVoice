@@ -88,9 +88,18 @@ export function extractKnowledgeFromListing(
 
   // ── Check-in Instructions ──
   if (!existingKnowledge?.checkInInstructions) {
+    const parts: string[] = [];
     if (d?.checkInInstructions && d.checkInInstructions.trim().length > 5) {
-      extracted.checkInInstructions = d.checkInInstructions.trim();
-      details.push({ field: 'checkInInstructions', value: 'Custom instructions', source: 'Hostaway listing' });
+      parts.push(d.checkInInstructions.trim());
+    }
+    // Append door code if available
+    const doorCode = d?.doorCode || d?.doorSecurityCode;
+    if (doorCode) {
+      parts.push(`\nDoor/Access Code: ${doorCode}`);
+    }
+    if (parts.length > 0) {
+      extracted.checkInInstructions = parts.join('\n');
+      details.push({ field: 'checkInInstructions', value: 'Custom instructions' + (doorCode ? ' + door code' : ''), source: 'Hostaway listing' });
     } else {
       const time = extracted.checkInTime || existingKnowledge?.checkInTime || '3:00 PM';
       extracted.checkInInstructions = `Welcome to ${property.name}!\n\nYour check-in time is ${time}.\nPlease reach out if you need any assistance.`;
@@ -115,6 +124,17 @@ export function extractKnowledgeFromListing(
         '• Lock all doors and leave keys inside',
       ].join('\n');
       details.push({ field: 'checkOutInstructions', value: 'Default template', source: 'Property name + check-out time' });
+    }
+  }
+
+  // ── Amenities → Appliance Guide ──
+  if (!existingKnowledge?.applianceGuide && d?.listingAmenities && d.listingAmenities.length > 0) {
+    const amenityNames = d.listingAmenities
+      .map(a => a.amenityName)
+      .filter(Boolean) as string[];
+    if (amenityNames.length > 0) {
+      extracted.applianceGuide = 'Available amenities:\n• ' + amenityNames.join('\n• ');
+      details.push({ field: 'applianceGuide', value: `${amenityNames.length} amenities`, source: 'Hostaway listing amenities' });
     }
   }
 
