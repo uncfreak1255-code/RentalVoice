@@ -770,19 +770,29 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
             </View>
 
-            {/* Accuracy Meter */}
+            {/* Profile Strength Meter */}
             <View style={{ marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ color: colors.text.muted, fontSize: 14 }}>AI Accuracy</Text>
+                <Text style={{ color: colors.text.muted, fontSize: 14 }}>Profile Strength</Text>
                 <Text style={{ color: colors.primary.DEFAULT, fontWeight: '600' }}>
-                  {learningStats.accuracyScore}%
+                  {(() => {
+                    const count = aiLearningProgress?.totalMessagesAnalyzed || learningStats.totalAnalyzed || 0;
+                    if (count >= 500) return 'Expert';
+                    if (count >= 200) return 'Strong';
+                    if (count >= 50) return 'Learning';
+                    if (count > 0) return 'Building';
+                    return 'Not Started';
+                  })()}
                 </Text>
               </View>
               <View style={{ height: 8, backgroundColor: colors.bg.hover, borderRadius: 9999, overflow: 'hidden' }}>
                 <View
-                  style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${learningStats.accuracyScore}%` }}
+                  style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${Math.min(((aiLearningProgress?.totalMessagesAnalyzed || learningStats.totalAnalyzed || 0) / 500) * 100, 100)}%` }}
                 />
               </View>
+              <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 4 }}>
+                {aiLearningProgress?.totalMessagesAnalyzed || learningStats.totalAnalyzed || 0} messages trained
+              </Text>
             </View>
 
             {/* Training Button */}
@@ -905,7 +915,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
               Accuracy Trend
             </Text>
-            <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+            <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               {(() => {
                 const outcomes = draftOutcomes || [];
                 if (outcomes.length === 0) {
@@ -983,7 +993,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
               What I Learned
             </Text>
-            <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+            <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               {(() => {
                 const globalProfile = hostStyleProfiles['global'];
                 if (!globalProfile || globalProfile.samplesAnalyzed === 0) {
@@ -1062,7 +1072,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
               Style Preferences
             </Text>
-            <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+            <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               {(() => {
                 const globalProfile = hostStyleProfiles['global'];
                 if (!globalProfile) {
@@ -1249,7 +1259,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
                   🎯 Confidence Calibration
                 </Text>
-                <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+                <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
                   {/* Calibration Score */}
                   <View style={{ alignItems: 'center', marginBottom: 16 }}>
                     <View style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: gaugeColor, alignItems: 'center', justifyContent: 'center' }}>
@@ -1361,7 +1371,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
                   🔬 Deep Edit Analysis
                 </Text>
-                <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+                <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
                   {/* Summary Stats */}
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
                     <View style={{ flex: 1, backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
@@ -1403,7 +1413,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
                 🔄 Conversation Patterns
               </Text>
-              <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+              <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
                 <Text style={{ color: colors.text.muted, fontSize: 12, marginBottom: 12 }}>
                   Detected {conversationFlows.length} recurring conversation patterns from your history.
                 </Text>
@@ -1569,7 +1579,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
               Background Sync
             </Text>
-            <View style={{ backgroundColor: colors.bg.hover, borderRadius: 16, padding: 16 }}>
+            <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <View style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <Moon size={20} color="#A855F7" />
