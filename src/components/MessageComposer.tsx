@@ -347,11 +347,11 @@ export function MessageComposer({
                   <Text style={mcStyles.v2SendBtnText}>Send Draft</Text>
                 </Pressable>
 
-                <Pressable onPress={handleEdit} style={mcStyles.v2IconBtn}>
+                <Pressable onPress={handleEdit} hitSlop={8} style={mcStyles.v2IconBtn}>
                   <Edit3 size={20} color={colors.text.secondary} />
                 </Pressable>
 
-                <Pressable onPress={() => onRegenerateAiDraft()} style={mcStyles.v2IconBtn}>
+                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={8} style={mcStyles.v2IconBtn}>
                   <RefreshCw size={20} color={colors.text.secondary} />
                 </Pressable>
 

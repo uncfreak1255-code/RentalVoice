@@ -40,14 +40,13 @@ export function ToggleRow({ icon, iconBg, trackColor: customTrackColor, label, v
     <View style={[s.row, !isLast && s.rowBorder]}>
       <View style={[s.iconBox, iconBg ? { backgroundColor: iconBg } : undefined]}>{icon}</View>
       <Text style={s.rowLabel}>{label}</Text>
-      <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ height: 31, justifyContent: 'center' }}>
         <Switch
           value={value}
           onValueChange={(v) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onValueChange(v); }}
           trackColor={{ false: '#E5E5EA', true: customTrackColor || colors.primary.DEFAULT }}
           thumbColor="#FFFFFF"
           ios_backgroundColor="#E5E5EA"
-          style={{ transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] }}
         />
       </View>
     </View>
