@@ -297,7 +297,7 @@ export function MessageComposer({
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 140 : 420 }]}
+          style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 140 : 280 }]}
         >
           <ScrollView
             keyboardShouldPersistTaps="always"
@@ -897,6 +897,7 @@ const mcStyles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.04)',
+    overflow: 'hidden' as const,
   },
   v2HeaderRow: {
     flexDirection: 'row' as const,
