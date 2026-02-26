@@ -272,6 +272,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
+    overflow: 'hidden',
   },
   selected: {
     backgroundColor: '#F0FDFA',
@@ -352,6 +353,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
     flexWrap: 'nowrap',
+    overflow: 'hidden',
   },
   dateRange: {
     fontSize: 13,
