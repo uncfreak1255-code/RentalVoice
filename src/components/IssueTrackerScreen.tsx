@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useAppStore, Issue } from '@/lib/store';
-import { ArrowLeft, AlertTriangle, Wrench, Sparkles, Volume2, Key, HelpCircle, Plus, Filter, Check, Clock, AlertCircle, X, ChevronDown, Bug, Zap, FileWarning, DollarSign } from 'lucide-react-native';
+import { ArrowLeft, AlertTriangle, Wrench, Sparkles, Volume2, Key, HelpCircle, Plus, AlertCircle, X, ChevronDown, Bug, Zap, FileWarning, DollarSign } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { format } from 'date-fns';

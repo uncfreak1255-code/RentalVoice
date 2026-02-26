@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState, type AppStateStatus, Animated as RNAnimated, Easing, FlatList } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState, type AppStateStatus, FlatList } from 'react-native';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, type Conversation, type InboxSortPreference, type Guest } from '@/lib/store';
@@ -12,7 +12,9 @@ import {
   Archive,
   Clock,
   ListTodo,
-  RefreshCw,
+  CheckCircle2,
+  DoorOpen,
+  LogOut,
   CheckSquare,
   Square,
   X,
@@ -39,51 +41,8 @@ import {
   setBadgeCount,
 } from '@/lib/push-notifications';
 
-// Format relative time for last sync
-function formatLastSync(date: Date | null): string {
-  if (!date) return '';
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
 
-  if (diffSec < 5) return 'Just now';
-  if (diffSec < 60) return `${diffSec}s ago`;
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  return 'Over 1h ago';
-}
 
-// Spinning sync icon component
-function SyncIndicator({ isSyncing }: { isSyncing: boolean }) {
-  const spinValue = useRef(new RNAnimated.Value(0)).current;
-
-  useEffect(() => {
-    if (isSyncing) {
-      spinValue.setValue(0);
-      RNAnimated.loop(
-        RNAnimated.timing(spinValue, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      spinValue.stopAnimation();
-    }
-  }, [isSyncing, spinValue]);
-
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  return (
-    <RNAnimated.View style={{ transform: [{ rotate: spin }] }}>
-      <RefreshCw size={12} color={isSyncing ? '#14B8A6' : '#9CA3AF'} />
-    </RNAnimated.View>
-  );
-}
 
 // Helper function to get the effective timestamp for sorting
 function getEffectiveTimestamp(conversation: Conversation): number {
@@ -165,13 +124,13 @@ interface InboxDashboardProps {
 
 export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCalendar }: InboxDashboardProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
-  const [isPropertySelectorOpen, setPropertySelectorOpen] = useState(false);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const flatListRef = useRef<FlatList<any>>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const conversations = useAppStore((s) => s.conversations);
-  const properties = useAppStore((s) => s.properties);
+
   const selectedPropertyId = useAppStore((s) => s.settings.selectedPropertyId);
   const accountId = useAppStore((s) => s.settings.accountId);
   const apiKey = useAppStore((s) => s.settings.apiKey);
@@ -180,7 +139,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const setProperties = useAppStore((s) => s.setProperties);
   const setConversations = useAppStore((s) => s.setConversations);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
-  const autoPilotEnabled = useAppStore((s) => s.settings.autoPilotEnabled);
+
 
   const settings = useAppStore((s) => s.settings);
   const scheduledMessages = useAppStore((s) => s.scheduledMessages);
@@ -193,7 +152,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   // Track if initial load has happened
   const hasInitialLoaded = useRef(false);
   const lastRefreshTime = useRef<number>(0);
-  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [, setLastSyncTime] = useState<Date | null>(null);
   const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
 
   const filteredConversations = useMemo(() => {
@@ -793,34 +752,49 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               }
             >
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing['8'] }}>
+                {/* Filter-specific empty state icons */}
                 <View
                   style={{
                     width: 80,
                     height: 80,
-                    borderRadius: radius.xl,
-                    backgroundColor: colors.bg.elevated,
+                    borderRadius: 40,
+                    backgroundColor: activeFilter === 'unread' ? colors.primary.muted : colors.bg.elevated,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 20,
                   }}
                 >
-                  <Inbox size={36} color={colors.text.muted} />
+                  {activeFilter === 'unread' ? (
+                    <CheckCircle2 size={36} color={colors.primary.DEFAULT} />
+                  ) : activeFilter === 'check_in' ? (
+                    <DoorOpen size={36} color={colors.primary.DEFAULT} />
+                  ) : activeFilter === 'check_out' ? (
+                    <LogOut size={36} color={colors.primary.DEFAULT} />
+                  ) : (
+                    <Inbox size={36} color={colors.text.muted} />
+                  )}
                 </View>
                 <Text style={{ fontSize: 20, fontFamily: typography.fontFamily.bold, color: colors.text.primary, textAlign: 'center' }}>
                   {selectedPropertyId
                     ? 'No conversations for this property'
+                    : activeFilter === 'unread'
+                    ? 'All caught up!'
+                    : activeFilter === 'check_in'
+                    ? 'No upcoming check-ins'
+                    : activeFilter === 'check_out'
+                    ? 'No upcoming check-outs'
                     : 'No conversations'}
                 </Text>
                 <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.muted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
                   {selectedPropertyId
-                    ? `Try selecting "All Properties" to see all conversations.`
+                    ? 'Try selecting "All Properties" to see all conversations.'
                     : activeFilter === 'unread'
-                    ? "No unread messages. You're all caught up!"
+                    ? 'No unread messages to review.'
                     : activeFilter === 'check_in'
-                    ? "No upcoming check-ins in the next 48 hours."
+                    ? 'No guests arriving in the next 48 hours.'
                     : activeFilter === 'check_out'
-                    ? "No upcoming check-outs in the next 48 hours."
-                    : "Pull down to refresh your inbox."}
+                    ? 'No guests departing in the next 48 hours.'
+                    : 'Pull down to refresh your inbox.'}
                 </Text>
                 {selectedPropertyId && (
                   <Pressable

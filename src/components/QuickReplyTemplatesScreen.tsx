@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, TextInput, Modal, Alert, KeyboardAvo
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, type QuickReplyTemplate } from '@/lib/store';
-import { ArrowLeft, Plus, FileText, Upload, Star, Trash2, Edit3, X, Check, ChevronRight, Tag, MessageSquare, Search, Filter, Copy } from 'lucide-react-native';
+import { ArrowLeft, Plus, FileText, Upload, Star, Trash2, Edit3, X, Check, ChevronRight, Search } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { analyzeTemplate, parseTemplatesFromCSV, parseTemplatesFromText } from '@/lib/ai-learning';
@@ -59,6 +59,8 @@ export function QuickReplyTemplatesScreen({ onBack }: QuickReplyTemplatesScreenP
     return counts;
   }, [templates]);
 
+  const resetForm = useCallback(() => { setNewName(''); setNewContent(''); setNewCategory('general'); setNewKeywords(''); setNewPropertyId(null); setEditingTemplate(null); }, []);
+
   const handleSaveTemplate = useCallback(() => {
     if (!newName.trim() || !newContent.trim()) { Alert.alert('Missing Information', 'Please enter a name and content for the template.'); return; }
     const analysis = analyzeTemplate(newContent);
@@ -72,7 +74,7 @@ export function QuickReplyTemplatesScreen({ onBack }: QuickReplyTemplatesScreenP
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     resetForm(); setShowAddModal(false); setEditingTemplate(null);
-  }, [newName, newContent, newCategory, newKeywords, newPropertyId, editingTemplate, addTemplate, updateTemplate]);
+  }, [newName, newContent, newCategory, newKeywords, newPropertyId, editingTemplate, addTemplate, updateTemplate, resetForm]);
 
   const handleImport = useCallback(() => {
     if (!importText.trim()) { Alert.alert('No Content', 'Please paste your templates content.'); return; }
@@ -92,8 +94,6 @@ export function QuickReplyTemplatesScreen({ onBack }: QuickReplyTemplatesScreenP
   const handleEditTemplate = useCallback((template: QuickReplyTemplate) => {
     setEditingTemplate(template); setNewName(template.name); setNewContent(template.content); setNewCategory(template.category); setNewKeywords(template.keywords.join(', ')); setNewPropertyId(template.propertyId); setShowAddModal(true);
   }, []);
-
-  const resetForm = useCallback(() => { setNewName(''); setNewContent(''); setNewCategory('general'); setNewKeywords(''); setNewPropertyId(null); setEditingTemplate(null); }, []);
 
   const handleConvertFavorite = useCallback((favoriteId: string, content: string) => {
     const analysis = analyzeTemplate(content);

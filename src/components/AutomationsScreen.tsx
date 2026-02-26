@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { useAppStore, ScheduledMessage, Property } from '@/lib/store';
+import { useAppStore, ScheduledMessage } from '@/lib/store';
 import { ArrowLeft, Plus, Clock, Calendar, MessageSquare, Check, X, ChevronDown, Play, Pause, Trash2, Edit2, DoorOpen, DoorClosed, Sparkles, Wand2, Star, Home, Mail, AlertCircle, TrendingUp } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';

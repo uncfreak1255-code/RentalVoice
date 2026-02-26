@@ -68,9 +68,7 @@ export function analyzeConversationForAlerts(conversation: Conversation): Proact
     ? differenceInHours(now, new Date(lastGuestMessage.timestamp))
     : null;
 
-  const _hoursSinceLastHost = lastHostMessage
-    ? differenceInHours(now, new Date(lastHostMessage.timestamp))
-    : null;
+
 
   // Check-in date analysis
   const checkIn = checkInDate ? new Date(checkInDate) : null;

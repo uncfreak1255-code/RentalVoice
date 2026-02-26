@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Keyboard, Platform, InputAccessoryView } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Keyboard, Platform } from 'react-native';
 import { colors, typography, spacing, radius, elevation } from '@/lib/design-tokens';
 import { PremiumPressable } from '@/components/ui';
 import {

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
+
 import { format } from 'date-fns';
 import { useAppStore } from '@/lib/store';
 import type { Message, LearningEntry } from '@/lib/store';
@@ -13,13 +13,13 @@ import { AIDraftActionsSheet } from './AIDraftActionsSheet';
 import type BottomSheet from '@gorhom/bottom-sheet';
 import { ReservationSummaryBar } from './ReservationSummaryBar';
 import { GuestProfileScreen } from './GuestProfileScreen';
-import { generateAIResponse, generateDemoResponse } from '@/lib/ai-service';
+import { generateDemoResponse } from '@/lib/ai-service';
 import {
   generateEnhancedAIResponse,
   analyzeSentimentAdvanced,
   detectTopics,
   calculateConfidence,
-  detectActionItems,
+
   getRegenerationOptions,
   type RegenerationOption,
   type EnhancedAIResponse,
@@ -48,15 +48,13 @@ import {
   analyzeReplyDelta,
 } from '@/lib/ai-intelligence';
 import {
-  ArrowLeft,
+
   Phone,
   Home,
   Calendar,
   User,
-  Sparkles,
-  ToggleLeft,
-  ToggleRight,
-  Bell,
+
+
   AlertTriangle,
   Brain,
   Search,
@@ -64,7 +62,7 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Avatar } from '@/components/ui/Avatar';
+
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 
 interface ChatScreenProps {
@@ -98,7 +96,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const [showGuestInfo, setShowGuestInfo] = useState(false);
   const [currentEnhancedDraft, setCurrentEnhancedDraft] = useState<EnhancedAiDraft | null>(null);
   const [showEscalationAlert, setShowEscalationAlert] = useState(false);
-  const [currentModifier, setCurrentModifier] = useState<RegenerationOption['modifier'] | undefined>();
+  const [, setCurrentModifier] = useState<RegenerationOption['modifier'] | undefined>();
   const [editLearningSummary, setEditLearningSummary] = useState<string | null>(null);
   const [learningToastType, setLearningToastType] = useState<'approval' | 'edit' | 'independent' | 'rejection'>('edit');
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,7 +109,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const updateConversation = useAppStore((s) => s.updateConversation);
   const autoPilotEnabled = useAppStore((s) => s.settings.autoPilotEnabled);
   const autoPilotThreshold = useAppStore((s) => s.settings.autoPilotConfidenceThreshold);
-  const setAutoPilot = useAppStore((s) => s.setAutoPilot);
+
   const isDemoMode = useAppStore((s) => s.isDemoMode);
   const accountId = useAppStore((s) => s.settings.accountId);
   const apiKey = useAppStore((s) => s.settings.apiKey);
@@ -208,7 +206,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
         setTimeout(() => {
           try {
             listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
-          } catch (e) {}
+          } catch {}
         }, 150);
       }
     }
@@ -220,7 +218,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
       setTimeout(() => {
         try {
           listRef.current?.scrollToOffset?.({ offset: 0, animated: true });
-        } catch (e) {}
+        } catch {}
       }, 300);
     }
   }, [currentEnhancedDraft]);
@@ -851,10 +849,6 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
     }
   }, [conversation?.property?.id, updatePropertyKnowledge, currentEnhancedDraft]);
 
-  const toggleAutoPilot = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setAutoPilot(!autoPilotEnabled);
-  };
 
   const dismissEscalationAlert = () => {
     setShowEscalationAlert(false);
@@ -878,7 +872,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
     );
   }
 
-  const { guest, property, checkInDate, checkOutDate, platform, numberOfGuests } = conversation;
+  const { guest, property, checkInDate, checkOutDate } = conversation;
 
   if (showGuestProfile) {
     return (
