@@ -7,7 +7,7 @@ import { disconnectHostaway } from '@/lib/hostaway';
 import { useNotifications } from '@/lib/NotificationProvider';
 import {
   Wifi, Key, Bell, Shield, LogOut,
-  Brain, BookOpen, Calendar,
+  Brain, BookOpen, Calendar, Globe,
   BarChart3, DollarSign, BellOff, Heart,
   Plane, MessageSquare, Cpu, FileText, Zap,
 } from 'lucide-react-native';
@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
+import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -37,8 +38,20 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
   // AI Usage stats
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+  const [activeModelName, setActiveModelName] = useState('Auto');
   useEffect(() => {
     getUsageStats().then(setUsageStats).catch(console.error);
+    // Load active model name
+    (async () => {
+      const selectedId = await getSelectedModel();
+      if (selectedId) {
+        const model = AI_MODELS.find(m => m.id === selectedId);
+        if (model) { setActiveModelName(model.name); return; }
+      }
+      // Fall back to first available model
+      const available = await getAvailableModels();
+      if (available.length > 0) setActiveModelName(available[0].name);
+    })();
   }, []);
 
   const { isRegistered, registerForNotifications } = useNotifications();
@@ -137,7 +150,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             <ValueRow
               icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
               label="Model"
-              value="Gemini Flash"
+              value={activeModelName}
             />
             <ValueRow
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
@@ -196,20 +209,27 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="AI Learning" />
           <View style={s.card}>
             <ToggleRow
-              icon={<Brain size={18} color={colors.primary.DEFAULT} />}
-              label="Style Learning"
+              icon={<Globe size={18} color={colors.primary.DEFAULT} />}
+              label="Cultural Tone"
               value={settings.culturalToneEnabled !== false}
               onValueChange={(v) => updateSettings({ culturalToneEnabled: v })}
             />
             <ValueRow
               icon={<MessageSquare size={18} color={colors.primary.DEFAULT} />}
-              label="Messages Analyzed"
-              value={String(aiLearningProgress?.totalMessagesAnalyzed || analytics.totalMessagesHandled || 0)}
+              label="Messages Trained"
+              value={String(aiLearningProgress?.totalMessagesAnalyzed || 0)}
             />
             <ValueRow
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
-              label="Style Confidence"
-              value={`${aiLearningProgress?.accuracyScore || 0}%`}
+              label="Profile Strength"
+              value={(() => {
+                const count = aiLearningProgress?.totalMessagesAnalyzed || 0;
+                if (count >= 500) return 'Expert';
+                if (count >= 200) return 'Strong';
+                if (count >= 50) return 'Learning';
+                if (count > 0) return 'Building';
+                return 'Not Started';
+              })()}
               valueColor={colors.primary.DEFAULT}
             />
             <LinkRow
