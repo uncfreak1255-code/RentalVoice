@@ -572,17 +572,17 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* ── Rork-style Header ── */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#F2F2F7' }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#FFFFFF' }}>
           <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }}>
             Inbox
           </Text>
         </View>
 
         {/* ── Search Bar ── */}
-        <View style={{ paddingHorizontal: 20, paddingBottom: 4, backgroundColor: '#F2F2F7' }}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 4, backgroundColor: '#FFFFFF' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#E5E5EA', borderRadius: 10, paddingHorizontal: 10, height: 36 }}>
             <Search size={16} color="#8E8E93" />
             <TextInput
@@ -604,7 +604,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         </View>
 
         {/* ── Rork-style Filter Pills (horizontal scroll) ── */}
-        <View style={{ paddingVertical: 8, backgroundColor: '#F2F2F7' }}>
+        <View style={{ paddingVertical: 8, backgroundColor: '#FFFFFF' }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -670,8 +670,8 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           />
         )}
 
-        {/* Conversation List - Light gray background for card separation */}
-        <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
+        {/* Conversation List — clean white background, cards have shadow for separation */}
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           {filteredConversations.length > 0 ? (
             <FlatList
               ref={flatListRef}
