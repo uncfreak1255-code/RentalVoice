@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -31,6 +31,8 @@ import { sendMessage as sendHostawayMessage } from '@/lib/hostaway';
 import { features } from '@/lib/config';
 import { generateAIDraftViaServer } from '@/lib/api-client';
 import { aiTrainingService } from '@/lib/ai-training-service';
+import { detectIntent } from '@/lib/intent-detection';
+import { generateSmartReplies, type SmartReply } from '@/lib/smart-replies';
 import { notifyAutoPilotSent } from '@/lib/push-notifications';
 import {
   analyzeEdit,
@@ -85,6 +87,47 @@ interface EnhancedAiDraft {
   originalContent?: string;
 }
 
+// ── Smart Reply Bar Component ──
+function SmartReplyBar({ guestMessage, propertyKnowledge, onSelect }: {
+  guestMessage: string;
+  propertyKnowledge?: any;
+  onSelect: (reply: SmartReply) => void;
+}) {
+  const replies = useMemo(() => generateSmartReplies(guestMessage, propertyKnowledge), [guestMessage, propertyKnowledge]);
+  if (replies.length === 0) return null;
+
+  return (
+    <Animated.View entering={FadeInDown.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['2'] }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+        {replies.map((reply) => (
+          <Pressable
+            key={reply.id}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onSelect(reply);
+            }}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: pressed ? colors.primary.DEFAULT + '20' : colors.primary.DEFAULT + '10',
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: colors.primary.DEFAULT + '30',
+            })}
+          >
+            <Text style={{ fontSize: 13, marginRight: 4 }}>{reply.icon}</Text>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>
+              {reply.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
 export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -129,6 +172,18 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
   const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
   const addReplyDelta = useAppStore((s) => s.addReplyDelta);
+
+  // Intent detection for the last guest message
+  const lastGuestMessage = useMemo(() => {
+    const conv = conversations.find(c => c.id === conversationId);
+    if (!conv) return null;
+    return [...(conv.messages || [])].reverse().find(m => m.sender === 'guest') || null;
+  }, [conversations, conversationId]);
+
+  const detectedIntent = useMemo(() => {
+    if (!lastGuestMessage) return null;
+    return detectIntent(lastGuestMessage.content);
+  }, [lastGuestMessage]);
 
   // Helper: centralized outcome tracking (fixes 5A DRY + 6A calibration guard)
   const trackDraftOutcome = useCallback((
@@ -949,14 +1004,21 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
               <Text style={chatStyles.doneButton}>Done</Text>
             </Pressable>
 
-            {/* Centered guest name */}
+            {/* Centered guest name + intent badge */}
             <Pressable
               onPress={() => setShowGuestProfile(true)}
-              style={{ flex: 1, alignItems: 'center' }}
+              style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
             >
               <Text style={chatStyles.guestName} numberOfLines={1}>
                 {guest.name}
               </Text>
+              {detectedIntent && detectedIntent.intent !== 'general' && (
+                <View style={{ backgroundColor: detectedIntent.color + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 6 }}>
+                  <Text style={{ fontSize: 11, fontFamily: typography.fontFamily.semibold, color: detectedIntent.color }}>
+                    {detectedIntent.label}
+                  </Text>
+                </View>
+              )}
             </Pressable>
 
             {/* Search toggle */}
@@ -1089,6 +1151,29 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
               keyboardDismissMode="on-drag"
             />
           </View>
+
+          {/* Smart Reply Bar */}
+          {lastGuestMessage && !currentEnhancedDraft && !isGeneratingDraft && (
+            <SmartReplyBar
+              guestMessage={lastGuestMessage.content}
+              propertyKnowledge={currentPropertyKnowledge}
+              onSelect={(reply: SmartReply) => {
+                if (reply.isDirect && reply.content) {
+                  // Direct reply — set as draft content
+                  setCurrentEnhancedDraft({
+                    content: reply.content,
+                    confidence: 90,
+                  });
+                } else if (reply.content) {
+                  // AI prompt modifier — regenerate with context
+                  generateDraftForConversation();
+                } else {
+                  // Custom reply — just open composer
+                  generateDraftForConversation();
+                }
+              }}
+            />
+          )}
 
           {/* Composer with enhanced draft */}
           <MessageComposer

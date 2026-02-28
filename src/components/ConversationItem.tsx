@@ -5,6 +5,7 @@ import { AlertTriangle } from 'lucide-react-native';
 import { PremiumPressable } from '@/components/ui/PremiumPressable';
 import { colors, typography, spacing } from '@/lib/design-tokens';
 import { analyzeConversationSentiment } from '@/lib/sentiment-analysis';
+import { detectIntent } from '@/lib/intent-detection';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -131,6 +132,16 @@ export const ConversationItem = memo(function ConversationItem({
     return null;
   }, [lastMessage, isUnread, lastSender]);
 
+  // ── Intent badge from last guest message ──
+  const intentBadge = useMemo(() => {
+    // Find the last guest message
+    const lastGuestMsg = [...(conversation.messages || [])].reverse().find(m => m.sender === 'guest');
+    if (!lastGuestMsg) return null;
+    const result = detectIntent(lastGuestMsg.content);
+    if (result.intent === 'general') return null; // Don't show badge for generic messages
+    return result;
+  }, [conversation.messages]);
+
   // ── Message preview with sender prefix: "You: ..." / "John: ..." ──
   const lastMessagePreview = useMemo(() => {
     if (!lastMessage?.content) return 'No messages yet';
@@ -195,6 +206,13 @@ export const ConversationItem = memo(function ConversationItem({
             </Text>
             {sentimentData.escalationRequired && (
               <AlertTriangle size={14} color="#EF4444" style={{ marginLeft: 4 }} />
+            )}
+            {intentBadge && !sentimentData.escalationRequired && (
+              <View style={[styles.intentBadge, { backgroundColor: intentBadge.color + '18' }]}>
+                <Text style={[styles.intentBadgeText, { color: intentBadge.color }]}>
+                  {intentBadge.label}
+                </Text>
+              </View>
             )}
           </View>
           {timestamp ? (
@@ -367,5 +385,19 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     color: colors.primary.DEFAULT,
     flexShrink: 1,
+  },
+
+  // ── Intent badge ──
+  intentBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6,
+    flexShrink: 0,
+  },
+  intentBadgeText: {
+    fontSize: 10,
+    fontFamily: typography.fontFamily.semibold,
+    letterSpacing: 0.3,
   },
 });

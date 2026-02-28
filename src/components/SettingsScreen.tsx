@@ -7,8 +7,8 @@ import { disconnectHostaway } from '@/lib/hostaway';
 import { useNotifications } from '@/lib/NotificationProvider';
 import {
   Wifi, Key, Bell, Shield, LogOut,
-  Brain, BookOpen, Calendar, Globe,
-  BarChart3, DollarSign, BellOff, Heart,
+  Brain, BookOpen, Globe,
+  BarChart3, BellOff,
   Plane, MessageSquare, Cpu, FileText, Zap,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -264,33 +264,30 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             />
           </View>
 
-          {/* ── Features ── */}
-          <SectionHeader title="Features" />
+          {/* ── AI Performance ── */}
+          <SectionHeader title="AI Performance" />
           <View style={s.card}>
             <Row
-              icon={<Calendar size={18} color={colors.primary.DEFAULT} />}
-              label="Automations"
-              onPress={() => handleNavigate('automations')}
-            />
-            <Row
-              icon={<Heart size={18} color={colors.primary.DEFAULT} />}
-              label="Sentiment Trends"
-              onPress={() => handleNavigate('sentimentTrends')}
-            />
-            <Row
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
-              label="Analytics"
-              right={<Text style={s.rowValue}>{analytics.totalMessagesHandled}</Text>}
-              onPress={() => handleNavigate('analytics')}
+              label="AI Accuracy"
+              right={
+                <Text style={[s.tealValue, { fontSize: 17 }]}>
+                  {(() => {
+                    const total = analytics.aiResponsesApproved + analytics.aiResponsesEdited + analytics.aiResponsesRejected;
+                    if (total === 0) return '—';
+                    return `${Math.round((analytics.aiResponsesApproved / total) * 100)}%`;
+                  })()}
+                </Text>
+              }
             />
-            <Row
-              icon={<DollarSign size={18} color={colors.primary.DEFAULT} />}
-              label="Upsells"
-              right={<Text style={s.rowValue}>${analytics.upsellRevenue}</Text>}
-              onPress={() => handleNavigate('upsells')}
+            <ValueRow
+              icon={<MessageSquare size={18} color={colors.primary.DEFAULT} />}
+              label="Messages Handled"
+              value={String(analytics.totalMessagesHandled)}
               isLast
             />
           </View>
+          <SectionFooter text="Percentage of AI drafts approved without edits. Higher = AI matches your style better." />
 
           {/* ── About ── */}
           <SectionHeader title="About" />

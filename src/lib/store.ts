@@ -1334,6 +1334,7 @@ export const useAppStore = create<AppState>()(
         quickReplyTemplates: state.quickReplyTemplates,
         propertyAutoPilotSettings: state.propertyAutoPilotSettings,
         learnedLanguageStyles: state.learnedLanguageStyles,
+        trackedUpsellOffers: state.trackedUpsellOffers,
         // NOTE: Cold arrays removed from partialize for performance.
         // They are persisted via cold-storage.ts subscribers below.
         // Removed: conversations, learningEntries, draftOutcomes,
