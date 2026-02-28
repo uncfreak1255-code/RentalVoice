@@ -4,6 +4,9 @@
     "slug": "rental-voice",
     "scheme": "rental-voice",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,6 +23,11 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
+    "updates": {
+      "url": "https://u.expo.dev/566a6ee6-1b3a-48d0-a0d6-4a10a0b3f747",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.rentalvoice.app"
@@ -27,7 +35,13 @@
     "plugins": [
       "expo-router",
       "@sentry/react-native",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-updates",
+        {
+          "username": "sawbeck25"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
