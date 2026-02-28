@@ -1,50 +1,53 @@
 # Rental Voice — App Store Metadata
 
 ## App Name
-Rental Voice — AI Guest Messaging
+Rental Voice: AI Guest Reply
 
 ## Subtitle (30 chars max)
-Smart replies for rental hosts
+Airbnb & VRBO host messaging
 
 ## Category
 Primary: Business
 Secondary: Productivity
 
 ## Keywords (100 chars max)
-vacation rental,host,guest messaging,airbnb,AI reply,property management,hospitality,auto reply
+short term,property,booking,communication,hospitality,draft,inbox,co-host,respond,manage,STR,PMS
 
 ## Description
 
 ### Short Description (170 chars)
-AI-powered guest messaging for vacation rental hosts. Draft smart replies, manage conversations across Airbnb, VRBO & Booking.com — all in one beautiful inbox.
+Respond to every guest in your voice — not a generic AI's. Rental Voice learns how YOU write, then drafts replies across Airbnb, VRBO & Booking.com.
 
 ### Full Description
-Rental Voice is the AI-powered messaging assistant built specifically for vacation rental hosts. Stop spending hours typing repetitive replies — let AI draft intelligent, personalized responses to every guest message.
+Respond to every guest in your voice — not a generic AI's. Rental Voice learns how YOU write, then drafts replies across Airbnb, VRBO & Booking.com. Approve with one tap.
 
-**Your AI Co-Host**
-• AI analyzes each guest message and drafts a personalized reply
+⭐ The only messaging app that learns YOUR communication style
+
+🧠 AI That Sounds Like You
+• Analyzes your past messages to learn your tone, phrases, and style
+• Drafts personalized replies that match how YOU actually write
 • Confidence scoring tells you how reliable each draft is
-• Edit, approve, or regenerate with one tap
-• AI learns from your editing style over time
+• Gets smarter with every message you approve or edit
 
-**Unified Inbox**
-• See all guest conversations from Airbnb, VRBO, Booking.com, and direct bookings
+📬 One Inbox for Everything
+• All guest conversations from Airbnb, VRBO, Booking.com & direct bookings
 • Filter by check-in, check-out, unread, or urgent
-• Full conversation history with sentiment analysis
+• Sentiment analysis flags frustrated guests before they leave a bad review
 
-**Smart Calendar**
-• Visual overview of all upcoming check-ins and check-outs
+📅 Smart Calendar
+• Visual overview of upcoming check-ins and check-outs
 • Tap any booking to jump straight to the conversation
 
-**Privacy First**
-• Your messages stay on your device
+🔒 Your Data Stays Yours
+• Messages stay on your device — no cloud storage
 • PII detection warns before sending sensitive data
 • No data shared with third parties
 
-**Works With**
-• Hostaway
-• Guesty (coming soon)
-• Lodgify (coming soon)
+Works With: Hostaway · Guesty (coming soon) · Lodgify (coming soon)
+
+"Finally an AI that doesn't sound like a robot. My guests can't tell the difference."
+
+Download now and reply like a pro in seconds, not minutes.
 
 ## Privacy Policy URL
 https://rentalvoice.app/privacy
