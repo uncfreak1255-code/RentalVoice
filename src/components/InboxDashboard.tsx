@@ -165,7 +165,15 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     // Filter by active tab
     switch (activeFilter) {
       case 'unread':
-        result = result.filter((c) => c.unreadCount > 0);
+        // A conversation is truly unread only when:
+        // 1. It has unreadCount > 0, AND
+        // 2. The last message is from a guest (host hasn't replied yet)
+        // This matches ConversationItem's visual isUnread logic
+        result = result.filter((c) => {
+          if (c.unreadCount <= 0) return false;
+          const lastSender = c.lastMessage?.sender;
+          return lastSender !== 'host'; // Host already replied = not unread
+        });
         break;
       case 'check_in': {
         const now = new Date();
@@ -217,7 +225,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
     return {
       total: active.length,
-      unread: active.reduce((sum, c) => sum + c.unreadCount, 0),
+      unread: active.filter((c) => c.unreadCount > 0 && c.lastMessage?.sender !== 'host').length,
       checkIn: active.filter((c) => {
         if (!c.checkInDate) return false;
         const d = new Date(c.checkInDate);

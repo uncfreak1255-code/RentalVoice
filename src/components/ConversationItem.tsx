@@ -174,21 +174,14 @@ export const ConversationItem = memo(function ConversationItem({
           pressed && styles.pressed,
         ]}
       >
-        {/* Status row: NEW/REPLIED label + timestamp */}
-        {(statusLabel || timestamp) && (
-          <View style={styles.statusRow}>
-            {statusLabel ? (
-              <Text style={[styles.statusLabel, { color: statusLabel.color }]}>
-                {statusLabel.text}
-              </Text>
-            ) : (
-              <View />
-            )}
-            <Text style={styles.timestamp}>{timestamp}</Text>
-          </View>
+        {/* Status label: NEW/REPLIED */}
+        {statusLabel && (
+          <Text style={[styles.statusLabel, { color: statusLabel.color }]}>
+            {statusLabel.text}
+          </Text>
         )}
 
-        {/* Name row: Guest name + escalation + unread dot */}
+        {/* Name row: Guest name + timestamp right-aligned (Apple Messages style) */}
         <View style={styles.topRow}>
           <View style={styles.nameRow}>
             <Text
@@ -204,8 +197,12 @@ export const ConversationItem = memo(function ConversationItem({
               <AlertTriangle size={14} color="#EF4444" style={{ marginLeft: 4 }} />
             )}
           </View>
-          {isUnread && <View style={styles.unreadDot} />}
+          {timestamp ? (
+            <Text style={styles.timestamp}>{timestamp}</Text>
+          ) : null}
         </View>
+
+        {isUnread && <View style={styles.unreadDot} />}
 
         {/* Message Preview with sender prefix */}
         <Text
@@ -281,17 +278,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
 
-  // ── Status row: NEW/REPLIED + time aligned right ──
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 3,
-  },
+  // ── Status label ──
   statusLabel: {
     fontSize: 11,
     fontFamily: typography.fontFamily.bold,
     letterSpacing: 0.8,
+    marginBottom: 2,
   },
   timestamp: {
     fontSize: 13,
@@ -299,6 +291,8 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     color: '#9CA3AF',
     flexShrink: 0,
+    marginLeft: 8,
+    textAlign: 'right' as const,
   },
 
   // ── Name row: guest name + alert icon + unread dot ──
