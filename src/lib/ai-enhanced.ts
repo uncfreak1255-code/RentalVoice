@@ -5,10 +5,12 @@
 import type { Conversation, Message, PropertyKnowledge, HostStyleProfile } from './store';
 import { useAppStore } from './store';
 import { generateStyleInstructions } from './ai-learning';
+import { generateVoiceDNAPromptSnippet, getDeltaPromptAdjustments } from './ai-intelligence';
 import { aiTrainingService } from './ai-training-service';
 import { getPromptAdjustments, getRejectionAdjustments } from './edit-diff-analysis';
 import { computeCalibrationSummary, type CalibrationSummary } from './ai-intelligence';
 import { detectGuestType, getGuestTypePromptAdjustments, type GuestProfile } from './guest-type-detection';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   buildAdvancedAIPrompt,
   incrementalTrainer,
@@ -1365,7 +1367,12 @@ export function buildEnhancedSystemPrompt(
 
   // Build identity based on whether we have a learned style profile
   const hasLearnedStyle = hostStyleProfile && hostStyleProfile.samplesAnalyzed > 5;
-  const styleInstructions = hasLearnedStyle ? generateStyleInstructions(hostStyleProfile!) : '';
+  // Use Voice DNA (richer ~200-word portrait) when enough data, fall back to basic instructions
+  const styleInstructions = hasLearnedStyle && hostStyleProfile!.samplesAnalyzed > 20
+    ? generateVoiceDNAPromptSnippet(hostStyleProfile!)
+    : hasLearnedStyle
+      ? generateStyleInstructions(hostStyleProfile!)
+      : '';
 
   let prompt: string;
   
@@ -1376,7 +1383,7 @@ export function buildEnhancedSystemPrompt(
 PROPERTY: ${propertyName}
 ADDRESS: ${propertyAddress}
 
-YOUR COMMUNICATION STYLE (learned from ${hostStyleProfile!.samplesAnalyzed} of your real messages — this is WHO YOU ARE):
+YOUR VOICE DNA (learned from ${hostStyleProfile!.samplesAnalyzed} of your real messages — this is WHO YOU ARE):
 ${styleInstructions}
 
 These style rules are MANDATORY. They define your voice. Do NOT deviate from them.
@@ -2288,6 +2295,22 @@ async function buildSystemPromptWithEditLearning(
     const editAdjustments = await getPromptAdjustments(propertyId);
     if (editAdjustments) {
       prompt += editAdjustments;
+    }
+
+    // Add deep learning from reply deltas (what the host consistently changes)
+    try {
+      const deltaKey = 'reply_deltas';
+      const deltaData = await AsyncStorage.getItem(deltaKey);
+      if (deltaData) {
+        const deltas = JSON.parse(deltaData);
+        const deltaAdjustments = getDeltaPromptAdjustments(deltas);
+        if (deltaAdjustments) {
+          prompt += deltaAdjustments;
+        }
+      }
+    } catch (e) {
+      // Delta learning is optional — don't block generation
+      console.warn('[AI Enhanced] Delta learning failed:', e);
     }
 
     // Add learnings from rejections
