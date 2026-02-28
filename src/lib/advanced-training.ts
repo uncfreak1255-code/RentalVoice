@@ -18,6 +18,8 @@ const CONVERSATION_FLOWS_KEY = 'ai_conversation_flows';
 const GUEST_MEMORY_KEY = 'ai_guest_memory';
 const FEW_SHOT_INDEX_KEY = 'ai_few_shot_index';
 const MULTI_PASS_STATE_KEY = 'ai_multi_pass_state';
+const DRAFT_OUTCOMES_KEY = 'ai_draft_outcomes';
+const PROPERTY_CONVERSATION_KNOWLEDGE_KEY = 'ai_property_conv_knowledge';
 
 // ============================================================================
 // 1. INCREMENTAL TRAINING - Auto-train every 10 messages
@@ -96,21 +98,37 @@ class IncrementalTrainer {
     try {
       const batch = this.queue.splice(0, INCREMENTAL_BATCH_SIZE);
 
-      // Analyze each message
+      // Analyze each message with APPROVAL WEIGHTING
       for (const msg of batch) {
         const analysis = analyzeMessage(msg.content);
 
-        // Update style metrics incrementally
-        await this.updateStyleMetrics(msg, analysis);
+        // Approval-weighted learning: approved=3x, edited=2x, regular=1x
+        const weight = msg.wasApproved ? 3 : msg.wasEdited ? 2 : 1;
 
-        // Add to few-shot index
+        // Run updateStyleMetrics multiple times based on weight
+        // This effectively makes approved messages count 3x in style calculations
+        for (let w = 0; w < weight; w++) {
+          await this.updateStyleMetrics(msg, analysis);
+        }
+
+        // Add to few-shot index (approved/edited responses are higher quality examples)
         if (msg.guestMessage) {
           await fewShotIndexer.addExample(msg.guestMessage, msg.content, msg.propertyId);
         }
 
-        // If edited, this is more valuable for learning
+        // Extract per-property knowledge from host replies
+        if (msg.propertyId && msg.guestMessage) {
+          await propertyConversationKnowledge.extractAndStore(
+            msg.propertyId,
+            msg.guestMessage,
+            msg.content
+          );
+        }
+
         if (msg.wasEdited) {
-          console.log('[IncrementalTrainer] Learning from edited response (high value)');
+          console.log(`[IncrementalTrainer] Learning from edited response (weight: ${weight}x)`);
+        } else if (msg.wasApproved) {
+          console.log(`[IncrementalTrainer] Learning from approved response (weight: ${weight}x)`);
         }
       }
 
@@ -1935,5 +1953,334 @@ export function buildAdvancedAIPrompt(
   // 4. Guest memory (returning guests)
   additionalPrompt += guestMemoryManager.getGuestMemoryPrompt(guestEmail, guestPhone);
 
+  // 5. Per-property conversation knowledge (learned from past host replies)
+  if (propertyId) {
+    additionalPrompt += propertyConversationKnowledge.getKnowledgePrompt(propertyId);
+  }
+
   return additionalPrompt;
 }
+
+// ============================================================================
+// 10. PROPERTY CONVERSATION KNOWLEDGE — Learns facts from host replies per property
+// ============================================================================
+
+export interface PropertyKnowledgeEntry {
+  fact: string;
+  category: 'rule' | 'location' | 'instruction' | 'amenity' | 'recommendation' | 'policy';
+  extractedFrom: string; // snippet of host reply
+  learnedAt: number;
+  confidence: number; // 0-1, higher = mentioned more often
+}
+
+export interface PropertyConversationKnowledgeStore {
+  [propertyId: string]: PropertyKnowledgeEntry[];
+}
+
+class PropertyConversationKnowledgeManager {
+  private store: PropertyConversationKnowledgeStore = {};
+  private loaded = false;
+
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    try {
+      const data = await AsyncStorage.getItem(PROPERTY_CONVERSATION_KNOWLEDGE_KEY);
+      if (data) {
+        this.store = JSON.parse(data);
+      }
+      this.loaded = true;
+    } catch (e) {
+      console.error('[PropertyConvKnowledge] Load failed:', e);
+      this.loaded = true;
+    }
+  }
+
+  private async save(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(PROPERTY_CONVERSATION_KNOWLEDGE_KEY, JSON.stringify(this.store));
+    } catch (e) {
+      console.error('[PropertyConvKnowledge] Save failed:', e);
+    }
+  }
+
+  // Extract property-specific facts from a host reply
+  async extractAndStore(propertyId: string, guestMessage: string, hostReply: string): Promise<void> {
+    await this.ensureLoaded();
+
+    const entries = this.store[propertyId] || [];
+    const newFacts = this.extractFacts(guestMessage, hostReply);
+
+    for (const fact of newFacts) {
+      // Check if we already have this fact (dedup by similarity)
+      const existing = entries.find(e =>
+        e.fact.toLowerCase() === fact.fact.toLowerCase() ||
+        this.similarity(e.fact, fact.fact) > 0.8
+      );
+
+      if (existing) {
+        // Boost confidence — host mentioned this again
+        existing.confidence = Math.min(1, existing.confidence + 0.1);
+        existing.learnedAt = Date.now();
+      } else {
+        entries.push(fact);
+      }
+    }
+
+    // Cap at 50 facts per property, keep highest confidence
+    this.store[propertyId] = entries
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 50);
+
+    await this.save();
+
+    if (newFacts.length > 0) {
+      console.log(`[PropertyConvKnowledge] Extracted ${newFacts.length} facts for property ${propertyId}`);
+    }
+  }
+
+  private extractFacts(guestMessage: string, hostReply: string): PropertyKnowledgeEntry[] {
+    const facts: PropertyKnowledgeEntry[] = [];
+    const now = Date.now();
+    const sentences = hostReply.split(/[.!?\n]+/).map(s => s.trim()).filter(s => s.length > 15);
+
+    for (const sentence of sentences) {
+
+      // RULES: "no fishing", "please don't", "not allowed", "no pets"
+      if (/\b(no|don'?t|not allowed|prohibited|please (don'?t|refrain|avoid)|isn'?t permitted)\b/i.test(sentence)) {
+        facts.push({
+          fact: sentence,
+          category: 'rule',
+          extractedFrom: sentence.slice(0, 80),
+          learnedAt: now,
+          confidence: 0.6,
+        });
+        continue;
+      }
+
+      // LOCATIONS: "the X is in/on/at/near the Y"
+      if (/\b(is (in|on|at|near|behind|under|next to|by|inside|outside)|located (in|on|at|near)|you('ll| will) find (it |the )?)\b/i.test(sentence)) {
+        facts.push({
+          fact: sentence,
+          category: 'location',
+          extractedFrom: sentence.slice(0, 80),
+          learnedAt: now,
+          confidence: 0.5,
+        });
+        continue;
+      }
+
+      // INSTRUCTIONS: "press the", "turn the", "use the code", "the password is"
+      if (/\b(press|turn|slide|push|pull|flip|enter|type|use the (code|key|button|remote)|password is|code is|pin is)\b/i.test(sentence)) {
+        facts.push({
+          fact: sentence,
+          category: 'instruction',
+          extractedFrom: sentence.slice(0, 80),
+          learnedAt: now,
+          confidence: 0.6,
+        });
+        continue;
+      }
+
+      // AMENITIES: "we have a", "there's a", "the property has"
+      if (/\b(we have|there('s| is) a|the (property|house|home|place|unit) (has|includes|features|comes with))\b/i.test(sentence)) {
+        facts.push({
+          fact: sentence,
+          category: 'amenity',
+          extractedFrom: sentence.slice(0, 80),
+          learnedAt: now,
+          confidence: 0.5,
+        });
+        continue;
+      }
+
+      // RECOMMENDATIONS: "I recommend", "great place", "try the", "best X is"
+      if (/\b(i (recommend|suggest)|try (the|going)|great (place|spot|restaurant)|best .+ is|my favorite|worth (visiting|checking))\b/i.test(sentence)) {
+        facts.push({
+          fact: sentence,
+          category: 'recommendation',
+          extractedFrom: sentence.slice(0, 80),
+          learnedAt: now,
+          confidence: 0.4,
+        });
+        continue;
+      }
+
+      // POLICIES: check-in/out times, fees, deposits
+      if (/\b(check.?in (is|at|time)|check.?out (is|at|by|time)|(early|late) check|fee (is|of)|deposit|refund|cancel|minimum stay)\b/i.test(sentence)) {
+        facts.push({
+          fact: sentence,
+          category: 'policy',
+          extractedFrom: sentence.slice(0, 80),
+          learnedAt: now,
+          confidence: 0.7,
+        });
+        continue;
+      }
+    }
+
+    return facts;
+  }
+
+  private similarity(a: string, b: string): number {
+    const wordsA = new Set(a.toLowerCase().split(/\s+/));
+    const wordsB = new Set(b.toLowerCase().split(/\s+/));
+    const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
+    const union = new Set([...wordsA, ...wordsB]).size;
+    return union > 0 ? intersection / union : 0;
+  }
+
+  // Generate prompt injection for a property
+  getKnowledgePrompt(propertyId: string): string {
+    const entries = this.store[propertyId];
+    if (!entries || entries.length === 0) return '';
+
+    // Only inject high-confidence facts
+    const confident = entries.filter(e => e.confidence >= 0.4);
+    if (confident.length === 0) return '';
+
+    const byCategory: Record<string, string[]> = {};
+    for (const entry of confident) {
+      if (!byCategory[entry.category]) byCategory[entry.category] = [];
+      byCategory[entry.category].push(entry.fact);
+    }
+
+    const parts: string[] = [];
+    const labels: Record<string, string> = {
+      rule: 'Property Rules',
+      location: 'Where Things Are',
+      instruction: 'How-To Instructions',
+      amenity: 'Available Amenities',
+      recommendation: 'Local Recommendations',
+      policy: 'Policies & Fees',
+    };
+
+    for (const [cat, facts] of Object.entries(byCategory)) {
+      parts.push(`${labels[cat] || cat}:\n${facts.slice(0, 5).map(f => `  - ${f}`).join('\n')}`);
+    }
+
+    return `\n\nPROPERTY-SPECIFIC KNOWLEDGE (learned from your past replies to guests at this property):\n${parts.join('\n')}\n\nUse this knowledge to answer guest questions about this specific property. This is information YOU have shared before.\n`;
+  }
+
+  // Get stats for UI display
+  getStats(): { totalProperties: number; totalFacts: number; byProperty: Record<string, number> } {
+    const byProperty: Record<string, number> = {};
+    let totalFacts = 0;
+    for (const [propId, entries] of Object.entries(this.store)) {
+      byProperty[propId] = entries.length;
+      totalFacts += entries.length;
+    }
+    return { totalProperties: Object.keys(this.store).length, totalFacts, byProperty };
+  }
+}
+
+export const propertyConversationKnowledge = new PropertyConversationKnowledgeManager();
+
+// ============================================================================
+// 11. DRAFT OUTCOME TRACKER — Auto-retrain when rejection rate is high
+// ============================================================================
+
+export type DraftOutcome = 'approved' | 'edited' | 'rejected';
+
+interface DraftOutcomeEntry {
+  outcome: DraftOutcome;
+  timestamp: number;
+  propertyId?: string;
+}
+
+class DraftOutcomeTracker {
+  private outcomes: DraftOutcomeEntry[] = [];
+  private loaded = false;
+  private lastRetrainAt = 0;
+  private static RETRAIN_COOLDOWN = 30 * 60 * 1000; // 30 min cooldown
+  private static WINDOW_SIZE = 10; // look at last 10 drafts
+  private static REJECTION_THRESHOLD = 0.3; // 30% rejection rate triggers retrain
+
+  private async ensureLoaded(): Promise<void> {
+    if (this.loaded) return;
+    try {
+      const data = await AsyncStorage.getItem(DRAFT_OUTCOMES_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        this.outcomes = parsed.outcomes || [];
+        this.lastRetrainAt = parsed.lastRetrainAt || 0;
+      }
+      this.loaded = true;
+    } catch (e) {
+      console.error('[DraftOutcomes] Load failed:', e);
+      this.loaded = true;
+    }
+  }
+
+  private async save(): Promise<void> {
+    try {
+      // Keep only last 100 outcomes
+      const trimmed = this.outcomes.slice(-100);
+      await AsyncStorage.setItem(DRAFT_OUTCOMES_KEY, JSON.stringify({
+        outcomes: trimmed,
+        lastRetrainAt: this.lastRetrainAt,
+      }));
+    } catch (e) {
+      console.error('[DraftOutcomes] Save failed:', e);
+    }
+  }
+
+  // Record a draft outcome (called from ChatScreen when user approves/edits/rejects)
+  async recordOutcome(outcome: DraftOutcome, propertyId?: string): Promise<{ shouldRetrain: boolean }> {
+    await this.ensureLoaded();
+
+    this.outcomes.push({
+      outcome,
+      timestamp: Date.now(),
+      propertyId,
+    });
+
+    await this.save();
+
+    // Check if we should trigger auto-retrain
+    const shouldRetrain = this.shouldTriggerRetrain();
+
+    if (shouldRetrain) {
+      this.lastRetrainAt = Date.now();
+      await this.save();
+      console.log('[DraftOutcomes] ⚠️ High rejection rate detected — triggering auto-retrain');
+    }
+
+    return { shouldRetrain };
+  }
+
+  private shouldTriggerRetrain(): boolean {
+    // Don't retrain too frequently
+    if (Date.now() - this.lastRetrainAt < DraftOutcomeTracker.RETRAIN_COOLDOWN) {
+      return false;
+    }
+
+    // Need enough data
+    if (this.outcomes.length < DraftOutcomeTracker.WINDOW_SIZE) {
+      return false;
+    }
+
+    // Look at last N outcomes
+    const recent = this.outcomes.slice(-DraftOutcomeTracker.WINDOW_SIZE);
+    const rejections = recent.filter(o => o.outcome === 'rejected').length;
+    const rejectionRate = rejections / recent.length;
+
+    return rejectionRate > DraftOutcomeTracker.REJECTION_THRESHOLD;
+  }
+
+  // Get current stats for UI
+  getStats(): { total: number; approved: number; edited: number; rejected: number; recentRejectionRate: number } {
+    const total = this.outcomes.length;
+    const approved = this.outcomes.filter(o => o.outcome === 'approved').length;
+    const edited = this.outcomes.filter(o => o.outcome === 'edited').length;
+    const rejected = this.outcomes.filter(o => o.outcome === 'rejected').length;
+
+    const recent = this.outcomes.slice(-DraftOutcomeTracker.WINDOW_SIZE);
+    const recentRejectionRate = recent.length > 0
+      ? recent.filter(o => o.outcome === 'rejected').length / recent.length
+      : 0;
+
+    return { total, approved, edited, rejected, recentRejectionRate };
+  }
+}
+
+export const draftOutcomeTracker = new DraftOutcomeTracker();
