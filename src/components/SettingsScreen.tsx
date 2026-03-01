@@ -17,6 +17,9 @@ import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } fr
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
 import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
 
+// ── Build stamp — changes with every OTA push, verifies update applied ──
+const BUILD_STAMP = '2026-03-01T13:45';  // Update this each OTA push
+
 interface SettingsScreenProps {
   onBack: () => void;
   onLogout: () => void;
@@ -295,7 +298,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             <ValueRow
               icon={<Shield size={18} color={colors.primary.DEFAULT} />}
               label="Version"
-              value="1.0.0"
+              value={`1.0.0 · Build ${BUILD_STAMP}`}
             />
             <LinkRow
               icon={<Shield size={18} color={colors.primary.DEFAULT} />}
