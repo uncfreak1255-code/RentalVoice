@@ -311,6 +311,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginLeft: 8,
     textAlign: 'right' as const,
+    minWidth: 70,
   },
 
   // ── Name row: guest name + alert icon + unread dot ──
