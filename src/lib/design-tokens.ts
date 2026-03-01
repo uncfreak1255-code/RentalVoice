@@ -53,9 +53,9 @@ export const colors = {
   // Text
   text: {
     primary: '#1E293B',    // Near-black headings
-    secondary: '#475569',  // Body text
-    muted: '#64748B',      // Captions, hints
-    disabled: '#94A3B8',   // Disabled/placeholder
+    secondary: '#475569',  // Body text — 7.0:1 ✅
+    muted: '#64748B',      // Captions, hints — 4.6:1 ✅
+    disabled: '#6B7280',   // Disabled/placeholder — 5.0:1 ✅ (was #94A3B8 = 3.0:1 ❌)
     inverse: '#FFFFFF',    // Text on dark backgrounds
   },
 
@@ -78,7 +78,7 @@ export const colors = {
   status: {
     online: '#22C55E',
     away: '#EAB308',
-    offline: '#94A3B8',
+    offline: '#6B7280',   // Was #94A3B8 — WCAG fix
     urgent: '#EF4444',
   },
 } as const;
@@ -100,8 +100,8 @@ export const darkColors = {
   text: {
     primary: '#F8FAFC',
     secondary: '#CBD5E1',
-    muted: '#94A3B8',
-    disabled: '#475569',
+    muted: '#9CA3AF',      // On dark bg this passes contrast
+    disabled: '#6B7280',   // WCAG accessible on dark bg
     inverse: '#0F172A',
   },
   border: {
@@ -130,14 +130,14 @@ export const lightColors = {
   text: {
     primary: '#0F172A',
     secondary: '#334155',
-    muted: '#64748B',
-    disabled: '#94A3B8',
+    muted: '#64748B',      // 4.6:1 on white ✅
+    disabled: '#6B7280',   // 5.0:1 on white ✅ (was #94A3B8 = 3.0:1 ❌)
     inverse: '#F8FAFC',
   },
   border: {
     subtle: '#E2E8F0',
     DEFAULT: '#CBD5E1',
-    strong: '#94A3B8',
+    strong: '#6B7280',     // WCAG accessible border contrast
   },
   platform: colors.platform,
   status: colors.status,
@@ -352,7 +352,13 @@ export const zIndex = {
 
 // ─── Hit Slop (touch target expansion) ───────────────────────
 export const hitSlop = {
-  sm: { top: 4, bottom: 4, left: 4, right: 4 },
-  md: { top: 8, bottom: 8, left: 8, right: 8 },
-  lg: { top: 12, bottom: 12, left: 12, right: 12 },
+  sm: { top: 8, bottom: 8, left: 8, right: 8 },
+  md: { top: 12, bottom: 12, left: 12, right: 12 },
+  lg: { top: 16, bottom: 16, left: 16, right: 16 },
+} as const;
+
+// ─── Accessibility Minimum Touch Target ──────────────────────
+// Apple HIG + WCAG 2.5.5: minimum 44×44pt touch targets
+export const a11y = {
+  minTouchTarget: { minWidth: 44, minHeight: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
 } as const;

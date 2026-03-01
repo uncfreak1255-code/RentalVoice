@@ -183,7 +183,7 @@ export function AutomationsScreen({ onBack }: AutomationsScreenProps) {
             <View style={au.aiBox}>
               <View style={[au.row, { justifyContent: 'space-between', marginBottom: spacing['2'] }]}>
                 <View style={au.row}><Wand2 size={18} color="#A855F7" /><Text style={{ color: '#A855F7', fontFamily: typography.fontFamily.medium, marginLeft: spacing['2'] }}>AI Personalization</Text></View>
-                <Switch value={aiPersonalization} onValueChange={setAiPersonalization} trackColor={{ false: '#475569', true: '#A855F7' }} thumbColor={aiPersonalization ? '#FFF' : '#94A3B8'} />
+                <Switch value={aiPersonalization} onValueChange={setAiPersonalization} trackColor={{ false: '#475569', true: '#A855F7' }} thumbColor={aiPersonalization ? '#FFF' : '#6B7280'} />
               </View>
               <Text style={{ color: '#A855F770', fontSize: 14 }}>AI will personalize this template based on guest details and conversation history</Text>
             </View>

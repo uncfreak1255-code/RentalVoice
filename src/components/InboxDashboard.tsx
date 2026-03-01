@@ -584,7 +584,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* ── Rork-style Header ── */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#FFFFFF' }}>
-          <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }}>
+          <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }} accessibilityRole="header">
             Inbox
           </Text>
         </View>
@@ -602,9 +602,10 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
+              accessibilityLabel="Search guests and properties"
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={12} accessible accessibilityRole="button" accessibilityLabel="Clear search">
                 <X size={16} color="#8E8E93" />
               </Pressable>
             )}

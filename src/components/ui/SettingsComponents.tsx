@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
 
 export function SectionHeader({ title }: { title: string }) {
-  return <Text style={s.sectionHeader}>{title}</Text>;
+  return <Text style={s.sectionHeader} accessibilityRole="header">{title}</Text>;
 }
 
 export function SectionFooter({ text }: { text: string }) {
@@ -27,7 +27,17 @@ export function Row({ icon, iconBg, label, right, onPress, isLast = false }: {
     </View>
   );
   if (onPress) {
-    return <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>{content}</Pressable>;
+    return (
+      <Pressable
+        onPress={onPress}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
+        {content}
+      </Pressable>
+    );
   }
   return content;
 }
@@ -47,6 +57,9 @@ export function ToggleRow({ icon, iconBg, trackColor: customTrackColor, label, v
           trackColor={{ false: '#E5E5EA', true: customTrackColor || colors.primary.DEFAULT }}
           thumbColor="#FFFFFF"
           ios_backgroundColor="#E5E5EA"
+          accessibilityLabel={label}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value }}
         />
       </View>
     </View>
@@ -75,7 +88,13 @@ export function LinkRow({ icon, iconBg, label, onPress, isLast = false }: {
   onPress: () => void; isLast?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+    <Pressable
+      onPress={onPress}
+      accessible
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    >
       <View style={[s.row, !isLast && s.rowBorder]}>
         <View style={[s.iconBox, iconBg ? { backgroundColor: iconBg } : undefined]}>{icon}</View>
         <Text style={s.linkLabel}>{label}</Text>
@@ -98,7 +117,7 @@ export const s = StyleSheet.create({
   sectionFooter: {
     fontSize: 12,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',  // WCAG 5.0:1 on white ✅ (was #9CA3AF = 2.7:1 ❌)
     marginTop: 6,
     marginLeft: 32,
     marginRight: 16,
@@ -138,7 +157,7 @@ export const s = StyleSheet.create({
   rowValue: {
     fontSize: 15,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',  // WCAG 5.0:1 on white ✅ (was #9CA3AF)
   },
   tealValue: {
     fontSize: 15,

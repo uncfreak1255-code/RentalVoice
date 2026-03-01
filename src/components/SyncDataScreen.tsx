@@ -337,8 +337,8 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
                   borderTopColor: '#F3F4F6',
                 }}
               >
-                <Clock size={13} color="#9CA3AF" />
-                <Text style={{ fontSize: 13, color: '#9CA3AF', marginLeft: 6 }}>
+                <Clock size={13} color="#6B7280" />
+                <Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 6 }}>
                   Last full sync: {formatTimeAgo(historySyncStatus.lastFullSync)}
                 </Text>
               </View>
@@ -398,7 +398,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
                     <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>
                       {item.label}
                     </Text>
-                    <Text style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>
+                    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
                       {item.count > 0
                         ? `${item.count} items · ${formatTimeAgo(item.lastSynced)}`
                         : 'No data yet'}
@@ -426,7 +426,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
                         borderRadius: 12,
                       }}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#9CA3AF' }}>—</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#6B7280' }}>—</Text>
                     </View>
                   )}
                 </View>

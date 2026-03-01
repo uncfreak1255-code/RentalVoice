@@ -3,10 +3,11 @@ import { Pressable, PressableProps, GestureResponderEvent } from 'react-native';
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
-  withSpring
+  withSpring,
+  useReducedMotion,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { animation } from '@/lib/design-tokens'; // Assumes alias setup, otherwise relative path needed
+import { animation } from '@/lib/design-tokens';
 
 export interface PremiumPressableProps extends PressableProps {
   children: React.ReactNode;
@@ -33,9 +34,17 @@ export function PremiumPressable({
   onPressOut,
   onPress,
   disabled,
+  accessibilityLabel,
+  accessibilityRole,
+  accessibilityHint,
+  accessibilityState,
   ...props
 }: PremiumPressableProps) {
   const scale = useSharedValue(1);
+  const reduceMotion = useReducedMotion();
+
+  // Skip all animations if user prefers reduced motion
+  const shouldAnimate = !disableAnimation && !reduceMotion;
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -46,12 +55,10 @@ export function PremiumPressable({
   const handlePressIn = (e: GestureResponderEvent) => {
     if (disabled) return;
     
-    // Scale down quickly (snappy feels best for touch down)
-    if (!disableAnimation) {
+    if (shouldAnimate) {
       scale.value = withSpring(scaleTo, animation.spring.snappy);
     }
     
-    // Trigger haptic if configured
     if (hapticFeedback !== 'none') {
       try {
         switch (hapticFeedback) {
@@ -69,7 +76,7 @@ export function PremiumPressable({
             break;
         }
       } catch {
-        // Haptics might fail on some platforms/devices, silently ignore
+        // Haptics might fail on some platforms/devices
       }
     }
 
@@ -77,8 +84,7 @@ export function PremiumPressable({
   };
 
   const handlePressOut = (e: GestureResponderEvent) => {
-    // Spring back to full size using the designated release config
-    if (!disableAnimation) {
+    if (shouldAnimate) {
       scale.value = withSpring(1, animation.spring[springReleaseConfig]);
     }
     if (onPressOut) onPressOut(e);
@@ -86,13 +92,20 @@ export function PremiumPressable({
 
   return (
     <AnimatedPressable
+      accessible
+      accessibilityRole={accessibilityRole || 'button'}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: !!disabled, ...accessibilityState }}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={onPress}
+      disabled={disabled}
       style={(state) => {
         const baseStyle = typeof style === 'function' ? style(state) : style;
-        return [baseStyle, disableAnimation ? undefined : animatedStyle];
+        return [baseStyle, shouldAnimate ? animatedStyle : undefined];
       }}
+      {...props}
     >
       {children}
     </AnimatedPressable>

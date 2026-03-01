@@ -618,7 +618,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                       style={{
                         fontSize: 11,
                         fontWeight: '500',
-                        color: isCurrentDay ? '#FFFFFF' : '#9CA3AF',
+                        color: isCurrentDay ? '#FFFFFF' : '#6B7280',
                       }}
                     >
                       {dayName}
@@ -682,7 +682,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 <Text style={{ fontSize: 16, fontWeight: '600', color: '#6B7280', marginTop: 16 }}>
                   No listings found
                 </Text>
-                <Text style={{ fontSize: 14, color: '#9CA3AF', marginTop: 8, textAlign: 'center' }}>
+                <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' }}>
                   Connect your Hostaway account to see your listings
                 </Text>
               </ScrollView>

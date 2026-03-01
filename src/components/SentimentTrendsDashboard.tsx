@@ -39,7 +39,7 @@ function SentimentDistribution({ stats }: { stats: SentimentStats }) {
   const segments: { type: SentimentType; percent: number; color: string }[] = ([
     { type: 'positive' as const, percent: percentages.positive, color: '#34D399' },
     { type: 'excited' as const, percent: percentages.excited, color: '#A78BFA' },
-    { type: 'neutral' as const, percent: percentages.neutral, color: '#94A3B8' },
+    { type: 'neutral' as const, percent: percentages.neutral, color: '#6B7280' },
     { type: 'negative' as const, percent: percentages.negative, color: '#F87171' },
     { type: 'frustrated' as const, percent: percentages.frustrated, color: '#FB923C' },
     { type: 'urgent' as const, percent: percentages.urgent, color: '#FB7185' },

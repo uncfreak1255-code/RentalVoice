@@ -999,6 +999,9 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             <Pressable
               onPress={onBack}
               hitSlop={12}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Go back to inbox"
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text style={chatStyles.doneButton}>Done</Text>
@@ -1007,6 +1010,9 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             {/* Centered guest name + intent badge */}
             <Pressable
               onPress={() => setShowGuestProfile(true)}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={`${guest.name}${detectedIntent && detectedIntent.intent !== 'general' ? `, ${detectedIntent.label}` : ''}. View guest profile`}
               style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
             >
               <Text style={chatStyles.guestName} numberOfLines={1}>
@@ -1028,6 +1034,9 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                 if (isSearchOpen) setSearchQuery('');
               }}
               hitSlop={12}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={isSearchOpen ? 'Close search' : 'Search messages'}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
                 flexDirection: 'row',

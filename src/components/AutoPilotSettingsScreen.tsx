@@ -460,13 +460,13 @@ const s = StyleSheet.create({
   rowSubtitle: {
     fontSize: 13,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',
     marginTop: 2,
   },
   rowValue: {
     fontSize: 16,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',
   },
 
   // Icon box
@@ -497,12 +497,12 @@ const s = StyleSheet.create({
   sliderLabel: {
     fontSize: 12,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',
   },
   thresholdHint: {
     fontSize: 13,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',
     marginTop: 8,
     backgroundColor: '#F9FAFB',
     padding: 12,
@@ -557,7 +557,7 @@ const s = StyleSheet.create({
   aboutText: {
     fontSize: 14,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',
     lineHeight: 20,
     paddingHorizontal: 16,
     paddingBottom: 16,

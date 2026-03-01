@@ -102,8 +102,8 @@ export function AIDraftActionsSheet({
         
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>AI Draft Actions</Text>
-          <View style={styles.confidenceBadge}>
+          <Text style={styles.title} accessibilityRole="header">AI Draft Actions</Text>
+          <View style={styles.confidenceBadge} accessible accessibilityLabel={`${confidenceLabel} confidence, ${Math.round(confidence * 100)} percent`}>
             <View style={[styles.confidenceDot, { backgroundColor: confidenceColor }]} />
             <Text style={[styles.confidenceText, { color: confidenceColor }]}>
               {confidenceLabel} Confidence ({Math.round(confidence * 100)}%)
@@ -120,6 +120,9 @@ export function AIDraftActionsSheet({
               pressed && styles.buttonPressed,
             ]}
             onPress={() => handleAction(onApprove)}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Send draft as reply to guest"
           >
             <Check size={20} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>Send as Reply</Text>
@@ -132,8 +135,11 @@ export function AIDraftActionsSheet({
                 pressed && styles.buttonPressed,
               ]}
               onPress={() => handleAction(onEdit)}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Edit draft before sending"
             >
-              <Edit3 size={18} color="#94A3B8" />
+              <Edit3 size={18} color="#9CA3AF" />
               <Text style={styles.secondaryButtonText}>Edit</Text>
             </Pressable>
 
@@ -143,8 +149,11 @@ export function AIDraftActionsSheet({
                 pressed && styles.buttonPressed,
               ]}
               onPress={() => handleRegenerate()}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Regenerate a new draft"
             >
-              <RefreshCw size={18} color="#94A3B8" />
+              <RefreshCw size={18} color="#9CA3AF" />
               <Text style={styles.secondaryButtonText}>Regenerate</Text>
             </Pressable>
 
@@ -175,6 +184,9 @@ export function AIDraftActionsSheet({
                     pressed && styles.optionButtonPressed,
                   ]}
                   onPress={() => handleRegenerate(option.id as RegenerationOption['modifier'])}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel={`Regenerate with ${option.label} tone`}
                 >
                   <View style={[styles.optionIcon, { backgroundColor: `${option.color}20` }]}>
                     <Icon size={16} color={option.color} />
@@ -266,7 +278,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   secondaryButtonText: {
-    color: '#94A3B8',
+    color: '#9CA3AF',  // On dark bg (rgba(15,23,42,0.95)) this passes contrast
     fontSize: 14,
     fontWeight: '500',
   },

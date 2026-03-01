@@ -281,7 +281,10 @@ export function MessageComposer({
           </Text>
           <Pressable
             onPress={onDismissRateLimitError}
-            hitSlop={8}
+            hitSlop={12}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss rate limit warning"
             style={{
               paddingHorizontal: spacing['3'],
               paddingVertical: spacing['1'],
@@ -348,21 +351,25 @@ export function MessageComposer({
                   onPress={handleApprove}
                   disabled={isBlocked}
                   style={mcStyles.v2SendBtn}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Send AI draft to guest"
+                  accessibilityState={{ disabled: !!isBlocked }}
                 >
                   <Send size={16} color="#FFFFFF" />
                   <Text style={mcStyles.v2SendBtnText}>Send Draft</Text>
                 </Pressable>
 
-                <Pressable onPress={handleEdit} hitSlop={8} style={mcStyles.v2IconBtn}>
+                <Pressable onPress={handleEdit} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Edit AI draft">
                   <Edit3 size={20} color={colors.text.secondary} />
                 </Pressable>
 
-                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={8} style={mcStyles.v2IconBtn}>
+                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Regenerate AI draft">
                   <RefreshCw size={20} color={colors.text.secondary} />
                 </Pressable>
 
                 {onOpenActionsSheet && (
-                  <Pressable onPress={onOpenActionsSheet} style={mcStyles.v2MoreBtn}>
+                  <Pressable onPress={onOpenActionsSheet} style={mcStyles.v2MoreBtn} accessible accessibilityRole="button" accessibilityLabel="More draft actions">
                     <MoreHorizontal size={20} color={colors.text.disabled} />
                   </Pressable>
                 )}
@@ -514,10 +521,11 @@ export function MessageComposer({
           )}
         <View style={mcStyles.inputRow}>
           {onAttachMedia && (
-            <PremiumPressable
+              <PremiumPressable
               hapticFeedback="light"
               onPress={onAttachMedia}
               style={mcStyles.attachBtn}
+              accessibilityLabel="Attach media"
             >
               <Paperclip size={18} color={colors.text.disabled} />
             </PremiumPressable>

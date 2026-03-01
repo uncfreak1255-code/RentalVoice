@@ -1555,7 +1555,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   <Row
                     icon={<Calendar size={18} color={colors.primary.DEFAULT} />}
                     label="Date Range"
-                    right={<Text style={{ color: '#94A3B8', fontSize: 16 }}>Last {dateRangeMonths} months</Text>}
+                    right={<Text style={{ color: '#6B7280', fontSize: 16 }}>Last {dateRangeMonths} months</Text>}
                     onPress={() => setShowDateRangeModal(true)}
                   />
 

@@ -52,7 +52,7 @@ export interface PropertySentimentStats {
 // Sentiment color mapping for UI badges
 export const SENTIMENT_COLORS: Record<SentimentType, { bg: string; text: string; border: string; icon: string }> = {
   positive: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30', icon: '#34D399' },
-  neutral: { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/30', icon: '#94A3B8' },
+  neutral: { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/30', icon: '#6B7280' },
   negative: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30', icon: '#F87171' },
   frustrated: { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500/30', icon: '#FB923C' },
   urgent: { bg: 'bg-rose-500/20', text: 'text-rose-400', border: 'border-rose-500/30', icon: '#FB7185' },

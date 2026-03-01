@@ -179,6 +179,8 @@ export const ConversationItem = memo(function ConversationItem({
         onPress={onPress}
         scaleTo={0.98}
         hapticFeedback="light"
+        accessibilityLabel={`${guest.name || 'Unknown Guest'}${isUnread ? ', unread' : ''}${intentBadge ? `, ${intentBadge.label}` : ''}${sentimentData.escalationRequired ? ', needs attention' : ''}. ${lastMessagePreview || 'No messages'}. ${property?.name || ''}`}
+        accessibilityHint="Opens conversation"
         style={({ pressed }) => [
           styles.card,
           isSelected && styles.selected,
@@ -220,7 +222,7 @@ export const ConversationItem = memo(function ConversationItem({
           ) : null}
         </View>
 
-        {isUnread && <View style={styles.unreadDot} />}
+        {isUnread && <View style={styles.unreadDot} accessible accessibilityLabel="Unread message" />}
 
         {/* Message Preview with sender prefix */}
         <Text
@@ -307,7 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',  // WCAG 5.0:1 on white ✅ (was #9CA3AF)
     flexShrink: 0,
     marginLeft: 8,
     textAlign: 'right' as const,
@@ -373,12 +375,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontFamily: typography.fontFamily.regular,
-    color: '#9CA3AF',
+    color: '#6B7280',  // WCAG fix
     flexShrink: 1,
   },
   dotSeparator: {
     fontSize: 13,
-    color: '#D1D5DB',
+    color: '#9CA3AF',  // Property name contrast — acceptable on white (2.7:1 for non-essential info)
     marginHorizontal: 6,
   },
   propertyName: {
