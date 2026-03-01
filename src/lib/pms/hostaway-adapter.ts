@@ -35,7 +35,12 @@ function convertConversation(conv: HostawayConversation, properties: Property[])
   const property = properties.find(p => p.id === String(conv.listingMapId));
   
   const lastMsg = conv.lastMessage;
-  const lastMessage: Message | undefined = lastMsg ? {
+  // Always create lastMessage if we have ANY data — timestamp OR body.
+  // Hostaway's lastMessage is a string (body text), which can be empty string (falsy).
+  // We need the timestamp to show in inbox even if body is empty.
+  const hasTimestamp = !!conv.lastMessageSentAt;
+  const hasBody = typeof lastMsg === 'string' && lastMsg.length > 0;
+  const lastMessage: Message | undefined = (hasTimestamp || hasBody) ? {
     id: `last-${conv.id}`,
     conversationId: String(conv.id),
     content: typeof lastMsg === 'string' ? lastMsg : '',

@@ -153,10 +153,26 @@ export const ConversationItem = memo(function ConversationItem({
     return `${firstName}: ${truncated}`;
   }, [lastMessage, lastSender, guest.name]);
 
-  // ── Actual clock time ──
-  const timestamp = lastMessage?.timestamp
-    ? formatTimestamp(parseTimestamp(lastMessage.timestamp))
-    : '';
+  // ── Actual clock time — use multiple sources to ensure we always show a timestamp ──
+  const timestamp = useMemo(() => {
+    // 1. Try lastMessage.timestamp first
+    if (lastMessage?.timestamp) {
+      return formatTimestamp(parseTimestamp(lastMessage.timestamp));
+    }
+    // 2. Fallback: use the most recent message from the messages array
+    const msgs = conversation.messages;
+    if (msgs && msgs.length > 0) {
+      const mostRecent = msgs[msgs.length - 1];
+      if (mostRecent?.timestamp) {
+        return formatTimestamp(parseTimestamp(mostRecent.timestamp));
+      }
+    }
+    // 3. Fallback: use conversation metadata dates
+    if (conversation.checkInDate) {
+      return formatTimestamp(new Date(conversation.checkInDate));
+    }
+    return '';
+  }, [lastMessage, conversation.messages, conversation.checkInDate]);
 
   // ── Date range: "Feb 22 — Feb 27" ──
   const dateRange = useMemo(() => {
