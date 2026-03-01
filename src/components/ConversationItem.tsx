@@ -1,11 +1,8 @@
 import React, { memo, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import type { Conversation } from '@/lib/store';
-import { AlertTriangle } from 'lucide-react-native';
 import { PremiumPressable } from '@/components/ui/PremiumPressable';
-import { colors, typography, spacing } from '@/lib/design-tokens';
-import { analyzeConversationSentiment } from '@/lib/sentiment-analysis';
-import { detectIntent } from '@/lib/intent-detection';
+import { typography } from '@/lib/design-tokens';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -13,14 +10,12 @@ interface ConversationItemProps {
   isSelected?: boolean;
 }
 
-// ── Time formatting (Hostaway-style: actual clock time) ──
-// Today: "5:04 PM"   Yesterday: "Yesterday"   This week: "Mon"   Older: "Jan 15"
+// ── Time formatting (Airbnb-style) ────────────────────────────
 function formatTimestamp(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  // Today → show actual time like "5:04 PM"
   if (
     date.getDate() === now.getDate() &&
     date.getMonth() === now.getMonth() &&
@@ -33,7 +28,6 @@ function formatTimestamp(date: Date): string {
     });
   }
 
-  // Yesterday
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   if (
@@ -44,28 +38,38 @@ function formatTimestamp(date: Date): string {
     return 'Yesterday';
   }
 
-  // Within the last 7 days → show day name
   if (diffDays < 7) {
     return date.toLocaleDateString('en-US', { weekday: 'short' });
   }
 
-  // Older → show "Jan 15" (or "Jan 15, 2025" if different year)
   if (date.getFullYear() !== now.getFullYear()) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// Format check-in/out range: "Feb 22 — Feb 27"
+// Format date range: "May 8 – 11" or "May 8 – Jun 1"
 function formatDateRange(checkIn?: Date, checkOut?: Date): string | null {
   if (!checkIn) return null;
-  const fmt = (d: Date) =>
+  const fmtFull = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (!checkOut) return fmt(checkIn);
-  return `${fmt(checkIn)} — ${fmt(checkOut)}`;
+  if (!checkOut) return fmtFull(checkIn);
+  if (checkIn.getMonth() === checkOut.getMonth()) {
+    return `${fmtFull(checkIn)} – ${checkOut.getDate()}`;
+  }
+  return `${fmtFull(checkIn)} – ${fmtFull(checkOut)}`;
 }
 
-// Generate initials from name
+function parseTimestamp(ts: any): Date {
+  if (!ts) return new Date();
+  if (ts instanceof Date) return ts;
+  if (typeof ts === 'string') return new Date(ts);
+  if (typeof ts === 'number') {
+    return ts < 10_000_000_000 ? new Date(ts * 1000) : new Date(ts);
+  }
+  return new Date();
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) {
@@ -74,7 +78,6 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-// Rork-style avatar color palette
 const AVATAR_COLORS = [
   '#2DD4A8', '#14B8A6', '#F97316', '#8B5CF6', '#3B82F6',
   '#F59E0B', '#EC4899', '#06B6D4', '#10B981', '#6366F1',
@@ -88,336 +91,267 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Parse timestamp from various formats
-function parseTimestamp(ts: any): Date {
-  if (!ts) return new Date();
-  if (ts instanceof Date) return ts;
-  if (typeof ts === 'string') return new Date(ts);
-  if (typeof ts === 'number') {
-    return ts < 10_000_000_000 ? new Date(ts * 1000) : new Date(ts);
-  }
-  return new Date();
+// Booking status (Airbnb-style)
+function getBookingStatus(checkIn?: Date, checkOut?: Date): { label: string; isActive: boolean } {
+  if (!checkIn) return { label: '', isActive: false };
+  const now = new Date();
+  const cin = new Date(checkIn);
+  const cout = checkOut ? new Date(checkOut) : null;
+  if (cout && now >= cin && now <= cout) return { label: 'Currently hosting', isActive: true };
+  if (cin > now) return { label: 'Confirmed', isActive: true };
+  if (cout && now > cout) return { label: 'Completed', isActive: false };
+  return { label: 'Confirmed', isActive: true };
 }
 
+// ───────────────────────────────────────────────────────────────
+// Component
+// ───────────────────────────────────────────────────────────────
 export const ConversationItem = memo(function ConversationItem({
   conversation,
   onPress,
   isSelected,
 }: ConversationItemProps) {
-  const {
-    guest,
-    property,
-    lastMessage,
-    unreadCount,
-    checkInDate,
-    checkOutDate,
-  } = conversation;
-
-  const sentimentData = useMemo(() => {
-    try {
-      return analyzeConversationSentiment(conversation);
-    } catch {
-      return { currentSentiment: 'neutral' as const, conversationId: '', sentimentHistory: [], overallTrend: 'stable' as const, escalationRequired: false, lastAnalyzedAt: new Date() };
-    }
-  }, [conversation]);
-
+  const { guest, property, lastMessage, unreadCount, checkInDate, checkOutDate } = conversation;
   const lastSender = lastMessage?.sender;
   const isUnread = unreadCount > 0 && lastSender !== 'host';
 
-  // ── Status label: "NEW" (green) or last sender prefix ──
-  const statusLabel = useMemo(() => {
-    if (!lastMessage) return null;
-    if (isUnread) return { text: 'NEW', color: '#10B981' }; // green for new guest message
-    if (lastSender === 'host') return { text: 'REPLIED', color: '#9CA3AF' }; // gray for you replied
-    return null;
-  }, [lastMessage, isUnread, lastSender]);
-
-  // ── Intent badge from last guest message ──
-  const intentBadge = useMemo(() => {
-    // Find the last guest message
-    const lastGuestMsg = [...(conversation.messages || [])].reverse().find(m => m.sender === 'guest');
-    if (!lastGuestMsg) return null;
-    const result = detectIntent(lastGuestMsg.content);
-    if (result.intent === 'general') return null; // Don't show badge for generic messages
-    return result;
-  }, [conversation.messages]);
-
-  // ── Message preview with sender prefix: "You: ..." / "John: ..." ──
   const lastMessagePreview = useMemo(() => {
     if (!lastMessage?.content) return 'No messages yet';
     const clean = lastMessage.content.replace(/\n/g, ' ').trim();
-    const truncated = clean.length > 80 ? clean.slice(0, 80) + '…' : clean;
-
+    const truncated = clean.length > 70 ? clean.slice(0, 70) + '…' : clean;
     if (lastSender === 'host') return `You: ${truncated}`;
     const firstName = guest.name?.split(' ')[0] || 'Guest';
     return `${firstName}: ${truncated}`;
   }, [lastMessage, lastSender, guest.name]);
 
-  // ── Actual clock time — use multiple sources to ensure we always show a timestamp ──
   const timestamp = useMemo(() => {
-    // 1. Try lastMessage.timestamp first
-    if (lastMessage?.timestamp) {
-      return formatTimestamp(parseTimestamp(lastMessage.timestamp));
-    }
-    // 2. Fallback: use the most recent message from the messages array
+    if (lastMessage?.timestamp) return formatTimestamp(parseTimestamp(lastMessage.timestamp));
     const msgs = conversation.messages;
     if (msgs && msgs.length > 0) {
       const mostRecent = msgs[msgs.length - 1];
-      if (mostRecent?.timestamp) {
-        return formatTimestamp(parseTimestamp(mostRecent.timestamp));
-      }
+      if (mostRecent?.timestamp) return formatTimestamp(parseTimestamp(mostRecent.timestamp));
     }
-    // 3. Fallback: use conversation metadata dates
-    if (conversation.checkInDate) {
-      return formatTimestamp(new Date(conversation.checkInDate));
-    }
+    if (conversation.checkInDate) return formatTimestamp(new Date(conversation.checkInDate));
     return '';
   }, [lastMessage, conversation.messages, conversation.checkInDate]);
 
-  // ── Date range: "Feb 22 — Feb 27" ──
   const dateRange = useMemo(() => {
     const cin = checkInDate ? new Date(checkInDate) : undefined;
     const cout = checkOutDate ? new Date(checkOutDate) : undefined;
     return formatDateRange(cin, cout);
   }, [checkInDate, checkOutDate]);
 
+  const bookingStatus = useMemo(() => {
+    return getBookingStatus(
+      checkInDate ? new Date(checkInDate) : undefined,
+      checkOutDate ? new Date(checkOutDate) : undefined,
+    );
+  }, [checkInDate, checkOutDate]);
+
   const initials = getInitials(guest.name || 'Guest');
+  const hasPropertyImage = !!property?.image;
+  const hasGuestAvatar = !!guest?.avatar;
 
   return (
-    <View style={styles.cardWrapper}>
-      {/* Avatar */}
-      <View style={[styles.avatar, { backgroundColor: getAvatarColor(guest.name || 'Guest') }]}>
-        <Text style={styles.avatarText}>{initials}</Text>
+    <PremiumPressable
+      onPress={onPress}
+      scaleTo={0.98}
+      hapticFeedback="light"
+      accessibilityLabel={`${guest.name || 'Unknown Guest'}${isUnread ? ', unread' : ''}. ${lastMessagePreview}. ${bookingStatus.label}${dateRange ? `, ${dateRange}` : ''}. ${property?.name || ''}`}
+      accessibilityHint="Opens conversation"
+      style={({ pressed }) => [
+        styles.row,
+        isSelected && styles.selected,
+        pressed && styles.pressed,
+      ]}
+    >
+      {/* ── Thumbnail: property photo with guest avatar overlay ── */}
+      <View style={styles.thumbnailContainer}>
+        {hasPropertyImage ? (
+          <Image source={{ uri: property.image }} style={styles.propertyPhoto} resizeMode="cover" />
+        ) : (
+          <View style={[styles.propertyPhoto, styles.propertyPhotoFallback, { backgroundColor: getAvatarColor(property?.name || 'P') }]}>
+            <Text style={styles.propertyInitial}>{(property?.name || 'P')[0].toUpperCase()}</Text>
+          </View>
+        )}
+        {hasGuestAvatar ? (
+          <Image source={{ uri: guest.avatar }} style={styles.guestAvatarOverlay} resizeMode="cover" />
+        ) : (
+          <View style={[styles.guestAvatarOverlay, styles.guestAvatarFallback, { backgroundColor: getAvatarColor(guest.name || 'G') }]}>
+            <Text style={styles.guestAvatarText}>{initials[0]}</Text>
+          </View>
+        )}
       </View>
 
-      {/* Card */}
-      <PremiumPressable
-        onPress={onPress}
-        scaleTo={0.98}
-        hapticFeedback="light"
-        accessibilityLabel={`${guest.name || 'Unknown Guest'}${isUnread ? ', unread' : ''}${intentBadge ? `, ${intentBadge.label}` : ''}${sentimentData.escalationRequired ? ', needs attention' : ''}. ${lastMessagePreview || 'No messages'}. ${property?.name || ''}`}
-        accessibilityHint="Opens conversation"
-        style={({ pressed }) => [
-          styles.card,
-          isSelected && styles.selected,
-          pressed && styles.pressed,
-        ]}
-      >
-        {/* Status label: NEW/REPLIED */}
-        {statusLabel && (
-          <Text style={[styles.statusLabel, { color: statusLabel.color }]}>
-            {statusLabel.text}
-          </Text>
-        )}
-
-        {/* Name row: Guest name + timestamp right-aligned (Apple Messages style) */}
+      {/* ── Content ── */}
+      <View style={styles.content}>
+        {/* Line 1: Guest name + timestamp */}
         <View style={styles.topRow}>
-          <View style={styles.nameRow}>
-            <Text
-              style={[
-                styles.guestName,
-                isUnread && styles.guestNameUnread,
-              ]}
-              numberOfLines={1}
-            >
-              {guest.name || 'Unknown Guest'}
-            </Text>
-            {sentimentData.escalationRequired && (
-              <AlertTriangle size={14} color="#EF4444" style={{ marginLeft: 4 }} />
-            )}
-            {intentBadge && !sentimentData.escalationRequired && (
-              <View style={[styles.intentBadge, { backgroundColor: intentBadge.color + '18' }]}>
-                <Text style={[styles.intentBadgeText, { color: intentBadge.color }]}>
-                  {intentBadge.label}
-                </Text>
-              </View>
-            )}
-          </View>
+          <Text style={[styles.guestName, isUnread && styles.guestNameUnread]} numberOfLines={1}>
+            {guest.name || 'Unknown Guest'}
+          </Text>
           {timestamp ? (
-            <Text style={styles.timestamp}>{timestamp}</Text>
+            <Text style={[styles.timestamp, isUnread && styles.timestampUnread]}>{timestamp}</Text>
           ) : null}
         </View>
 
-        {isUnread && <View style={styles.unreadDot} accessible accessibilityLabel="Unread message" />}
-
-        {/* Message Preview with sender prefix */}
-        <Text
-          style={[
-            styles.messagePreview,
-            isUnread && styles.messagePreviewUnread,
-          ]}
-          numberOfLines={1}
-        >
+        {/* Line 2: Message preview */}
+        <Text style={[styles.messagePreview, isUnread && styles.messagePreviewUnread]} numberOfLines={1}>
           {lastMessagePreview}
         </Text>
 
-        {/* Bottom info: date range + property name */}
+        {/* Line 3: ● Confirmed · May 8 – 11 · Riverview */}
         <View style={styles.bottomRow}>
-          {dateRange && (
-            <Text style={styles.dateRange} numberOfLines={1}>
-              {dateRange}
-            </Text>
-          )}
-          {dateRange && property?.name && (
-            <Text style={styles.dotSeparator}>·</Text>
-          )}
-          <Text style={styles.propertyName} numberOfLines={1}>
-            {property?.name || 'Unknown Property'}
-          </Text>
+          {bookingStatus.label ? (
+            <>
+              <View style={[styles.statusDot, bookingStatus.isActive ? styles.statusDotActive : styles.statusDotInactive]} />
+              <Text style={styles.bottomText}>{bookingStatus.label}</Text>
+            </>
+          ) : null}
+          {bookingStatus.label && dateRange ? <Text style={styles.dotSeparator}>·</Text> : null}
+          {dateRange ? <Text style={styles.bottomText}>{dateRange}</Text> : null}
+          {(bookingStatus.label || dateRange) && property?.name ? <Text style={styles.dotSeparator}>·</Text> : null}
+          <Text style={styles.bottomText} numberOfLines={1}>{property?.name || ''}</Text>
         </View>
-      </PremiumPressable>
-    </View>
+      </View>
+    </PremiumPressable>
   );
 });
 
+// ───────────────────────────────────────────────────────────────
+// Styles — Airbnb Messages inbox layout
+// ───────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  cardWrapper: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
   },
+  selected: { backgroundColor: '#F8F8F8' },
+  pressed: { backgroundColor: '#F5F5F5' },
 
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+  // ── Property photo + guest avatar overlay ──
+  thumbnailContainer: {
+    width: 56,
+    height: 56,
     marginRight: 12,
   },
-  avatarText: {
-    fontSize: 16,
+  propertyPhoto: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+  },
+  propertyPhotoFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  propertyInitial: {
+    fontSize: 22,
     fontFamily: typography.fontFamily.bold,
     color: '#FFFFFF',
-    letterSpacing: 0.5,
   },
-
-  card: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  guestAvatarOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 28,
+    height: 28,
     borderRadius: 14,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingVertical: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
-  selected: {
-    backgroundColor: '#F0FDFA',
+  guestAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pressed: {
-    backgroundColor: '#FAFAFA',
-  },
-
-  // ── Status label ──
-  statusLabel: {
+  guestAvatarText: {
     fontSize: 11,
     fontFamily: typography.fontFamily.bold,
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  timestamp: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: typography.fontFamily.regular,
-    color: '#6B7280',  // WCAG 5.0:1 on white ✅ (was #9CA3AF)
-    flexShrink: 0,
-    marginLeft: 8,
-    textAlign: 'right' as const,
-    minWidth: 70,
+    color: '#FFFFFF',
   },
 
-  // ── Name row: guest name + alert icon + unread dot ──
+  // ── Content ──
+  content: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+
+  // ── Line 1 ──
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: spacing['2'],
-    overflow: 'hidden',
+    marginBottom: 2,
   },
   guestName: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontFamily: typography.fontFamily.semibold,
-    color: '#111827',
-    letterSpacing: -0.3,
-    flexShrink: 1,
-  },
-  guestNameUnread: {
-    fontFamily: typography.fontFamily.bold,
-    color: '#0F172A',
-  },
-  unreadDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    backgroundColor: '#EF4444',
-    flexShrink: 0,
-    marginLeft: 8,
-  },
-
-  // ── Message preview ──
-  messagePreview: {
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 21,
     fontFamily: typography.fontFamily.regular,
-    color: '#6B7280',
-    marginTop: 3,
+    color: '#222222',
+    flex: 1,
+    marginRight: 8,
   },
-  messagePreviewUnread: {
+  guestNameUnread: {
     fontFamily: typography.fontFamily.semibold,
-    color: '#374151',
+    color: '#000000',
+  },
+  timestamp: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: typography.fontFamily.regular,
+    color: '#717171',
+    flexShrink: 0,
+    minWidth: 70,
+    textAlign: 'right',
+  },
+  timestampUnread: {
+    color: '#222222',
   },
 
-  // ── Bottom row: date range + property name ──
+  // ── Line 2 ──
+  messagePreview: {
+    fontSize: 14,
+    lineHeight: 19,
+    fontFamily: typography.fontFamily.regular,
+    color: '#717171',
+    marginBottom: 4,
+  },
+  messagePreviewUnread: {
+    color: '#222222',
+    fontFamily: typography.fontFamily.medium,
+  },
+
+  // ── Line 3 ──
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
     flexWrap: 'nowrap',
     overflow: 'hidden',
   },
-  dateRange: {
-    fontSize: 13,
-    lineHeight: 17,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statusDotActive: {
+    backgroundColor: '#00A699',
+  },
+  statusDotInactive: {
+    backgroundColor: '#B0B0B0',
+  },
+  bottomText: {
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: typography.fontFamily.regular,
-    color: '#6B7280',  // WCAG fix
+    color: '#717171',
     flexShrink: 1,
   },
   dotSeparator: {
-    fontSize: 13,
-    color: '#9CA3AF',  // Property name contrast — acceptable on white (2.7:1 for non-essential info)
-    marginHorizontal: 6,
-  },
-  propertyName: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontFamily: typography.fontFamily.regular,
-    color: colors.primary.DEFAULT,
-    flexShrink: 1,
-  },
-
-  // ── Intent badge ──
-  intentBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 6,
-    flexShrink: 0,
-  },
-  intentBadgeText: {
-    fontSize: 10,
-    fontFamily: typography.fontFamily.semibold,
-    letterSpacing: 0.3,
+    fontSize: 12,
+    color: '#DDDDDD',
+    marginHorizontal: 5,
   },
 });

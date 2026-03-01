@@ -585,7 +585,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         {/* ── Rork-style Header ── */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#FFFFFF' }}>
           <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }} accessibilityRole="header">
-            Inbox
+            Messages
           </Text>
         </View>
 
