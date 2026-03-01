@@ -206,8 +206,14 @@ export function MessageComposer({
   const handleSaveEdit = () => {
     if (editedDraft.trim()) {
       Keyboard.dismiss();
+      // First update the draft content with the user's edit
       onEditAiDraft(editedDraft.trim());
       setIsEditingDraft(false);
+      // Then immediately send it — "Save & Send" means SEND
+      // Small delay to ensure state update propagates before sending
+      setTimeout(() => {
+        onApproveAiDraft();
+      }, 100);
     }
   };
 

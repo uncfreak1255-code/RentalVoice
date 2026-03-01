@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginRight: spacing['2'],
+    overflow: 'hidden',
   },
   guestName: {
     fontSize: 18,
