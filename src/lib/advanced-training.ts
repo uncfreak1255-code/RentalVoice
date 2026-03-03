@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HostStyleProfile, Conversation, Message, PropertyKnowledge } from './store';
 import type { HostawayMessage, HostawayConversation } from './hostaway';
 import { analyzeMessage } from './ai-learning';
+import { scopedKey } from './account-scoped-storage';
 
 // Storage keys
 const INCREMENTAL_QUEUE_KEY = 'ai_incremental_queue';
@@ -51,7 +52,7 @@ class IncrementalTrainer {
 
   async loadQueue(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(INCREMENTAL_QUEUE_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(INCREMENTAL_QUEUE_KEY));
       if (data) {
         const state = JSON.parse(data);
         this.queue = state.queue || [];
@@ -63,7 +64,7 @@ class IncrementalTrainer {
 
   async saveQueue(): Promise<void> {
     try {
-      await AsyncStorage.setItem(INCREMENTAL_QUEUE_KEY, JSON.stringify({
+      await AsyncStorage.setItem(scopedKey(INCREMENTAL_QUEUE_KEY), JSON.stringify({
         queue: this.queue,
         lastSaved: Date.now(),
       }));
@@ -237,7 +238,7 @@ class MultiPassTrainer {
 
   async loadState(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(MULTI_PASS_STATE_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(MULTI_PASS_STATE_KEY));
       if (data) {
         this.state = { ...this.state, ...JSON.parse(data) };
       }
@@ -248,7 +249,7 @@ class MultiPassTrainer {
 
   async saveState(): Promise<void> {
     try {
-      await AsyncStorage.setItem(MULTI_PASS_STATE_KEY, JSON.stringify(this.state));
+      await AsyncStorage.setItem(scopedKey(MULTI_PASS_STATE_KEY), JSON.stringify(this.state));
     } catch (error) {
       console.error('[MultiPassTrainer] Failed to save state:', error);
     }
@@ -599,7 +600,7 @@ class PropertyLexiconManager {
 
   async loadLexicons(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(PROPERTY_LEXICON_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(PROPERTY_LEXICON_KEY));
       if (data) {
         const parsed = JSON.parse(data);
         this.lexicons = new Map(Object.entries(parsed));
@@ -612,7 +613,7 @@ class PropertyLexiconManager {
   async saveLexicons(): Promise<void> {
     try {
       const obj = Object.fromEntries(this.lexicons);
-      await AsyncStorage.setItem(PROPERTY_LEXICON_KEY, JSON.stringify(obj));
+      await AsyncStorage.setItem(scopedKey(PROPERTY_LEXICON_KEY), JSON.stringify(obj));
     } catch (error) {
       console.error('[PropertyLexicon] Failed to save:', error);
     }
@@ -786,7 +787,7 @@ class TemporalWeightManager {
 
   async loadWeights(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(TEMPORAL_WEIGHTS_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(TEMPORAL_WEIGHTS_KEY));
       if (data) {
         const parsed = JSON.parse(data);
         this.analyses = parsed.analyses || [];
@@ -799,7 +800,7 @@ class TemporalWeightManager {
 
   async saveWeights(): Promise<void> {
     try {
-      await AsyncStorage.setItem(TEMPORAL_WEIGHTS_KEY, JSON.stringify({
+      await AsyncStorage.setItem(scopedKey(TEMPORAL_WEIGHTS_KEY), JSON.stringify({
         analyses: this.analyses.slice(-1000), // Keep last 1000
         weights: this.weights,
       }));
@@ -952,7 +953,7 @@ class TrainingQualityAnalyzer {
 
   async loadQuality(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(TRAINING_QUALITY_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(TRAINING_QUALITY_KEY));
       if (data) {
         this.quality = JSON.parse(data);
       }
@@ -964,7 +965,7 @@ class TrainingQualityAnalyzer {
   async saveQuality(): Promise<void> {
     try {
       if (this.quality) {
-        await AsyncStorage.setItem(TRAINING_QUALITY_KEY, JSON.stringify(this.quality));
+        await AsyncStorage.setItem(scopedKey(TRAINING_QUALITY_KEY), JSON.stringify(this.quality));
       }
     } catch (error) {
       console.error('[TrainingQuality] Failed to save:', error);
@@ -1230,7 +1231,7 @@ class NegativeExampleManager {
 
   async loadExamples(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(NEGATIVE_EXAMPLES_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(NEGATIVE_EXAMPLES_KEY));
       if (data) {
         this.examples = JSON.parse(data);
       }
@@ -1243,7 +1244,7 @@ class NegativeExampleManager {
     try {
       // Keep only last 500 examples
       const toSave = this.examples.slice(-500);
-      await AsyncStorage.setItem(NEGATIVE_EXAMPLES_KEY, JSON.stringify(toSave));
+      await AsyncStorage.setItem(scopedKey(NEGATIVE_EXAMPLES_KEY), JSON.stringify(toSave));
     } catch (error) {
       console.error('[NegativeExamples] Failed to save:', error);
     }
@@ -1352,7 +1353,7 @@ class FewShotIndexer {
 
   async loadIndex(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(FEW_SHOT_INDEX_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(FEW_SHOT_INDEX_KEY));
       if (data) {
         const parsed = JSON.parse(data);
         this.examples = parsed.examples || [];
@@ -1367,7 +1368,7 @@ class FewShotIndexer {
     try {
       // Keep last 1000 examples
       const toSave = this.examples.slice(-1000);
-      await AsyncStorage.setItem(FEW_SHOT_INDEX_KEY, JSON.stringify({
+      await AsyncStorage.setItem(scopedKey(FEW_SHOT_INDEX_KEY), JSON.stringify({
         examples: toSave,
       }));
     } catch (error) {
@@ -1550,7 +1551,7 @@ class ConversationFlowLearner {
 
   async loadFlows(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(CONVERSATION_FLOWS_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(CONVERSATION_FLOWS_KEY));
       if (data) {
         this.flows = JSON.parse(data);
       }
@@ -1561,7 +1562,7 @@ class ConversationFlowLearner {
 
   async saveFlows(): Promise<void> {
     try {
-      await AsyncStorage.setItem(CONVERSATION_FLOWS_KEY, JSON.stringify(this.flows.slice(0, 100)));
+      await AsyncStorage.setItem(scopedKey(CONVERSATION_FLOWS_KEY), JSON.stringify(this.flows.slice(0, 100)));
     } catch (error) {
       console.error('[ConversationFlows] Failed to save:', error);
     }
@@ -1711,7 +1712,7 @@ class GuestMemoryManager {
 
   async loadMemories(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(GUEST_MEMORY_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(GUEST_MEMORY_KEY));
       if (data) {
         const parsed = JSON.parse(data);
         this.memories = new Map(Object.entries(parsed));
@@ -1724,7 +1725,7 @@ class GuestMemoryManager {
   async saveMemories(): Promise<void> {
     try {
       const obj = Object.fromEntries(this.memories);
-      await AsyncStorage.setItem(GUEST_MEMORY_KEY, JSON.stringify(obj));
+      await AsyncStorage.setItem(scopedKey(GUEST_MEMORY_KEY), JSON.stringify(obj));
     } catch (error) {
       console.error('[GuestMemory] Failed to save:', error);
     }
@@ -1984,7 +1985,7 @@ class PropertyConversationKnowledgeManager {
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
     try {
-      const data = await AsyncStorage.getItem(PROPERTY_CONVERSATION_KNOWLEDGE_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(PROPERTY_CONVERSATION_KNOWLEDGE_KEY));
       if (data) {
         this.store = JSON.parse(data);
       }
@@ -1997,7 +1998,7 @@ class PropertyConversationKnowledgeManager {
 
   private async save(): Promise<void> {
     try {
-      await AsyncStorage.setItem(PROPERTY_CONVERSATION_KNOWLEDGE_KEY, JSON.stringify(this.store));
+      await AsyncStorage.setItem(scopedKey(PROPERTY_CONVERSATION_KNOWLEDGE_KEY), JSON.stringify(this.store));
     } catch (e) {
       console.error('[PropertyConvKnowledge] Save failed:', e);
     }
@@ -2198,7 +2199,7 @@ class DraftOutcomeTracker {
   private async ensureLoaded(): Promise<void> {
     if (this.loaded) return;
     try {
-      const data = await AsyncStorage.getItem(DRAFT_OUTCOMES_KEY);
+      const data = await AsyncStorage.getItem(scopedKey(DRAFT_OUTCOMES_KEY));
       if (data) {
         const parsed = JSON.parse(data);
         this.outcomes = parsed.outcomes || [];
@@ -2215,7 +2216,7 @@ class DraftOutcomeTracker {
     try {
       // Keep only last 100 outcomes
       const trimmed = this.outcomes.slice(-100);
-      await AsyncStorage.setItem(DRAFT_OUTCOMES_KEY, JSON.stringify({
+      await AsyncStorage.setItem(scopedKey(DRAFT_OUTCOMES_KEY), JSON.stringify({
         outcomes: trimmed,
         lastRetrainAt: this.lastRetrainAt,
       }));

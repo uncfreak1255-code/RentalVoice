@@ -7,8 +7,9 @@ import type { HostStyleProfile, LearningEntry } from './store';
 import type { HostawayMessage, HostawayConversation } from './history-sync';
 import { analyzeMessage, analyzeHostawayHistory, mergeAnalysisWithProfile, type AnonymizedPattern, type HistoricalAnalysisResult } from './ai-learning';
 import { supermemoryService, type MemorySearchResult } from './supermemory-service';
+import { scopedKey } from './account-scoped-storage';
 
-// Storage keys
+// Storage key bases — scoped per account at runtime via scopedKey()
 const TRAINING_STATE_KEY = 'ai_training_state';
 const RESPONSE_INDEX_KEY = 'ai_response_index';
 const TRAINING_PROGRESS_KEY = 'ai_training_progress';
@@ -174,8 +175,8 @@ class AITrainingService {
   async loadState(): Promise<void> {
     try {
       const [stateData, indexData] = await Promise.all([
-        AsyncStorage.getItem(TRAINING_STATE_KEY),
-        AsyncStorage.getItem(RESPONSE_INDEX_KEY),
+        AsyncStorage.getItem(scopedKey(TRAINING_STATE_KEY)),
+        AsyncStorage.getItem(scopedKey(RESPONSE_INDEX_KEY)),
       ]);
 
       if (stateData) {
@@ -198,7 +199,7 @@ class AITrainingService {
   // Save state to storage
   async saveState(): Promise<void> {
     try {
-      await AsyncStorage.setItem(TRAINING_STATE_KEY, JSON.stringify(this.state));
+      await AsyncStorage.setItem(scopedKey(TRAINING_STATE_KEY), JSON.stringify(this.state));
     } catch (error) {
       console.error('[AITraining] Failed to save state:', error);
     }
@@ -212,7 +213,7 @@ class AITrainingService {
         this.responseIndex.patterns = this.responseIndex.patterns.slice(-TRAINING_CONFIG.maxIndexEntries);
         this.rebuildIndexMaps();
       }
-      await AsyncStorage.setItem(RESPONSE_INDEX_KEY, JSON.stringify(this.responseIndex));
+      await AsyncStorage.setItem(scopedKey(RESPONSE_INDEX_KEY), JSON.stringify(this.responseIndex));
     } catch (error) {
       console.error('[AITraining] Failed to save index:', error);
     }

@@ -11,6 +11,7 @@ import { getPromptAdjustments, getRejectionAdjustments } from './edit-diff-analy
 import { computeCalibrationSummary, type CalibrationSummary } from './ai-intelligence';
 import { detectGuestType, getGuestTypePromptAdjustments, type GuestProfile } from './guest-type-detection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scopedKey } from './account-scoped-storage';
 import {
   buildAdvancedAIPrompt,
   incrementalTrainer,
@@ -2532,7 +2533,7 @@ async function buildSystemPromptWithEditLearning(
 
     // Add deep learning from reply deltas (what the host consistently changes)
     try {
-      const deltaKey = 'reply_deltas';
+      const deltaKey = scopedKey('reply_deltas');
       const deltaData = await AsyncStorage.getItem(deltaKey);
       if (deltaData) {
         const deltas = JSON.parse(deltaData);

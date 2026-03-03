@@ -5,6 +5,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scopedKey } from './account-scoped-storage';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { getCredentials } from './secure-storage';
 import { getAccessToken } from './hostaway';
@@ -109,7 +110,7 @@ class BackgroundSyncManager {
   // Load state from storage
   async loadState(): Promise<BackgroundSyncState> {
     try {
-      const savedState = await AsyncStorage.getItem(BG_SYNC_STATE_KEY);
+      const savedState = await AsyncStorage.getItem(scopedKey(BG_SYNC_STATE_KEY));
       if (savedState) {
         this.state = { ...getDefaultState(), ...JSON.parse(savedState) };
       }
@@ -122,7 +123,7 @@ class BackgroundSyncManager {
   // Save state to storage
   async saveState(): Promise<void> {
     try {
-      await AsyncStorage.setItem(BG_SYNC_STATE_KEY, JSON.stringify(this.state));
+      await AsyncStorage.setItem(scopedKey(BG_SYNC_STATE_KEY), JSON.stringify(this.state));
     } catch (error) {
       console.error('[BackgroundSync] Failed to save state:', error);
     }
@@ -133,7 +134,7 @@ class BackgroundSyncManager {
     this.state = getDefaultState();
     this.fetchedConversations = [];
     this.fetchedMessages = {};
-    await AsyncStorage.removeItem(BG_SYNC_STATE_KEY);
+    await AsyncStorage.removeItem(scopedKey(BG_SYNC_STATE_KEY));
     await this.dismissProgressNotification();
   }
 
@@ -285,7 +286,7 @@ class BackgroundSyncManager {
         trigger: null, // Immediate
       });
 
-      await AsyncStorage.setItem(BG_SYNC_NOTIFICATION_ID_KEY, notificationId);
+      await AsyncStorage.setItem(scopedKey(BG_SYNC_NOTIFICATION_ID_KEY), notificationId);
     } catch (error) {
       console.error('[BackgroundSync] Failed to show notification:', error);
     }
@@ -294,10 +295,10 @@ class BackgroundSyncManager {
   // Dismiss progress notification
   async dismissProgressNotification(): Promise<void> {
     try {
-      const notificationId = await AsyncStorage.getItem(BG_SYNC_NOTIFICATION_ID_KEY);
+      const notificationId = await AsyncStorage.getItem(scopedKey(BG_SYNC_NOTIFICATION_ID_KEY));
       if (notificationId) {
         await Notifications.dismissNotificationAsync(notificationId);
-        await AsyncStorage.removeItem(BG_SYNC_NOTIFICATION_ID_KEY);
+        await AsyncStorage.removeItem(scopedKey(BG_SYNC_NOTIFICATION_ID_KEY));
       }
     } catch (error) {
       // Ignore errors dismissing notification
