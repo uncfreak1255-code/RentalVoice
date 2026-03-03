@@ -129,6 +129,28 @@ function hasWarning(conversation: Conversation): boolean {
   return isFromGuest && isQuestion && (conversation.unreadCount === 0);
 }
 
+// Lightweight language detection from message content
+const LANGUAGE_PATTERNS: { lang: string; flag: string; patterns: RegExp[] }[] = [
+  { lang: 'ES', flag: '🇪🇸', patterns: [/\b(hola|gracias|buenos?\s+d[ií]as|por\s+favor|puede|tiene|cuándo|dónde|cómo|noche|llegamos|salida)\b/i] },
+  { lang: 'FR', flag: '🇫🇷', patterns: [/\b(bonjour|merci|s'il\s+vous\s+pla[iî]t|bienvenue|comment|quand|nous|arrivons|chambre|maison)\b/i] },
+  { lang: 'PT', flag: '🇧🇷', patterns: [/\b(olá|obrigad[oa]|bom\s+dia|por\s+favor|quando|como|chegamos|noite|casa)\b/i] },
+  { lang: 'DE', flag: '🇩🇪', patterns: [/\b(hallo|danke|bitte|guten\s+(tag|morgen|abend)|wann|wie|können|ankunft|abreise)\b/i] },
+  { lang: 'IT', flag: '🇮🇹', patterns: [/\b(ciao|grazie|buongiorno|buonasera|per\s+favore|quando|come|arriviamo|notte)\b/i] },
+  { lang: 'JA', flag: '🇯🇵', patterns: [/[\u3040-\u309F\u30A0-\u30FF]/] },
+  { lang: 'ZH', flag: '🇨🇳', patterns: [/[\u4E00-\u9FFF]/] },
+  { lang: 'KO', flag: '🇰🇷', patterns: [/[\uAC00-\uD7AF]/] },
+  { lang: 'AR', flag: '🇸🇦', patterns: [/[\u0600-\u06FF]/] },
+  { lang: 'RU', flag: '🇷🇺', patterns: [/[\u0400-\u04FF]/] },
+];
+
+function detectLanguage(text: string): { lang: string; flag: string } | null {
+  if (!text || text.length < 10) return null;
+  for (const { lang, flag, patterns } of LANGUAGE_PATTERNS) {
+    if (patterns.some((p) => p.test(text))) return { lang, flag };
+  }
+  return null;
+}
+
 // ───────────────────────────────────────────────────────────────
 // Component
 // ───────────────────────────────────────────────────────────────
@@ -174,6 +196,12 @@ export const ConversationItem = memo(function ConversationItem({
   const initials = getInitials(guest.name || 'Guest');
   const avatarBg = useMemo(() => getAvatarColor(guest.name || 'Guest'), [guest.name]);
   const hasGuestAvatar = !!guest?.avatar;
+
+  // Detect non-English language from last guest message
+  const detectedLang = useMemo(() => {
+    if (!lastMessage?.content || lastSender === 'host') return null;
+    return detectLanguage(lastMessage.content);
+  }, [lastMessage, lastSender]);
 
   return (
     <PremiumPressable
@@ -223,9 +251,16 @@ export const ConversationItem = memo(function ConversationItem({
               <Text style={styles.warningIcon}>⚠</Text>
             )}
           </View>
-          {timestamp ? (
-            <Text style={styles.timestamp}>{timestamp}</Text>
-          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {detectedLang && (
+              <View style={styles.langBadge}>
+                <Text style={styles.langBadgeText}>{detectedLang.flag} {detectedLang.lang}</Text>
+              </View>
+            )}
+            {timestamp ? (
+              <Text style={styles.timestamp}>{timestamp}</Text>
+            ) : null}
+          </View>
         </View>
 
         {/* Row 3: Unread dot + message preview */}
@@ -376,5 +411,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: typography.fontFamily.regular,
     color: '#14B8A6',
+  },
+
+  // ── Language badge ──
+  langBadge: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  langBadgeText: {
+    fontSize: 10,
+    fontFamily: typography.fontFamily.medium,
+    color: '#7C3AED',
+    letterSpacing: 0.3,
   },
 });

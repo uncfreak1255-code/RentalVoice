@@ -106,6 +106,8 @@ function SmartReplyBar({ guestMessage, propertyKnowledge, onSelect }: {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onSelect(reply);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`Quick reply: ${reply.label}`}
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
@@ -964,7 +966,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                     <Text style={chatStyles.escalationSubtitle}>This message requires immediate attention</Text>
                   </View>
                 </View>
-                <Pressable onPress={dismissEscalationAlert} style={{ padding: spacing['2'] }}>
+                <Pressable onPress={dismissEscalationAlert} accessibilityRole="button" accessibilityLabel="Dismiss escalation alert" style={{ padding: spacing['2'] }}>
                   <Text style={chatStyles.escalationDismiss}>Dismiss</Text>
                 </Pressable>
               </View>
@@ -1012,6 +1014,9 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             {/* Centered guest name */}
             <Pressable
               onPress={() => setShowGuestProfile(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${guest.name || 'Guest'} profile`}
+              accessibilityHint="Opens guest profile details"
               style={{ flex: 1, alignItems: 'center', marginHorizontal: 8 }}
             >
               <Text style={chatStyles.guestName} numberOfLines={1}>
@@ -1056,7 +1061,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                   style={{ flex: 1, color: colors.text.primary, fontSize: 14, fontFamily: typography.fontFamily.regular, marginLeft: spacing['2'], paddingVertical: 0 }}
                 />
                 {searchQuery.length > 0 && (
-                  <Pressable onPress={() => setSearchQuery('')}>
+                  <Pressable onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel="Clear search">
                     <X size={14} color={colors.text.muted} />
                   </Pressable>
                 )}
@@ -1128,15 +1133,44 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                 const reversedMessages = [...displayMessages].reverse();
                 const prevMessage = index > 0 ? reversedMessages[index - 1] : null;
                 const showAvatar = !prevMessage || prevMessage.sender !== item.sender;
+
+                // Date separator: show when day changes from next message (inverted list)
+                const nextMessage = index < reversedMessages.length - 1 ? reversedMessages[index + 1] : null;
+                const itemDate = item.timestamp ? new Date(item.timestamp) : null;
+                const nextDate = nextMessage?.timestamp ? new Date(nextMessage.timestamp) : null;
+                const showDateSeparator = itemDate && (
+                  !nextDate ||
+                  itemDate.toDateString() !== nextDate.toDateString()
+                );
+
+                const formatDateLabel = (d: Date) => {
+                  const now = new Date();
+                  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                  const diff = (today.getTime() - msgDay.getTime()) / (1000 * 60 * 60 * 24);
+                  if (diff < 1) return 'Today';
+                  if (diff < 2) return 'Yesterday';
+                  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                };
+
                 return (
-                  <MessageBubble
-                    message={item}
-                    guestAvatar={guest.avatar}
-                    guestName={guest.name}
-                    showAvatar={showAvatar}
-                    conversationId={conversationId}
-                    propertyId={property?.id}
-                  />
+                  <View>
+                    <MessageBubble
+                      message={item}
+                      guestAvatar={guest.avatar}
+                      guestName={guest.name}
+                      showAvatar={showAvatar}
+                      conversationId={conversationId}
+                      propertyId={property?.id}
+                    />
+                    {showDateSeparator && itemDate && (
+                      <View style={chatStyles.dateSeparator} accessibilityRole="header">
+                        <View style={chatStyles.dateSeparatorLine} />
+                        <Text style={chatStyles.dateSeparatorText}>{formatDateLabel(itemDate)}</Text>
+                        <View style={chatStyles.dateSeparatorLine} />
+                      </View>
+                    )}
+                  </View>
                 );
               }}
               keyExtractor={(item) => item.id}
@@ -1383,5 +1417,26 @@ const chatStyles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.primary.DEFAULT,
     marginRight: 6,
+  },
+
+  // ── Date separators ──
+  dateSeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing['6'],
+    paddingVertical: spacing['3'],
+    marginVertical: spacing['1'],
+  },
+  dateSeparatorLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border.subtle,
+  },
+  dateSeparatorText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.text.muted,
+    paddingHorizontal: spacing['3'],
+    letterSpacing: 0.3,
   },
 });

@@ -639,6 +639,9 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                 <Pressable
                   key={tab.id}
                   onPress={() => handleFilterChange(tab.id)}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`${tab.label} filter${tab.count ? `, ${tab.count} conversations` : ''}`}
+                  accessibilityState={{ selected: isActive }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -865,6 +868,8 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               setIsSelectMode(false);
               setSelectedIds(new Set());
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel selection"
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
               flexDirection: 'row',
@@ -890,6 +895,9 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                 setSelectedIds(new Set());
               }}
               disabled={selectedIds.size === 0}
+              accessibilityRole="button"
+              accessibilityLabel={`Archive ${selectedIds.size} selected conversations`}
+              accessibilityState={{ disabled: selectedIds.size === 0 }}
               style={({ pressed }) => ({
                 opacity: selectedIds.size === 0 ? 0.4 : pressed ? 0.7 : 1,
                 flexDirection: 'row',

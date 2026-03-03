@@ -21,6 +21,10 @@ module.exports = function (api) {
       ],
       "@babel/plugin-proposal-export-namespace-from",
       "react-native-reanimated/plugin",
+      // Strip console.log/warn/error from production builds
+      ...(process.env.NODE_ENV === 'production'
+        ? [["transform-remove-console", { exclude: ["error"] }]]
+        : []),
     ],
   };
 };
