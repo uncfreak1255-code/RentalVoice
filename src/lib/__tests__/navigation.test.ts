@@ -37,7 +37,7 @@ describe('Route file structure', () => {
     expect(fs.existsSync(path.join(APP_DIR, 'settings', '_layout.tsx'))).toBe(true);
   });
 
-  it('should have all 19 settings sub-screens', () => {
+  it('should have all 18 settings sub-screens', () => {
     const settingsDir = path.join(APP_DIR, 'settings');
     const expectedScreens = [
       'property-knowledge.tsx',
@@ -50,7 +50,7 @@ describe('Route file structure', () => {
       'language.tsx',
       'help-center.tsx',
       'privacy-security.tsx',
-      'privacy-compliance.tsx',
+
       'ai-learning.tsx',
       'webhook-setup.tsx',
       'notifications.tsx',
@@ -133,7 +133,7 @@ describe('Settings route mapping', () => {
       'languageSettings',
       'helpCenter',
       'privacySecurity',
-      'privacyCompliance',
+
       'aiLearning',
       'webhookSetup',
       'notificationSettings',

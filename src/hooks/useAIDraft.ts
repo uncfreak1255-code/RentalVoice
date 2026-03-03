@@ -502,8 +502,14 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
     incrementAnalytic('aiResponsesRejected');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+    // Clear current draft first
     clearConversationDraft();
     setDraft(null);
+
+    // Wait for next tick to let Zustand state settle before regenerating
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Regenerate with modifier
     await generateDraft(modifier);
   }, [isGenerating, clearConversationDraft, generateDraft, incrementAnalytic]);
 

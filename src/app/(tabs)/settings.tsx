@@ -17,7 +17,7 @@ const settingsRoutes: Record<string, string> = {
   languageSettings: '/settings/language',
   helpCenter: '/settings/help-center',
   privacySecurity: '/settings/privacy-security',
-  privacyCompliance: '/settings/privacy-compliance',
+
   aiLearning: '/settings/ai-learning',
   webhookSetup: '/settings/webhook-setup',
   notificationSettings: '/settings/notifications',

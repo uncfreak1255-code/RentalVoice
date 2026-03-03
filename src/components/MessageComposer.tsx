@@ -39,7 +39,7 @@ interface EnhancedAiDraft extends AiDraft {
 
 interface MessageComposerProps {
   onSend: (message: string) => void;
-  onApproveAiDraft: () => void;
+  onApproveAiDraft: (contentOverride?: string) => void;
   onRegenerateAiDraft: (modifier?: RegenerationOption['modifier']) => void;
   onEditAiDraft: (newContent: string) => void;
   onDismissAiDraft: () => void;
@@ -85,6 +85,7 @@ export function MessageComposer({
   const [showReasoning, setShowReasoning] = useState(false);
   const [privacyScanResult, setPrivacyScanResult] = useState<ScanResult | null>(null);
   const [showPrivacyAlert, setShowPrivacyAlert] = useState(true);
+  const [isDraftMinimized, setIsDraftMinimized] = useState(false);
 
   // Ref for the draft TextInput to control focus and cursor
   const draftInputRef = useRef<TextInput>(null);
@@ -169,6 +170,10 @@ export function MessageComposer({
     if (!aiDraft) {
       setIsEditingDraft(false);
       setEditedDraft('');
+      setIsDraftMinimized(false);
+    } else {
+      // New draft arrived — restore from minimized
+      setIsDraftMinimized(false);
     }
   }, [aiDraft]);
 
@@ -206,14 +211,11 @@ export function MessageComposer({
   const handleSaveEdit = () => {
     if (editedDraft.trim()) {
       Keyboard.dismiss();
-      // First update the draft content with the user's edit
-      onEditAiDraft(editedDraft.trim());
+      const contentToSend = editedDraft.trim();
+      // Pass the edited content directly to approve — bypasses stale state
+      // No need for onEditAiDraft or setTimeout workarounds
       setIsEditingDraft(false);
-      // Then immediately send it — "Save & Send" means SEND
-      // Small delay to ensure state update propagates before sending
-      setTimeout(() => {
-        onApproveAiDraft();
-      }, 100);
+      onApproveAiDraft(contentToSend);
     }
   };
 
@@ -302,11 +304,11 @@ export function MessageComposer({
       )}
 
       {/* AI Draft Preview — V2 Premium Mockup */}
-      {(aiDraft || isGenerating) && !isEditingDraft && (
+      {(aiDraft || isGenerating) && !isEditingDraft && !isDraftMinimized && (
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 140 : 280 }]}
+          style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 100 : 280 }]}
         >
           <ScrollView
             keyboardShouldPersistTaps="always"
@@ -335,6 +337,14 @@ export function MessageComposer({
                       <Text style={mcStyles.v2SentimentText}>{sentiment.primary}</Text>
                     </View>
                   )}
+                  <Pressable
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleClearSuggestion(); }}
+                    hitSlop={12}
+                    style={{ marginLeft: 8, padding: 4 }}
+                    accessibilityLabel="Dismiss AI draft"
+                  >
+                    <X size={16} color={colors.text.disabled} />
+                  </Pressable>
                 </View>
               </View>
 
@@ -486,7 +496,12 @@ export function MessageComposer({
 
             <PremiumPressable
               hapticFeedback="light"
-              onPress={handleClearSuggestion}
+              onPress={() => {
+                // Clear the text but stay in edit mode so user can type from scratch
+                setEditedDraft('');
+                draftInputRef.current?.focus();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
             >
               <View style={[mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3` }]}>
                 <Trash2 size={14} color={colors.danger.DEFAULT} />
@@ -507,6 +522,33 @@ export function MessageComposer({
       )}
 
 
+      {/* Minimized Draft Bar — tap to restore */}
+      {aiDraft && isDraftMinimized && !isEditingDraft && (
+        <Pressable
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsDraftMinimized(false); }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingHorizontal: spacing['4'],
+            paddingVertical: spacing['2.5'],
+            backgroundColor: `${colors.primary.DEFAULT}10`,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: colors.border.subtle,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing['2'] }}>
+            <Sparkles size={14} color={colors.primary.DEFAULT} />
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>
+              AI Draft Ready
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.text.muted }}>
+              Tap to view
+            </Text>
+          </View>
+          <ChevronDown size={14} color={colors.primary.DEFAULT} style={{ transform: [{ rotate: '180deg' }] }} />
+        </Pressable>
+      )}
 
       {/* Message Input */}
       {!isEditingDraft && (

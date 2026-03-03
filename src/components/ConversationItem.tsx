@@ -10,11 +10,9 @@ interface ConversationItemProps {
   isSelected?: boolean;
 }
 
-// ── Time formatting (Airbnb-style) ────────────────────────────
+// ── Time formatting ────────────────────────────
 function formatTimestamp(date: Date): string {
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (
     date.getDate() === now.getDate() &&
@@ -38,26 +36,19 @@ function formatTimestamp(date: Date): string {
     return 'Yesterday';
   }
 
-  if (diffDays < 7) {
-    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
-
-  if (date.getFullYear() !== now.getFullYear()) {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Format date range: "May 8 – 11" or "May 8 – Jun 1"
+// Format date range: "Mar 8 — Mar 15"
 function formatDateRange(checkIn?: Date, checkOut?: Date): string | null {
   if (!checkIn) return null;
   const fmtFull = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   if (!checkOut) return fmtFull(checkIn);
-  if (checkIn.getMonth() === checkOut.getMonth()) {
-    return `${fmtFull(checkIn)} – ${checkOut.getDate()}`;
-  }
-  return `${fmtFull(checkIn)} – ${fmtFull(checkOut)}`;
+  return `${fmtFull(checkIn)} — ${fmtFull(checkOut)}`;
 }
 
 function parseTimestamp(ts: any): Date {
@@ -91,16 +82,51 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// Booking status (Airbnb-style)
-function getBookingStatus(checkIn?: Date, checkOut?: Date): { label: string; isActive: boolean } {
-  if (!checkIn) return { label: '', isActive: false };
-  const now = new Date();
-  const cin = new Date(checkIn);
-  const cout = checkOut ? new Date(checkOut) : null;
-  if (cout && now >= cin && now <= cout) return { label: 'Currently hosting', isActive: true };
-  if (cin > now) return { label: 'Confirmed', isActive: true };
-  if (cout && now > cout) return { label: 'Completed', isActive: false };
-  return { label: 'Confirmed', isActive: true };
+// Determine the status label text shown ABOVE the guest name
+function getStatusLabel(conversation: Conversation): { label: string; color: string } | null {
+  if (conversation.unreadCount > 0 && conversation.lastMessage?.sender !== 'host') {
+    return { label: 'NEW', color: '#DC2626' };
+  }
+  if (conversation.lastMessage?.sender === 'host') {
+    return { label: 'REPLIED', color: '#94A3B8' };
+  }
+  return null;
+}
+
+// Determine inline intent tags shown next to the guest name
+function getInlineTags(conversation: Conversation) {
+  const tags: { id: string; label: string; bg: string; color: string }[] = [];
+  const content = conversation.lastMessage?.content?.toLowerCase() || '';
+
+  if (content.includes('thank')) {
+    tags.push({ id: 'thanks', label: 'Thanks', bg: '#DCFCE7', color: '#16A34A' });
+  }
+  if (
+    content.includes('?') ||
+    content.includes('how') ||
+    content.includes('what') ||
+    content.includes('where') ||
+    content.includes('can i') ||
+    content.includes('would it be possible') ||
+    content.includes('is it possible')
+  ) {
+    tags.push({ id: 'question', label: 'Question', bg: '#DBEAFE', color: '#2563EB' });
+  }
+
+  return tags;
+}
+
+// Check for warning indicator (e.g. unanswered question from guest)
+function hasWarning(conversation: Conversation): boolean {
+  if (!conversation.lastMessage) return false;
+  const content = conversation.lastMessage.content?.toLowerCase() || '';
+  const isFromGuest = conversation.lastMessage.sender !== 'host';
+  const isQuestion =
+    content.includes('?') ||
+    content.includes('would it be possible') ||
+    content.includes('can we') ||
+    content.includes('can i');
+  return isFromGuest && isQuestion && (conversation.unreadCount === 0);
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -118,7 +144,7 @@ export const ConversationItem = memo(function ConversationItem({
   const lastMessagePreview = useMemo(() => {
     if (!lastMessage?.content) return 'No messages yet';
     const clean = lastMessage.content.replace(/\n/g, ' ').trim();
-    const truncated = clean.length > 70 ? clean.slice(0, 70) + '…' : clean;
+    const truncated = clean.length > 60 ? clean.slice(0, 60) + '…' : clean;
     if (lastSender === 'host') return `You: ${truncated}`;
     const firstName = guest.name?.split(' ')[0] || 'Guest';
     return `${firstName}: ${truncated}`;
@@ -141,15 +167,12 @@ export const ConversationItem = memo(function ConversationItem({
     return formatDateRange(cin, cout);
   }, [checkInDate, checkOutDate]);
 
-  const bookingStatus = useMemo(() => {
-    return getBookingStatus(
-      checkInDate ? new Date(checkInDate) : undefined,
-      checkOutDate ? new Date(checkOutDate) : undefined,
-    );
-  }, [checkInDate, checkOutDate]);
+  const statusLabel = useMemo(() => getStatusLabel(conversation), [conversation]);
+  const inlineTags = useMemo(() => getInlineTags(conversation), [conversation]);
+  const showWarning = useMemo(() => hasWarning(conversation), [conversation]);
 
   const initials = getInitials(guest.name || 'Guest');
-  const hasPropertyImage = !!property?.image;
+  const avatarBg = useMemo(() => getAvatarColor(guest.name || 'Guest'), [guest.name]);
   const hasGuestAvatar = !!guest?.avatar;
 
   return (
@@ -157,7 +180,7 @@ export const ConversationItem = memo(function ConversationItem({
       onPress={onPress}
       scaleTo={0.98}
       hapticFeedback="light"
-      accessibilityLabel={`${guest.name || 'Unknown Guest'}${isUnread ? ', unread' : ''}. ${lastMessagePreview}. ${bookingStatus.label}${dateRange ? `, ${dateRange}` : ''}. ${property?.name || ''}`}
+      accessibilityLabel={`${guest.name || 'Unknown Guest'}${isUnread ? ', unread' : ''}. ${lastMessagePreview}. ${dateRange || ''}. ${property?.name || ''}`}
       accessibilityHint="Opens conversation"
       style={({ pressed }) => [
         styles.row,
@@ -165,111 +188,105 @@ export const ConversationItem = memo(function ConversationItem({
         pressed && styles.pressed,
       ]}
     >
-      {/* ── Thumbnail: property photo with guest avatar overlay ── */}
-      <View style={styles.thumbnailContainer}>
-        {hasPropertyImage ? (
-          <Image source={{ uri: property.image }} style={styles.propertyPhoto} resizeMode="cover" />
-        ) : (
-          <View style={[styles.propertyPhoto, styles.propertyPhotoFallback, { backgroundColor: getAvatarColor(property?.name || 'P') }]}>
-            <Text style={styles.propertyInitial}>{(property?.name || 'P')[0].toUpperCase()}</Text>
-          </View>
-        )}
+      {/* ── Avatar ── */}
+      <View style={styles.avatarContainer}>
         {hasGuestAvatar ? (
-          <Image source={{ uri: guest.avatar }} style={styles.guestAvatarOverlay} resizeMode="cover" />
+          <Image source={{ uri: guest.avatar }} style={styles.avatar} resizeMode="cover" />
         ) : (
-          <View style={[styles.guestAvatarOverlay, styles.guestAvatarFallback, { backgroundColor: getAvatarColor(guest.name || 'G') }]}>
-            <Text style={styles.guestAvatarText}>{initials[0]}</Text>
+          <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: avatarBg }]}>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
         )}
       </View>
 
       {/* ── Content ── */}
       <View style={styles.content}>
-        {/* Line 1: Guest name + timestamp */}
-        <View style={styles.topRow}>
-          <Text style={[styles.guestName, isUnread && styles.guestNameUnread]} numberOfLines={1}>
-            {guest.name || 'Unknown Guest'}
+        {/* Row 1: Status label (NEW / REPLIED) */}
+        {statusLabel && (
+          <Text style={[styles.statusLabel, { color: statusLabel.color }]}>
+            {statusLabel.label}
           </Text>
+        )}
+
+        {/* Row 2: Guest name + inline tags + timestamp */}
+        <View style={styles.nameRow}>
+          <View style={styles.nameAndTags}>
+            <Text style={[styles.guestName, isUnread && styles.guestNameUnread]} numberOfLines={1}>
+              {guest.name || 'Unknown Guest'}
+            </Text>
+            {inlineTags.map((t) => (
+              <View key={t.id} style={[styles.inlineTag, { backgroundColor: t.bg }]}>
+                <Text style={[styles.inlineTagText, { color: t.color }]}>{t.label}</Text>
+              </View>
+            ))}
+            {showWarning && (
+              <Text style={styles.warningIcon}>⚠</Text>
+            )}
+          </View>
           {timestamp ? (
-            <Text style={[styles.timestamp, isUnread && styles.timestampUnread]}>{timestamp}</Text>
+            <Text style={styles.timestamp}>{timestamp}</Text>
           ) : null}
         </View>
 
-        {/* Line 2: Message preview */}
-        <Text style={[styles.messagePreview, isUnread && styles.messagePreviewUnread]} numberOfLines={1}>
-          {lastMessagePreview}
-        </Text>
-
-        {/* Line 3: ● Confirmed · May 8 – 11 · Riverview */}
-        <View style={styles.bottomRow}>
-          {bookingStatus.label ? (
-            <>
-              <View style={[styles.statusDot, bookingStatus.isActive ? styles.statusDotActive : styles.statusDotInactive]} />
-              <Text style={styles.bottomText}>{bookingStatus.label}</Text>
-            </>
-          ) : null}
-          {bookingStatus.label && dateRange ? <Text style={styles.dotSeparator}>·</Text> : null}
-          {dateRange ? <Text style={styles.bottomText}>{dateRange}</Text> : null}
-          {(bookingStatus.label || dateRange) && property?.name ? <Text style={styles.dotSeparator}>·</Text> : null}
-          <Text style={styles.bottomText} numberOfLines={1}>{property?.name || ''}</Text>
+        {/* Row 3: Unread dot + message preview */}
+        <View style={styles.messageRow}>
+          {isUnread && <View style={styles.unreadDot} />}
+          <Text
+            style={[styles.messagePreview, isUnread && styles.messagePreviewUnread]}
+            numberOfLines={1}
+          >
+            {lastMessagePreview}
+          </Text>
         </View>
+
+        {/* Row 4: Date range + property name */}
+        {(dateRange || property?.name) && (
+          <Text style={styles.propertyInfo} numberOfLines={1}>
+            {dateRange}
+            {dateRange && property?.name ? '   ' : ''}
+            {property?.name || ''}
+          </Text>
+        )}
       </View>
     </PremiumPressable>
   );
 });
 
 // ───────────────────────────────────────────────────────────────
-// Styles — Airbnb Messages inbox layout
+// Styles — matching reference screenshot exactly
 // ───────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
   },
-  selected: { backgroundColor: '#F8F8F8' },
-  pressed: { backgroundColor: '#F5F5F5' },
+  selected: { backgroundColor: '#F8FAFB' },
+  pressed: { backgroundColor: '#F5F7F8' },
 
-  // ── Property photo + guest avatar overlay ──
-  thumbnailContainer: {
-    width: 56,
-    height: 56,
+  // ── Avatar ──
+  avatarContainer: {
+    width: 44,
+    height: 44,
     marginRight: 12,
+    marginTop: 4,
   },
-  propertyPhoto: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
-  propertyPhotoFallback: {
+  avatarFallback: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  propertyInitial: {
-    fontSize: 22,
+  avatarText: {
+    fontSize: 15,
     fontFamily: typography.fontFamily.bold,
     color: '#FFFFFF',
-  },
-  guestAvatarOverlay: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  guestAvatarFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  guestAvatarText: {
-    fontSize: 11,
-    fontFamily: typography.fontFamily.bold,
-    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 
   // ── Content ──
@@ -278,80 +295,86 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // ── Line 1 ──
-  topRow: {
+  // ── Row 1: Status label ──
+  statusLabel: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.semibold,
+    letterSpacing: 0.5,
+    marginBottom: 1,
+  },
+
+  // ── Row 2: Name + tags + time ──
+  nameRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 2,
   },
-  guestName: {
-    fontSize: 16,
-    lineHeight: 21,
-    fontFamily: typography.fontFamily.regular,
-    color: '#222222',
+  nameAndTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
     marginRight: 8,
   },
-  guestNameUnread: {
+  guestName: {
+    fontSize: 16,
     fontFamily: typography.fontFamily.semibold,
-    color: '#000000',
+    color: '#0F172A',
+    flexShrink: 1,
   },
-  timestamp: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontFamily: typography.fontFamily.regular,
-    color: '#717171',
-    flexShrink: 0,
-    minWidth: 70,
-    textAlign: 'right',
+  guestNameUnread: {
+    fontFamily: typography.fontFamily.bold,
   },
-  timestampUnread: {
-    color: '#222222',
+  inlineTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6,
   },
-
-  // ── Line 2 ──
-  messagePreview: {
-    fontSize: 14,
-    lineHeight: 19,
-    fontFamily: typography.fontFamily.regular,
-    color: '#717171',
-    marginBottom: 4,
-  },
-  messagePreviewUnread: {
-    color: '#222222',
+  inlineTagText: {
+    fontSize: 11,
     fontFamily: typography.fontFamily.medium,
   },
+  warningIcon: {
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  timestamp: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.regular,
+    color: '#94A3B8',
+    flexShrink: 0,
+  },
 
-  // ── Line 3 ──
-  bottomRow: {
+  // ── Row 3: Unread dot + message ──
+  messageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'nowrap',
-    overflow: 'hidden',
+    marginBottom: 3,
   },
-  statusDot: {
+  unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: '#EF4444',
     marginRight: 6,
+    flexShrink: 0,
   },
-  statusDotActive: {
-    backgroundColor: '#00A699',
-  },
-  statusDotInactive: {
-    backgroundColor: '#B0B0B0',
-  },
-  bottomText: {
-    fontSize: 12,
-    lineHeight: 16,
+  messagePreview: {
+    fontSize: 14,
     fontFamily: typography.fontFamily.regular,
-    color: '#717171',
-    flexShrink: 1,
+    color: '#64748B',
+    flex: 1,
   },
-  dotSeparator: {
+  messagePreviewUnread: {
+    color: '#0F172A',
+    fontFamily: typography.fontFamily.medium,
+  },
+
+  // ── Row 4: Property info ──
+  propertyInfo: {
     fontSize: 12,
-    color: '#DDDDDD',
-    marginHorizontal: 5,
+    fontFamily: typography.fontFamily.regular,
+    color: '#14B8A6',
   },
 });

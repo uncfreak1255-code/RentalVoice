@@ -56,9 +56,12 @@ const GREETING_PATTERNS = [
 ];
 
 // Common sign-off patterns to detect
+// NOTE: Do NOT include AI-ism phrases ("happy to help", "reach out", "don't hesitate")
+// — those are LLM artifacts, not real human sign-offs
 const SIGNOFF_PATTERNS = [
   /(best|regards|cheers|thanks|thank you|sincerely|warmly|take care)[\s,!.]*$/i,
-  /(let me know|reach out|happy to help|don't hesitate).*$/i,
+  /(let me know if you need anything|let us know if you need anything)[\s,!.😊😁]*$/i,
+  /[–—-]\s*[A-Z][a-z]+[\s&]*[A-Z]?[a-z]*\s*$/,  // "– Sawyer & David" style sign-offs
 ];
 
 // Emoji detection

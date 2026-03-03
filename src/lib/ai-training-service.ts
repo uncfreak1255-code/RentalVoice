@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HostStyleProfile, LearningEntry } from './store';
 import type { HostawayMessage, HostawayConversation } from './history-sync';
 import { analyzeMessage, analyzeHostawayHistory, mergeAnalysisWithProfile, type AnonymizedPattern, type HistoricalAnalysisResult } from './ai-learning';
+import { supermemoryService, type MemorySearchResult } from './supermemory-service';
 
 // Storage keys
 const TRAINING_STATE_KEY = 'ai_training_state';
@@ -128,6 +129,7 @@ const SENTIMENT_PATTERNS: Record<string, RegExp[]> = {
 class AITrainingService {
   private state: TrainingState;
   private responseIndex: ResponseIndex;
+  private patternMap: Map<string, ResponsePattern> = new Map(); // O(1) lookup by ID
   private progressCallbacks: TrainingProgressCallback[] = [];
   private completeCallbacks: TrainingCompleteCallback[] = [];
   private isProcessing = false;
@@ -182,6 +184,11 @@ class AITrainingService {
 
       if (indexData) {
         this.responseIndex = JSON.parse(indexData);
+        // Rebuild O(1) pattern lookup map from loaded data
+        this.patternMap.clear();
+        for (const pattern of this.responseIndex.patterns) {
+          this.patternMap.set(pattern.id, pattern);
+        }
       }
     } catch (error) {
       console.error('[AITraining] Failed to load state:', error);
@@ -442,6 +449,9 @@ class AITrainingService {
       conversationId: number;
     }[] = [];
 
+    let pairedCount = 0;
+    let unpairedCount = 0;
+
     for (const conv of conversations) {
       const messages = messagesByConversation[conv.id] || [];
 
@@ -454,14 +464,25 @@ class AITrainingService {
         const msg = sorted[i];
 
         // Only collect outgoing (host) messages
-        if (!msg.isIncoming && msg.body && msg.body.trim().length > 10) {
+        // Hostaway API returns isIncoming as 0/1 (number) OR true/false (boolean)
+        // Use Number() coercion to handle both: Number(false)=0, Number(true)=1, Number(0)=0, Number(1)=1
+        const isHostMessage = Number(msg.isIncoming) === 0;
+
+        if (isHostMessage && msg.body && msg.body.trim().length > 10) {
           // Find previous guest message
           let prevGuestContent: string | undefined;
           for (let j = i - 1; j >= 0; j--) {
-            if (sorted[j].isIncoming && sorted[j].body) {
+            const isGuestMessage = Number(sorted[j].isIncoming) === 1;
+            if (isGuestMessage && sorted[j].body) {
               prevGuestContent = sorted[j].body;
               break;
             }
+          }
+
+          if (prevGuestContent) {
+            pairedCount++;
+          } else {
+            unpairedCount++;
           }
 
           hostMessages.push({
@@ -475,6 +496,7 @@ class AITrainingService {
       }
     }
 
+    console.log(`[AITraining] Collected ${hostMessages.length} host messages (${pairedCount} paired with guest question, ${unpairedCount} unpaired)`);
     this.state.hostMessagesProcessed = hostMessages.length;
     return hostMessages;
   }
@@ -775,6 +797,7 @@ class AITrainingService {
    */
   private addPatternToIndex(pattern: ResponsePattern): void {
     this.responseIndex.patterns.push(pattern);
+    this.patternMap.set(pattern.id, pattern); // O(1) lookup
 
     // Add to intent groups
     if (!this.responseIndex.intentGroups[pattern.guestIntent]) {
@@ -797,8 +820,11 @@ class AITrainingService {
   private rebuildIndexMaps(): void {
     this.responseIndex.intentGroups = {};
     this.responseIndex.keywordIndex = {};
+    this.patternMap.clear();
 
     for (const pattern of this.responseIndex.patterns) {
+      this.patternMap.set(pattern.id, pattern); // Rebuild O(1) map
+
       if (!this.responseIndex.intentGroups[pattern.guestIntent]) {
         this.responseIndex.intentGroups[pattern.guestIntent] = [];
       }
@@ -816,12 +842,25 @@ class AITrainingService {
   /**
    * Search historical responses for similar guest questions
    * Returns best matching past host responses
+   * 
+   * Two-tier search:
+   *  1. Supermemory (semantic vector search — understands meaning)
+   *  2. Local index (keyword-based fallback — instant, offline)
    */
   searchHistoricalResponses(
     guestMessage: string,
     propertyId?: string,
     limit: number = 5
   ): ResponsePattern[] {
+    // Kick off Supermemory search in background (non-blocking)
+    // Results will be available for the *next* draft generation via getSemanticContext()
+    this._lastSemanticSearch = supermemoryService.searchMemories(guestMessage, propertyId, limit)
+      .catch(err => {
+        console.warn('[AITraining] Supermemory search failed (using local only):', err);
+        return [] as MemorySearchResult[];
+      });
+
+    // === Local keyword-based search (instant, synchronous) ===
     const intent = this.detectIntent(guestMessage);
     const sentiment = this.detectSentiment(guestMessage);
     const keywords = this.extractKeywords(guestMessage);
@@ -851,13 +890,8 @@ class AITrainingService {
       }
     }
 
-    // Score and rank candidates
-    const scored: ResponsePattern[] = [];
-
-    for (const id of candidateIds) {
-      const pattern = this.responseIndex.patterns.find(p => p.id === id);
-      if (!pattern) continue;
-
+    // Score candidates using O(1) pattern map lookup
+    const scorePattern = (pattern: ResponsePattern): ResponsePattern => {
       let score = 0;
 
       // Intent match (high weight)
@@ -870,29 +904,95 @@ class AITrainingService {
       // Sentiment match
       if (pattern.guestSentiment === sentiment) score += 15;
 
-      // Property match bonus
-      if (propertyId && pattern.propertyId === propertyId) score += 20;
+      // Edited-by-host bonus (explicitly corrected = highest quality signal)
+      if (pattern.priority === 'high') score += 25;
 
-      // Edited-by-host bonus (explicitly corrected = more trustworthy)
-      if (pattern.priority === 'high') score += 15;
-
-      // Recency bonus (newer patterns preferred)
+      // Strong recency weighting with stale decay
       const ageInDays = (Date.now() - new Date(pattern.timestamp).getTime()) / (1000 * 60 * 60 * 24);
-      if (ageInDays < 30) score += 10;
-      else if (ageInDays < 90) score += 5;
+      if (ageInDays < 7) score += 25;        // This week — strongest signal
+      else if (ageInDays < 30) score += 15;   // This month — very relevant
+      else if (ageInDays < 90) score += 5;    // Recent quarter — still ok
+      else if (ageInDays > 365) score -= 20;  // Over a year — strong penalty
+      else if (ageInDays > 180) score -= 10;  // Over 6 months — mild penalty
 
-      scored.push({ ...pattern, matchScore: score });
+      return { ...pattern, matchScore: score };
+    };
+
+    // === STRICT PROPERTY FILTERING (pass 1) ===
+    // First, try to find matches ONLY from the same property
+    if (propertyId) {
+      const samePropertyScored: ResponsePattern[] = [];
+      for (const id of candidateIds) {
+        const pattern = this.patternMap.get(id); // O(1) lookup
+        if (!pattern) continue;
+        if (pattern.propertyId !== propertyId) continue; // Strict filter
+
+        samePropertyScored.push(scorePattern(pattern));
+      }
+
+      // Use same-property results if we have enough good matches
+      const goodMatches = samePropertyScored.filter(p => (p.matchScore || 0) >= 30);
+      if (goodMatches.length >= 2) {
+        console.log(`[AITraining] Property-strict search: ${goodMatches.length} matches for property ${propertyId}`);
+        return goodMatches
+          .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+          .slice(0, limit);
+      }
     }
 
+    // === CROSS-PROPERTY FALLBACK (pass 2) ===
+    // Not enough same-property matches — search all but penalize wrong property
+    const allScored: ResponsePattern[] = [];
+    for (const id of candidateIds) {
+      const pattern = this.patternMap.get(id); // O(1) lookup
+      if (!pattern) continue;
+
+      const scored = scorePattern(pattern);
+      // Add property bonus/penalty
+      if (propertyId && pattern.propertyId === propertyId) {
+        scored.matchScore = (scored.matchScore || 0) + 20; // Same property bonus
+      } else if (propertyId && pattern.propertyId && pattern.propertyId !== propertyId) {
+        scored.matchScore = (scored.matchScore || 0) - 15; // Wrong property penalty
+      }
+
+      allScored.push(scored);
+    }
+
+    console.log(`[AITraining] Cross-property fallback: ${allScored.length} total candidates (property: ${propertyId || 'none'})`);
+
     // Sort by score and return top matches
-    return scored
+    return allScored
       .sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
       .slice(0, limit);
   }
 
   /**
+   * Get semantic context from Supermemory for the last searched query
+   * Call this after searchHistoricalResponses() to get richer AI context
+   */
+  async getSemanticContext(): Promise<MemorySearchResult[]> {
+    if (!this._lastSemanticSearch) return [];
+    return this._lastSemanticSearch;
+  }
+
+  /**
+   * Get the host's learned profile from Supermemory
+   * Returns static facts + dynamic patterns extracted from all stored memories
+   */
+  async getHostMemoryProfile(propertyId?: string) {
+    return supermemoryService.getHostProfile(propertyId);
+  }
+
+  // Track latest semantic search promise
+  private _lastSemanticSearch: Promise<MemorySearchResult[]> | null = null;
+
+  /**
    * Incremental learning from a single new approved/edited reply
    * Called in real-time when host approves or edits an AI draft
+   * 
+   * Dual-writes to:
+   *  1. Local AsyncStorage index (keyword-based, instant)
+   *  2. Supermemory cloud (semantic search, persistent)
    */
   async learnFromReply(
     guestMessage: string,
@@ -902,7 +1002,7 @@ class AITrainingService {
   ): Promise<void> {
     console.log('[AITraining] Learning from reply:', { wasEdited, responseLength: hostResponse.length });
 
-    // Create and add pattern — edited responses get higher priority
+    // 1. Local index (existing behavior — fast, keyword-based)
     const pattern = this.createResponsePattern(guestMessage, hostResponse, propertyId);
     pattern.priority = wasEdited ? 'high' : 'normal';
     this.addPatternToIndex(pattern);
@@ -914,6 +1014,17 @@ class AITrainingService {
 
     this.responseIndex.totalPatterns = this.responseIndex.patterns.length;
     this.responseIndex.lastUpdated = new Date();
+
+    // 2. Supermemory cloud (semantic search — fire-and-forget, non-blocking)
+    supermemoryService.storeMemory({
+      guestMessage,
+      hostResponse,
+      intent: pattern.guestIntent,
+      sentiment: pattern.guestSentiment,
+      propertyId,
+      wasEdited,
+      timestamp: new Date(),
+    }).catch(err => console.warn('[AITraining] Supermemory store failed (non-critical):', err));
   }
 
   // Helper methods

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView, Keyboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -172,6 +172,20 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
   const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
   const addReplyDelta = useAppStore((s) => s.addReplyDelta);
+
+  // Track keyboard visibility to hide SmartReplyBar when typing
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   // Intent detection for the last guest message
   const lastGuestMessage = useMemo(() => {
@@ -581,14 +595,45 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
     if (isSending || !content.trim()) return;
     setIsSending(true);
 
-    try {
-      // Get context for learning
-      const lastGuestMessage = [...messages].reverse().find(m => m.sender === 'guest');
-      const aiDraftContent = currentEnhancedDraft?.content;
-      const draftIntent = messages.find(m => m.sender === 'ai_draft')?.detectedIntent;
+    // Capture context BEFORE updating UI (avoids stale references)
+    const lastGuestMessage = [...messages].reverse().find(m => m.sender === 'guest');
+    const aiDraftContent = currentEnhancedDraft?.content;
+    const draftIntent = messages.find(m => m.sender === 'ai_draft')?.detectedIntent;
 
-      // INDEPENDENT REPLY LEARNING: Analyze what the host preferred over the AI
-      // Only runs if there was an AI draft that the host chose to ignore/override
+    // ── OPTIMISTIC UI: Update immediately so send feels instant ──
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      conversationId,
+      content,
+      sender: 'host',
+      timestamp: new Date(),
+      isRead: false,
+      isApproved: true,
+    };
+    const messagesWithoutDraft = messages.filter(m => m.sender !== 'ai_draft');
+    updateConversation(conversationId, {
+      messages: [...messagesWithoutDraft, newMessage],
+      lastMessage: newMessage,
+      hasAiDraft: false,
+      aiDraftContent: undefined,
+      aiDraftConfidence: undefined,
+    });
+    incrementAnalytic('totalMessagesHandled');
+    setCurrentEnhancedDraft(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // ── ASYNC: Send to Hostaway + learning in background ──
+    try {
+      if (!isDemoMode && accountId && apiKey) {
+        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), content);
+      }
+    } catch (error) {
+      console.error('[ChatScreen] Error sending message:', error);
+      Alert.alert('Send Failed', 'Message could not be delivered. It may need to be resent.');
+    }
+
+    // Learning & analytics (fire-and-forget, non-blocking)
+    try {
       if (aiDraftContent && lastGuestMessage) {
         const pattern = analyzeIndependentReply(
           aiDraftContent,
@@ -597,35 +642,28 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           conversation?.property?.id,
           draftIntent
         );
-
         storeIndependentReplyPattern(pattern).catch(err =>
           console.error('[ChatScreen] Failed to store independent reply pattern:', err)
         );
-
-        // Show richer feedback
         const summary = getIndependentReplySummary(pattern);
         setLearningToastType('independent');
         setEditLearningSummary(`${summary}`);
-        console.log('[ChatScreen] Independent reply analysis:', summary);
         setTimeout(() => setEditLearningSummary(null), 4000);
       }
 
-      // ALWAYS LEARN: Train the AI service with this manual reply
       if (lastGuestMessage) {
         aiTrainingService.learnFromReply(
           lastGuestMessage.content,
           content,
-          true, // Treat as edited since host wrote their own
+          true,
           conversation?.property?.id
         ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
-        // Increment real-time counters so the AI Learning screen shows real data
         updateAILearningProgress({
           realTimeIndependentRepliesCount: aiLearningProgress.realTimeIndependentRepliesCount + 1,
           patternsIndexed: aiLearningProgress.patternsIndexed + 1,
         });
 
-        // Track outcome + delta analysis
         trackDraftOutcome('independent', {
           propertyId: conversation?.property?.id,
           guestIntent: draftIntent,
@@ -634,107 +672,81 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           guestMessage: lastGuestMessage.content,
         });
       }
-
-      // Send the message through Hostaway (if not demo mode)
-      if (!isDemoMode && accountId && apiKey) {
-        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), content);
-      }
-
-      const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        conversationId,
-        content,
-        sender: 'host',
-        timestamp: new Date(),
-        isRead: false,
-        isApproved: true,
-      };
-
-      // Remove AI draft from messages if present
-      const messagesWithoutDraft = messages.filter(m => m.sender !== 'ai_draft');
-      
-      updateConversation(conversationId, {
-        messages: [...messagesWithoutDraft, newMessage],
-        lastMessage: newMessage,
-        hasAiDraft: false,
-        aiDraftContent: undefined,
-        aiDraftConfidence: undefined,
-      });
-
-      addMessage(conversationId, newMessage);
-      incrementAnalytic('totalMessagesHandled');
-      setCurrentEnhancedDraft(null);
-      
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (error) {
-      console.error('[ChatScreen] Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
-    } finally {
-      setIsSending(false);
+    } catch (learningErr) {
+      console.error('[ChatScreen] Learning error (non-fatal):', learningErr);
     }
-  }, [messages, conversationId, updateConversation, addMessage, isDemoMode, accountId, apiKey, isSending, currentEnhancedDraft, conversation, incrementAnalytic]);
 
-  const handleApproveAiDraft = useCallback(async () => {
+    setIsSending(false);
+  }, [messages, conversationId, updateConversation, isDemoMode, accountId, apiKey, isSending, currentEnhancedDraft, conversation, incrementAnalytic]);
+
+  const handleApproveAiDraft = useCallback(async (contentOverride?: string) => {
     if (!currentEnhancedDraft || isSending) return;
     setIsSending(true);
 
+    // Capture context BEFORE updating UI
+    const contentToSend = contentOverride || currentEnhancedDraft.content;
+    const wasEditedByUser = !!contentOverride || currentEnhancedDraft.isEdited === true;
+    const lastGuestMessage = [...messages].reverse().find(m => m.sender === 'guest');
+    const draftMessage = messages.find((m) => m.sender === 'ai_draft');
+    const savedDraft = { ...currentEnhancedDraft }; // Snapshot before clearing
+
+    // ── OPTIMISTIC UI: Update immediately ──
+    const messagesWithoutDraft = messages.filter((m) => m.sender !== 'ai_draft');
+    const newMessage: Message = {
+      id: `msg-${Date.now()}`,
+      conversationId,
+      content: contentToSend,
+      sender: 'host',
+      timestamp: new Date(),
+      isRead: false,
+      isApproved: true,
+    };
+    updateConversation(conversationId, {
+      messages: [...messagesWithoutDraft, newMessage],
+      lastMessage: newMessage,
+      hasAiDraft: false,
+      aiDraftContent: undefined,
+      aiDraftConfidence: undefined,
+    });
+    incrementAnalytic('totalMessagesHandled');
+    if (wasEditedByUser) {
+      incrementAnalytic('aiResponsesEdited');
+    } else {
+      incrementAnalytic('aiResponsesApproved');
+    }
+    setCurrentEnhancedDraft(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // ── ASYNC: Send to Hostaway in background ──
     try {
       if (!isDemoMode && accountId && apiKey) {
-        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), currentEnhancedDraft.content);
+        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), contentToSend);
       }
+    } catch (error) {
+      console.error('[ChatScreen] Error sending approved draft:', error);
+      Alert.alert('Send Failed', 'Message could not be delivered. It may need to be resent.');
+    }
 
-      const messagesWithoutDraft = messages.filter((m) => m.sender !== 'ai_draft');
-      const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        conversationId,
-        content: currentEnhancedDraft.content,
-        sender: 'host',
-        timestamp: new Date(),
-        isRead: false,
-        isApproved: true,
-      };
-
-      updateConversation(conversationId, {
-        messages: [...messagesWithoutDraft, newMessage],
-        lastMessage: newMessage,
-        hasAiDraft: false,
-        aiDraftContent: undefined,
-        aiDraftConfidence: undefined,
-      });
-
-      incrementAnalytic('totalMessagesHandled');
-
-      const wasEdited = currentEnhancedDraft.isEdited === true;
-      if (wasEdited) {
-        incrementAnalytic('aiResponsesEdited');
-      } else {
-        incrementAnalytic('aiResponsesApproved');
-      }
-
-      // Find the guest message this was responding to for incremental learning
-      const lastGuestMessage = [...messages].reverse().find(m => m.sender === 'guest');
-
-      const draftMessage = messages.find((m) => m.sender === 'ai_draft');
+    // Learning & analytics (fire-and-forget)
+    try {
       if (draftMessage) {
-        const originalContent = currentEnhancedDraft.originalContent || currentEnhancedDraft.content;
-
+        const originalContent = savedDraft.originalContent || savedDraft.content;
         const learningEntry: LearningEntry = {
           id: `learn-${Date.now()}`,
           originalResponse: originalContent,
-          editedResponse: wasEdited ? currentEnhancedDraft.content : undefined,
+          editedResponse: wasEditedByUser ? contentToSend : undefined,
           wasApproved: true,
-          wasEdited,
+          wasEdited: wasEditedByUser,
           guestIntent: draftMessage.detectedIntent || 'unknown',
           propertyId: conversation?.property?.id || '',
           timestamp: new Date(),
         };
         addLearningEntry(learningEntry);
 
-        // If edited, perform edit diff analysis for richer learning
-        if (wasEdited && currentEnhancedDraft.originalContent) {
+        if (wasEditedByUser && savedDraft.originalContent) {
           const editPattern = analyzeEdit(
-            currentEnhancedDraft.originalContent,
-            currentEnhancedDraft.content,
+            savedDraft.originalContent,
+            contentToSend,
             conversation?.property?.id,
             draftMessage.detectedIntent
           );
@@ -744,53 +756,44 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           const summary = getEditSummary(editPattern);
           setLearningToastType('edit');
           setEditLearningSummary(summary);
-          console.log('[ChatScreen] Edit analysis:', summary);
           setTimeout(() => setEditLearningSummary(null), 4000);
-        } else if (!wasEdited) {
-          // Approval toast — no edit, just confidence reinforcement
+        } else if (!wasEditedByUser) {
           setLearningToastType('approval');
           setEditLearningSummary('Response style reinforced — AI will match this tone');
           setTimeout(() => setEditLearningSummary(null), 3000);
         }
 
-        // INCREMENTAL LEARNING
         if (lastGuestMessage) {
           aiTrainingService.learnFromReply(
             lastGuestMessage.content,
-            currentEnhancedDraft.content,
-            wasEdited,
+            contentToSend,
+            wasEditedByUser,
             conversation?.property?.id
           ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
-          // Increment real-time counters
           updateAILearningProgress({
-            ...(wasEdited
+            ...(wasEditedByUser
               ? { realTimeEditsCount: aiLearningProgress.realTimeEditsCount + 1 }
               : { realTimeApprovalsCount: aiLearningProgress.realTimeApprovalsCount + 1 }),
             patternsIndexed: aiLearningProgress.patternsIndexed + 1,
           });
 
-          // Track outcome + delta analysis
-          trackDraftOutcome(wasEdited ? 'edited' : 'approved', {
+          trackDraftOutcome(wasEditedByUser ? 'edited' : 'approved', {
             propertyId: conversation?.property?.id,
             guestIntent: draftMessage?.detectedIntent,
-            confidence: currentEnhancedDraft.confidence,
-            aiDraft: wasEdited ? currentEnhancedDraft.originalContent : undefined,
-            hostReply: wasEdited ? currentEnhancedDraft.content : undefined,
+            confidence: savedDraft.confidence,
+            aiDraft: wasEditedByUser ? savedDraft.originalContent : undefined,
+            hostReply: wasEditedByUser ? contentToSend : undefined,
             guestMessage: lastGuestMessage.content,
           });
         }
       }
-
-      setCurrentEnhancedDraft(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      console.error('[ChatScreen] Error approving draft:', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
-    } finally {
-      setIsSending(false);
+    } catch (learningErr) {
+      console.error('[ChatScreen] Learning error (non-fatal):', learningErr);
     }
-  }, [currentEnhancedDraft, messages, conversationId, updateConversation, isDemoMode, accountId, apiKey, isSending, conversation]);
+
+    setIsSending(false);
+  }, [currentEnhancedDraft, messages, conversationId, updateConversation, isDemoMode, accountId, apiKey, isSending, conversation, incrementAnalytic]);
 
   const handleRegenerateAiDraft = useCallback(async (modifier?: RegenerationOption['modifier']) => {
     if (isGeneratingDraft) return;
@@ -992,39 +995,28 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           </Animated.View>
         )}
 
-        {/* Header — Rork style: Done | Name | search */}
+        {/* Header — Done | Name | search */}
         <Animated.View entering={FadeIn.duration(300)} style={chatStyles.header}>
           <View style={chatStyles.headerInner}>
-            {/* Done button */}
+            {/* Back / Done button */}
             <Pressable
               onPress={onBack}
               hitSlop={12}
-              accessible
               accessibilityRole="button"
               accessibilityLabel="Go back to inbox"
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, minWidth: 44 })}
             >
               <Text style={chatStyles.doneButton}>Done</Text>
             </Pressable>
 
-            {/* Centered guest name + intent badge */}
+            {/* Centered guest name */}
             <Pressable
               onPress={() => setShowGuestProfile(true)}
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel={`${guest.name}${detectedIntent && detectedIntent.intent !== 'general' ? `, ${detectedIntent.label}` : ''}. View guest profile`}
-              style={{ flex: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+              style={{ flex: 1, alignItems: 'center', marginHorizontal: 8 }}
             >
               <Text style={chatStyles.guestName} numberOfLines={1}>
-                {guest.name}
+                {guest.name || 'Guest'}
               </Text>
-              {detectedIntent && detectedIntent.intent !== 'general' && (
-                <View style={{ backgroundColor: detectedIntent.color + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 6 }}>
-                  <Text style={{ fontSize: 11, fontFamily: typography.fontFamily.semibold, color: detectedIntent.color }}>
-                    {detectedIntent.label}
-                  </Text>
-                </View>
-              )}
             </Pressable>
 
             {/* Search toggle */}
@@ -1034,18 +1026,14 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
                 if (isSearchOpen) setSearchQuery('');
               }}
               hitSlop={12}
-              accessible
               accessibilityRole="button"
               accessibilityLabel={isSearchOpen ? 'Close search' : 'Search messages'}
               style={({ pressed }) => ({
                 opacity: pressed ? 0.8 : 1,
-                flexDirection: 'row',
-                alignItems: 'center',
+                minWidth: 44,
+                alignItems: 'flex-end',
               })}
             >
-              {autoPilotEnabled && (
-                <View style={chatStyles.autoPilotDot} />
-              )}
               {isSearchOpen ? (
                 <X size={20} color={colors.text.muted} />
               ) : (
@@ -1162,7 +1150,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
           </View>
 
           {/* Smart Reply Bar */}
-          {lastGuestMessage && !currentEnhancedDraft && !isGeneratingDraft && (
+          {lastGuestMessage && !currentEnhancedDraft && !isGeneratingDraft && !isKeyboardVisible && (
             <SmartReplyBar
               guestMessage={lastGuestMessage.content}
               propertyKnowledge={currentPropertyKnowledge}

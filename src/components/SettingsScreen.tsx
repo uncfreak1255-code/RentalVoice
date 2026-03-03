@@ -9,7 +9,7 @@ import {
   Wifi, Key, Bell, Shield, LogOut,
   Brain, BookOpen, Globe,
   BarChart3, BellOff,
-  Plane, MessageSquare, Cpu, FileText, Zap,
+  Plane, MessageSquare, Cpu, Zap,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
@@ -304,11 +304,6 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               icon={<Shield size={18} color={colors.primary.DEFAULT} />}
               label="Privacy Policy"
               onPress={() => handleNavigate('privacySecurity')}
-            />
-            <LinkRow
-              icon={<FileText size={18} color={colors.primary.DEFAULT} />}
-              label="Terms of Service"
-              onPress={() => handleNavigate('privacyCompliance')}
               isLast
             />
           </View>

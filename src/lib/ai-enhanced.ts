@@ -233,7 +233,8 @@ export interface HistoricalMatchInfo {
   matchedPatterns: {
     intent: string;
     score: number;
-    responsePreview: string;
+    responsePreview: string;  // Truncated for UI display (100 chars)
+    fullResponse: string;     // Full response for AI prompt (up to 800 chars)
   }[];
 }
 
@@ -251,15 +252,35 @@ export function analyzeSentimentAdvanced(content: string): SentimentAnalysis {
   const emotions: SentimentAnalysis['emotions'] = [];
   let intensity = 50;
 
-  // Urgency detection
+  // Urgency detection — STRICT: require actual emergency/urgency context
+  // Words like "now", "help", "not working" cause massive false positives
+  // in casual messages ("for now we are not...", "this will help", etc.)
   const urgentPatterns = [
-    /\b(emergency|urgent|help|immediately|asap|now|right away|locked out|fire|flood|police|ambulance|hospital)\b/i,
-    /\b(can'?t|cannot) (get in|access|open|enter)/i,
-    /\b(broken|not working|dangerous|unsafe|leak|smoke|alarm)\b/i,
+    /\b(emergency|urgent|immediately|asap|locked out|fire|flood|police|ambulance|hospital)\b/i,
+    /\b(can'?t|cannot) (get in|access|open|enter)\b/i,
+    /\b(dangerous|unsafe|gas leak|smoke|carbon monoxide)\b/i,
+    /\bhelp\b.*\b(right away|right now|immediately|asap|please)\b/i,
+    /\b(right now|right away)\b/i,
+  ];
+
+  // False-positive filter: benign phrases that contain urgent-looking words
+  const benignPhrases = [
+    /\bfor now\b/i,
+    /\bknow\b/i,
+    /\blet you know\b/i,
+    /\bnot expecting\b/i,
+    /\bif that changes\b/i,
+    /\bas soon as\b/i,
+    /\bhelp (with|you|us|me)\b/i,
+    /\b(will|would|can|could) help\b/i,
   ];
 
   const isUrgent = urgentPatterns.some(p => p.test(content));
-  if (isUrgent) {
+  const isBenign = benignPhrases.some(p => p.test(content));
+
+  // Only classify as urgent if we match urgent patterns AND the message
+  // doesn't look like a calm/informational message
+  if (isUrgent && !isBenign) {
     return {
       primary: 'urgent',
       intensity: 95,
@@ -445,6 +466,92 @@ function checkKnowledgeAvailable(intent: string, knowledge?: PropertyKnowledge):
 
   const field = knowledgeMap[intent];
   return field ? !!knowledge[field] : false;
+}
+
+/**
+ * Build a DIRECT ANSWER block for the AI prompt based on detected topics.
+ * When the guest asks about a specific topic AND we have the exact answer
+ * in the knowledge base, inject it as a high-priority instruction so the AI
+ * uses our exact data rather than generating a generic response.
+ */
+function getDirectAnswerBlock(topics: DetectedTopic[], knowledge?: PropertyKnowledge): string {
+  if (!knowledge || topics.length === 0) return '';
+
+  const answers: string[] = [];
+
+  for (const topic of topics) {
+    if (!topic.hasAnswer) continue;
+
+    switch (topic.intent) {
+      case 'wifi_inquiry':
+        if (knowledge.wifiName && knowledge.wifiPassword) {
+          answers.push(`WiFi — Network: "${knowledge.wifiName}", Password: "${knowledge.wifiPassword}"`);
+        }
+        break;
+      case 'checkin_inquiry':
+        if (knowledge.checkInInstructions) {
+          answers.push(`Check-in Instructions — ${knowledge.checkInInstructions}`);
+        }
+        if (knowledge.checkInTime) {
+          answers.push(`Check-in Time — ${knowledge.checkInTime}`);
+        }
+        break;
+      case 'early_checkin_request':
+        if (knowledge.earlyCheckInAvailable && knowledge.earlyCheckInFee) {
+          answers.push(`Early Check-in — Available for $${knowledge.earlyCheckInFee}`);
+        }
+        if (knowledge.checkInTime) {
+          answers.push(`Standard Check-in Time — ${knowledge.checkInTime}`);
+        }
+        answers.push(`EARLY CHECK-IN RESPONSE TEMPLATE — Use this EXACT style (swap [GUEST NAME] for the guest's first name):
+"Hi [GUEST NAME], Thanks so much for reaching out as we are so excited to have you and your Family!! So with early check-ins, the earliest our management company is allowed to offer for this owners home is 3pm! But you are more than welcome to head on over anytime after 3pm to get settled in as our cleaning crew is usually always done before then! We are looking forward to accommodating to you and your family, and are always here if you need anything at all!! 😊"
+Adapt naturally but keep this warm, exclamation-heavy, family-friendly tone.`);
+        break;
+      case 'checkout_inquiry':
+        if (knowledge.checkOutInstructions) {
+          answers.push(`Check-out Instructions — ${knowledge.checkOutInstructions}`);
+        }
+        if (knowledge.checkOutTime) {
+          answers.push(`Check-out Time — ${knowledge.checkOutTime}`);
+        }
+        break;
+      case 'late_checkout_request':
+        if (knowledge.lateCheckOutAvailable && knowledge.lateCheckOutFee) {
+          answers.push(`Late Check-out — Available for $${knowledge.lateCheckOutFee}`);
+        } else if (knowledge.checkOutTime) {
+          answers.push(`Standard Check-out Time — ${knowledge.checkOutTime}`);
+        }
+        break;
+      case 'parking_inquiry':
+        if (knowledge.parkingInfo) {
+          answers.push(`Parking — ${knowledge.parkingInfo}`);
+        }
+        break;
+      case 'appliance_inquiry':
+        if (knowledge.applianceGuide) {
+          answers.push(`Appliances — ${knowledge.applianceGuide}`);
+        }
+        break;
+      case 'local_recommendation':
+        if (knowledge.localRecommendations) {
+          answers.push(`Local Tips — ${knowledge.localRecommendations}`);
+        }
+        break;
+      case 'housekeeping_inquiry':
+        if (knowledge.houseRules) {
+          answers.push(`House Rules — ${knowledge.houseRules}`);
+        }
+        break;
+    }
+  }
+
+  if (answers.length === 0) return '';
+
+  console.log(`[SmartKnowledge] Injecting ${answers.length} direct answer(s) for topics: ${topics.filter(t => t.hasAnswer).map(t => t.topic).join(', ')}`);
+
+  return `\n⚠️ DIRECT ANSWER — USE THIS EXACT INFORMATION IN YOUR RESPONSE:
+The guest is asking about a topic where you have SPECIFIC knowledge. Use the exact details below in your response. Do NOT paraphrase, generalize, or make up different information. Weave these facts naturally into your reply.
+${answers.map(a => `• ${a}`).join('\n')}\n`;
 }
 
 // Calculate comprehensive confidence score
@@ -695,7 +802,6 @@ export function detectKnowledgeConflicts(knowledge: PropertyKnowledge): Knowledg
       });
     }
   }
-
   return conflicts;
 }
 
@@ -1325,7 +1431,7 @@ export function buildEnhancedSystemPrompt(
 
   // Adapt tone based on sentiment
   if (sentiment.primary === 'urgent') {
-    toneGuidance = `The guest has an URGENT issue. Be immediately responsive, express genuine concern, and prioritize solutions. Use reassuring language like "I understand this is stressful" and "Let me help you right away."`;
+    toneGuidance = `The guest has an urgent issue. Be responsive and solution-focused. Show you take their concern seriously and will act on it. Do NOT use generic reassurance phrases — read what they actually said and respond to that specific situation.`;
   } else if (sentiment.primary === 'negative') {
     if (sentiment.emotions.includes('frustrated')) {
       toneGuidance = `The guest is frustrated. Acknowledge their frustration first ("I completely understand your frustration"), apologize if appropriate, then focus on solutions. Don't be defensive.`;
@@ -1341,7 +1447,7 @@ export function buildEnhancedSystemPrompt(
       toneGuidance = `The guest has a positive tone. Be warm and friendly, express appreciation for their kind words if any, and maintain the positive atmosphere.`;
     }
   } else {
-    toneGuidance = `Use a helpful, friendly, and professional tone. Be warm but efficient in addressing their inquiry.`;
+    toneGuidance = `The guest has a straightforward tone. Read what they ACTUALLY said and respond to THAT — do not generate a generic placeholder. Be warm, friendly, professional, and address the specific content of their message. If they're confirming details, acknowledge the details. If they're asking a question, answer it directly.`;
   }
 
   // Apply regeneration modifier
@@ -1394,6 +1500,14 @@ ${toneGuidance}
 DETECTED TOPICS IN GUEST MESSAGE:
 ${topics.map(t => `- ${t.topic} (${t.hasAnswer ? 'knowledge available' : 'no specific knowledge'})`).join('\n')}
 
+REVIEW/FEEDBACK RESPONSE RULES:
+- When responding to guest reviews or positive feedback, be warm and grateful
+- Do NOT create bullet-point lists of property improvements or to-do items
+- NEVER say "I will look into adding..." or promise specific property changes
+- Simply thank them by first name, acknowledge their feedback generally, and warmly invite them back
+- Match this style EXACTLY: "Hi [guest first name], thank you so much for the feedback as that truly helps us improve the home! We're always striving to improve our home for our guests! We are so glad we had the opportunity to have you and your wonderful family, and would love to have you back anytime! We wish you safe travels, and thank you again for everything!"
+- Keep it warm, genuine, and personal — never corporate or list-like
+
 MULTI-TOPIC HANDLING:
 If the guest asked multiple questions, address EACH one clearly. Use paragraph breaks or numbered points for clarity. Don't skip any topic.
 
@@ -1406,23 +1520,34 @@ GUIDELINES:
 - CRITICAL LANGUAGE RULE: YOU MUST RESPOND EXCLUSIVELY IN ENGLISH. Do NOT write in Italian, Spanish, or any other language, even if the guest wrote in that language or if historical examples are in that language. Hostaway handles translation automatically. English only.
 - For urgent issues, express immediate concern and offer solutions
 
-SAFETY RULES (NEVER VIOLATE — these protect the host's business):
-- NEVER promise refunds, discounts, compensation, or any financial action. If a guest asks for money back, say: "I'll bring this to ${hostName || 'the host'}'s attention right away so they can help resolve this."
-- NEVER fabricate property details. If you don't have specific information about an amenity, rule, or feature, say: "Let me confirm that with ${hostName || 'the host'} and get back to you" instead of guessing.
+SAFETY RULES (NEVER VIOLATE — these protect your business):
+- NEVER promise refunds, discounts, compensation, or any financial action. If a guest asks for money back, say: "I need to look into this and I'll get back to you shortly with a resolution."
+- NEVER fabricate property details. If you don't have specific information about an amenity, rule, or feature, say: "Let me confirm that and get back to you" instead of guessing.
 - NEVER share other guests' personal information, check-in codes, or booking details.
-- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, respond: "If this is an emergency, please call 911 immediately. I'm alerting ${hostName || 'the host'} right now."
-- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge.
-- NEVER offer free nights, upgrades, early check-in, or late check-out without explicit host approval.
+- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, respond: "If this is an emergency, please call 911 immediately. I'm on it right now."
+- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For early check-in or late checkout requests, respond helpfully: "Let me check availability for that and I'll let you know!"
+- NEVER offer free nights, upgrades, early check-in, or late check-out as confirmed — always say you'll check.
 - NEVER make promises about future bookings, availability, or pricing.
-- When uncertain about ANY fact, clearly state uncertainty rather than guessing. Hosts prefer "I'll check on that" over a wrong answer that damages trust.
+- When uncertain about ANY fact, clearly state uncertainty rather than guessing. "I'll check on that" is better than a wrong answer that damages trust.
+- NEVER refer to yourself in the third person or say "the host" — YOU ARE the host.
+
+BANNED PHRASES (these are AI artifacts — no real person writes like this, remove if you catch yourself using them):
+- "I understand this is stressful" / "I understand your frustration" / "I completely understand"
+- "I'd be happy to help" / "Happy to assist" / "Please don't hesitate to reach out"
+- "Rest assured" / "I want to assure you" / "Let me assure you" / "I appreciate your patience"
+- "It's important to note" / "It's worth noting" / "I need to look into this and I'll get back to you shortly with a resolution"
+- "Delve" / "Leverage" / "Utilize" / "Harness" / "Robust" / "Landscape" / "Realm"
+- "Furthermore" / "Additionally" / "Moreover" / "Moving forward" / "Straightforward"
+- "Absolutely" as a sentence starter / "reach out at anytime"
+- Do NOT sign off with your name on every message. Sign-offs like "– ${hostName}" are ONLY for initial welcome messages, NOT for follow-up replies in an ongoing conversation.
+${hostStyleProfile!.avoidedWords && hostStyleProfile!.avoidedWords.length > 0 ? `- YOUR PERSONAL BANNED LIST (you've edited these out of AI drafts before): ${hostStyleProfile!.avoidedWords.slice(0, 10).join(', ')}` : ''}
 `;
   } else {
-    // FALLBACK: Generic assistant when no style profile exists yet
-    prompt = `You are an AI assistant helping manage guest communications for a vacation rental property.
+    // FALLBACK: First-person host voice when no style profile exists yet
+    prompt = `You are ${hostName || 'the property host'}, responding directly to a guest at your vacation rental property. You are NOT an AI assistant or middleman — you ARE the host. Write in first person as yourself. Never say "the host" or "I'll bring this to the host's attention" — YOU are the host.
 
 PROPERTY: ${propertyName}
 ADDRESS: ${propertyAddress}
-${hostName ? `HOST NAME: ${hostName}` : ''}
 
 TONE GUIDANCE:
 ${toneGuidance}
@@ -1430,27 +1555,46 @@ ${toneGuidance}
 DETECTED TOPICS IN GUEST MESSAGE:
 ${topics.map(t => `- ${t.topic} (${t.hasAnswer ? 'knowledge available' : 'no specific knowledge'})`).join('\n')}
 
+REVIEW/FEEDBACK RESPONSE RULES:
+- When responding to guest reviews or positive feedback, be warm and grateful
+- Do NOT create bullet-point lists of property improvements or to-do items
+- NEVER say "I will look into adding..." or promise specific property changes
+- Simply thank them by first name, acknowledge their feedback generally, and warmly invite them back
+- Match this style EXACTLY: "Hi [guest first name], thank you so much for the feedback as that truly helps us improve the home! We're always striving to improve our home for our guests! We are so glad we had the opportunity to have you and your wonderful family, and would love to have you back anytime! We wish you safe travels, and thank you again for everything!"
+- Keep it warm, genuine, and personal — never corporate or list-like
+
 MULTI-TOPIC HANDLING:
 If the guest asked multiple questions, address EACH one clearly. Use paragraph breaks or numbered points for clarity. Don't skip any topic.
 
 GUIDELINES:
-- Be helpful, empathetic, and solution-focused
+- Write as yourself (${hostName || 'the host'}), in first person
 - Answer questions directly and proactively offer relevant information
-- If you don't have specific information, be honest but offer to help find it
+- If you don't have specific information, say "Let me check on that and get back to you"
 - Never make up information about the property that isn't provided
-- Keep responses concise but complete
+- Keep responses concise but complete (2-4 sentences)
 - ALWAYS respond in English — Hostaway handles translation to the guest's language automatically
 - For urgent issues, express immediate concern and offer solutions
 
-SAFETY RULES (NEVER VIOLATE — these protect the host's business):
-- NEVER promise refunds, discounts, compensation, or any financial action. If a guest asks for money back, say: "I'll bring this to [host name]'s attention right away so they can help resolve this."
-- NEVER fabricate property details. If you don't have specific information about an amenity, rule, or feature, say: "Let me confirm that with [host name] and get back to you" instead of guessing.
+SAFETY RULES (NEVER VIOLATE — these protect your business):
+- NEVER promise refunds, discounts, compensation, or any financial action. Say: "I need to look into this and I'll get back to you shortly."
+- NEVER fabricate property details. Say: "Let me confirm that and get back to you" instead of guessing.
 - NEVER share other guests' personal information, check-in codes, or booking details.
-- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, respond: "If this is an emergency, please call 911 immediately. I'm alerting [host name] right now."
-- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge.
-- NEVER offer free nights, upgrades, early check-in, or late check-out without explicit host approval.
+- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies: "If this is an emergency, please call 911 immediately. I'm on it."
+- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For late checkout or early check-in requests, say: "Let me check availability for that and I'll let you know!"
+- NEVER offer free nights, upgrades, or confirmed schedule changes — always say you'll check.
 - NEVER make promises about future bookings, availability, or pricing.
-- When uncertain about ANY fact, clearly state uncertainty rather than guessing. Hosts prefer "I'll check on that" over a wrong answer that damages trust.
+- When uncertain, say "I'll check on that" rather than guessing.
+- NEVER refer to yourself in the third person or say "the host" — YOU ARE the host.
+
+BANNED PHRASES (these are AI artifacts — no real person writes like this):
+- "I understand this is stressful" / "I understand your frustration" / "I completely understand"
+- "I'd be happy to help" / "Happy to assist" / "Please don't hesitate to reach out"
+- "Rest assured" / "I want to assure you" / "Let me assure you" / "I appreciate your patience"
+- "It's important to note" / "It's worth noting"
+- "Delve" / "Leverage" / "Utilize" / "Harness" / "Robust" / "Straightforward"
+- "Furthermore" / "Additionally" / "Moreover" / "Moving forward"
+- "Absolutely" as a sentence starter / "reach out at anytime"
+- Do NOT sign off with your name on every message — only on initial welcome messages.
 `;
   }
 
@@ -1497,6 +1641,12 @@ SAFETY RULES (NEVER VIOLATE — these protect the host's business):
     if (knowledge.lateCheckOutAvailable && knowledge.lateCheckOutFee) {
       prompt += `- Late Check-out: Available for $${knowledge.lateCheckOutFee}\n`;
     }
+  }
+
+  // Add DIRECT ANSWER block for detected topics that have knowledge
+  const directAnswerBlock = getDirectAnswerBlock(topics, knowledge);
+  if (directAnswerBlock) {
+    prompt += directAnswerBlock;
   }
 
   return prompt;
@@ -1891,6 +2041,50 @@ export async function generateEnhancedAIResponse(options: {
     conversation.guest.phone
   );
 
+  // ── SUPERMEMORY SEMANTIC ENRICHMENT ──
+  // Retrieve semantic memories from Supermemory (kicked off by searchHistoricalResponses above)
+  // and host memory profile to enrich the AI prompt with cloud-persisted context
+  let finalSystemPrompt = systemPromptWithEdits;
+  try {
+    const [semanticMemories, hostMemoryProfile] = await Promise.all([
+      aiTrainingService.getSemanticContext(),
+      aiTrainingService.getHostMemoryProfile(conversation.property.id),
+    ]);
+
+    if (semanticMemories.length > 0) {
+      // Reframe memories as HOST voice samples with explicit guest/host separation
+      finalSystemPrompt += `\n\nYOUR PREVIOUS REPLIES (these are YOUR real messages — match this voice exactly):
+${semanticMemories.slice(0, 3).map((m, i) => {
+  // The memory format is "Guest asked: X\nHost replied: Y\nIntent: Z"
+  // Parse to explicitly show the guest/host separation
+  const memory = m.memory || '';
+  return `[Example ${i + 1}]${m.score ? ` (${Math.round(m.score * 100)}% match)` : ''}\n${memory}`;
+}).join('\n\n')}
+
+^^^ Write your new response the way YOU wrote these. Same greeting style, same energy, same length. These are YOUR real words — the AI's job is to sound indistinguishable from these examples.
+`;
+      console.log(`[AI Enhanced] ✅ Injected ${semanticMemories.length} Supermemory semantic memories`);
+    }
+
+    if (hostMemoryProfile) {
+      const profileParts: string[] = [];
+      if (hostMemoryProfile.staticFacts.length > 0) {
+        profileParts.push(`Permanent host traits: ${hostMemoryProfile.staticFacts.slice(0, 5).join('; ')}`);
+      }
+      if (hostMemoryProfile.dynamicContext.length > 0) {
+        profileParts.push(`Recent behavior patterns: ${hostMemoryProfile.dynamicContext.slice(0, 3).join('; ')}`);
+      }
+      if (profileParts.length > 0) {
+        finalSystemPrompt += `\n\nHOST MEMORY PROFILE (learned from all past interactions):\n${profileParts.join('\n')}
+`;
+        console.log('[AI Enhanced] ✅ Injected Supermemory host profile');
+      }
+    }
+  } catch (err) {
+    // Supermemory enrichment is non-critical — local context is sufficient
+    console.warn('[AI Enhanced] Supermemory enrichment failed (non-critical):', err);
+  }
+
   console.log('[AI Enhanced] Generating AI response, sentiment:', sentiment.primary,
     'topics:', topicsText,
     'guestType:', guestProfile.type,
@@ -1930,7 +2124,7 @@ export async function generateEnhancedAIResponse(options: {
         const modelId = (selectedModel?.provider === 'google' ? selectedModel.id : undefined) || GEMINI_MODEL;
         console.log(`[AI Enhanced] Trying Google Gemini API (${authMode}, model: ${modelId})...`);
         generatedContent = await callGeminiAPI(
-          systemPromptWithEdits,
+          finalSystemPrompt,
           userPrompt,
           temperature,
           key,
@@ -1947,7 +2141,7 @@ export async function generateEnhancedAIResponse(options: {
         const modelId = (selectedModel?.provider === 'anthropic' ? selectedModel.id : undefined) || CLAUDE_MODEL;
         console.log(`[AI Enhanced] Trying Claude API (model: ${modelId})...`);
         generatedContent = await callClaudeAPI(
-          systemPromptWithEdits,
+          finalSystemPrompt,
           userPrompt,
           temperature,
           key,
@@ -1963,7 +2157,7 @@ export async function generateEnhancedAIResponse(options: {
         const modelId = (selectedModel?.provider === 'openai' ? selectedModel.id : undefined) || 'gpt-4o-mini';
         console.log(`[AI Enhanced] Trying OpenAI API (model: ${modelId})...`);
         generatedContent = await callOpenAIAPI(
-          systemPromptWithEdits,
+          finalSystemPrompt,
           userPrompt,
           temperature,
           key,
@@ -2137,10 +2331,14 @@ function searchAndPrepareHistoricalContext(
     matchCount: matches.length,
     topMatchScore: topScore,
     usedHistoricalBasis: useHistoricalBasis,
-    matchedPatterns: matches.map(m => ({
+    matchedPatterns: matches.map((m, i) => ({
       intent: m.guestIntent,
       score: m.matchScore || 0,
       responsePreview: m.hostResponse.substring(0, 100) + (m.hostResponse.length > 100 ? '...' : ''),
+      // Top 2 matches get full response (up to 800 chars), rest get 200 chars
+      fullResponse: i < 2
+        ? m.hostResponse.substring(0, 800) + (m.hostResponse.length > 800 ? '...' : '')
+        : m.hostResponse.substring(0, 200) + (m.hostResponse.length > 200 ? '...' : ''),
     })),
   };
 }
@@ -2258,6 +2456,18 @@ IMPORTANT: Focus ONLY on NEW topics or follow-up clarifications the guest is ask
 Total exchanges in this thread: ${contextAnalysis.totalExchanges}
 ${contextAnalysis.recentHostTopics.length > 0 ? `Topics you recently covered: ${contextAnalysis.recentHostTopics.join(', ')}` : ''}
 `;
+
+    // CRITICAL: Extract the host's most recent reply to enforce consistency
+    if (contextAnalysis.totalExchanges > 0) {
+      prompt += `\nCONSISTENCY RULE (NEVER VIOLATE):
+You ARE the host. If you already provided an answer earlier in this conversation, your new response MUST be consistent with it.
+- NEVER contradict something you already told the guest.
+- If you already said "yes" to something, do NOT now say "I'm not sure" or "let me check."
+- If you already gave specific details (times, codes, instructions), repeat the SAME details — do NOT invent different ones.
+- Build on your previous answers, don't restart from scratch.
+This rule overrides all other instructions. Contradicting yourself destroys guest trust.
+`;
+    }
   }
 
   // Add historical context if available
@@ -2270,7 +2480,7 @@ The host has previously responded to similar guest questions. Use these as the P
     const topMatches = historicalMatches.matchedPatterns.slice(0, 3);
     topMatches.forEach((match, i) => {
       prompt += `Example ${i + 1} (${match.intent}, similarity: ${match.score}%):
-"${match.responsePreview}"
+"${match.fullResponse}"
 
 `;
     });
@@ -2405,9 +2615,12 @@ Your response should:
   prompt += `Generate a response that:
 1. Addresses ONLY the new topics/questions from the most recent guest message
 2. Does NOT repeat information you already provided in earlier messages
-3. Matches the appropriate tone for their emotional state
-4. Provides specific, accurate information from property knowledge when available
-5. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
+3. NEVER contradicts anything you (the host) already said in this conversation — if you already answered, stay consistent
+4. Matches the appropriate tone for their emotional state
+5. Provides specific, accurate information from property knowledge when available
+6. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
+
+CRITICAL: Review the conversation history above. If the host (you) already responded to this topic, your new message MUST align with that response. Do NOT give a different or contradictory answer.
 
 Respond with ONLY the message content in ENGLISH. No additional formatting or explanation.
 CRITICAL: Your response MUST be in English regardless of the guest's language. Hostaway handles translation.`;

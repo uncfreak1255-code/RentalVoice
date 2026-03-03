@@ -6,6 +6,7 @@ import { useAppStore, type Conversation, type InboxSortPreference, type Guest } 
 import { getDemoConversations } from '@/lib/demo-data';
 import { ConversationItem } from './ConversationItem';
 import { DemoModeBanner } from './DemoModeBanner';
+import { checkAndRetrainIfNeeded } from '@/lib/auto-import';
 
 import {
   Inbox,
@@ -278,11 +279,12 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       // Beyond that, show them in the list using summary data from API
       const DETAIL_LIMIT = 30;
 
-      for (let i = 0; i < hostawayConversations.length; i++) {
-        const conv = hostawayConversations[i];
+      // Separate lightweight (beyond limit) from detailed conversations
+      const lightweightConvs = hostawayConversations.slice(DETAIL_LIMIT);
+      const detailConvs = hostawayConversations.slice(0, DETAIL_LIMIT);
 
-        // For conversations beyond the detail limit, create lightweight entries
-        if (i >= DETAIL_LIMIT) {
+      // Process lightweight conversations (no API calls needed)
+      for (const conv of lightweightConvs) {
           const guestName = extractGuestName(conv);
           const property = newProperties.find((p) => p.id === String(conv.listingMapId)) || {
             id: String(conv.listingMapId),
@@ -310,14 +312,13 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             } : undefined,
             unreadCount: (() => {
               const existing = existingMap.get(String(conv.id));
-              if (!existing) return conv.isRead ? 0 : 1; // New conversation: use Hostaway
+              if (!existing) return conv.isRead ? 0 : 1;
               if (existing.unreadCount === 0) {
-                // Was read locally — only mark unread if there's a genuinely new message
                 const existingTs = existing.lastMessage?.timestamp ? new Date(existing.lastMessage.timestamp).getTime() : 0;
                 const newTs = conv.lastMessageSentAt ? new Date(conv.lastMessageSentAt).getTime() : 0;
                 return newTs > existingTs ? 1 : 0;
               }
-              return existing.unreadCount; // Preserve existing unread count
+              return existing.unreadCount;
             })(),
             status: conv.isArchived ? 'archived' : 'active',
             checkInDate: conv.arrivalDate ? new Date(conv.arrivalDate) : undefined,
@@ -325,7 +326,6 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             platform: getChannelPlatform(conv.channelName, conv.channelId, conv.source),
             hasAiDraft: false,
           };
-          // Preserve local state
           const existing = existingMap.get(lightConv.id);
           if (existing) {
             lightConv.hasAiDraft = existing.hasAiDraft;
@@ -333,10 +333,25 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             lightConv.lastActivityTimestamp = existing.lastActivityTimestamp;
           }
           newConversations.push(lightConv);
-          continue;
-        }
+      }
+
+      // Helper to fetch full details for a single conversation
+      const fetchConversationDetails = async (conv: typeof hostawayConversations[0]): Promise<Conversation | null> => {
         try {
-          const messages = await fetchMessages(accountId, apiKey, conv.id);
+          // Fetch messages and reservation in parallel for each conversation
+          const [messagesResult, reservationResult] = await Promise.allSettled([
+            fetchMessages(accountId!, apiKey!, conv.id),
+            conv.reservationId
+              ? fetchReservation(accountId!, apiKey!, conv.reservationId)
+              : Promise.resolve(null),
+          ]);
+
+          const fetchedMessages = messagesResult.status === 'fulfilled' ? messagesResult.value : [];
+          const reservation = reservationResult.status === 'fulfilled' ? reservationResult.value : null;
+
+          if (messagesResult.status === 'rejected') {
+            console.error(`[Refresh] Failed to fetch messages for conversation ${conv.id}:`, messagesResult.reason);
+          }
 
           const property = newProperties.find((p) => p.id === String(conv.listingMapId)) || {
             id: String(conv.listingMapId),
@@ -349,35 +364,17 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           let checkInDate: Date | undefined = conv.arrivalDate ? new Date(conv.arrivalDate) : undefined;
           let checkOutDate: Date | undefined = conv.departureDate ? new Date(conv.departureDate) : undefined;
 
-          if (conv.reservationId) {
-            console.log(`[Refresh] Fetching reservation ${conv.reservationId} for guest details...`);
-            const reservation = await fetchReservation(accountId, apiKey, conv.reservationId);
-            if (reservation) {
-              // Get guest name if unknown
-              if (guestName === 'Unknown Guest') {
-                const resName = reservation.guestName ||
-                  `${reservation.guestFirstName || ''} ${reservation.guestLastName || ''}`.trim();
-                if (resName) {
-                  guestName = resName;
-                  console.log(`[Refresh] Got guest name from reservation: ${guestName}`);
-                }
-              }
-              // Get number of guests (adults + children)
-              const adults = reservation.adults || 0;
-              const children = reservation.children || 0;
-              numberOfGuests = adults + children;
-              console.log(`[Refresh] Got guest count from reservation: ${numberOfGuests} (${adults} adults, ${children} children)`);
-
-              // Get dates from reservation if not in conversation
-              if (!checkInDate && reservation.arrivalDate) {
-                checkInDate = new Date(reservation.arrivalDate);
-                console.log(`[Refresh] Got check-in date from reservation: ${checkInDate}`);
-              }
-              if (!checkOutDate && reservation.departureDate) {
-                checkOutDate = new Date(reservation.departureDate);
-                console.log(`[Refresh] Got check-out date from reservation: ${checkOutDate}`);
-              }
+          if (reservation) {
+            if (guestName === 'Unknown Guest') {
+              const resName = reservation.guestName ||
+                `${reservation.guestFirstName || ''} ${reservation.guestLastName || ''}`.trim();
+              if (resName) guestName = resName;
             }
+            const adults = reservation.adults || 0;
+            const children = reservation.children || 0;
+            numberOfGuests = adults + children;
+            if (!checkInDate && reservation.arrivalDate) checkInDate = new Date(reservation.arrivalDate);
+            if (!checkOutDate && reservation.departureDate) checkOutDate = new Date(reservation.departureDate);
           }
 
           const guest: Guest = {
@@ -388,9 +385,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             phone: conv.guestPhone || conv.guest?.phone,
           };
 
-          console.log(`[Refresh] Conversation ${conv.id} guest: ${guest.name}`);
-
-          const convertedMessages = messages.map((m) => convertHostawayMessage(m, String(conv.id)));
+          const convertedMessages = fetchedMessages.map((m) => convertHostawayMessage(m, String(conv.id)));
           const sortedMessages = convertedMessages.sort(
             (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
           );
@@ -403,15 +398,14 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             lastMessage: sortedMessages[sortedMessages.length - 1],
             unreadCount: (() => {
               const existing = existingMap.get(String(conv.id));
-              if (!existing) return conv.isRead ? 0 : 1; // New conversation: use Hostaway
+              if (!existing) return conv.isRead ? 0 : 1;
               if (existing.unreadCount === 0) {
-                // Was read locally — only mark unread if there's a genuinely new message
                 const existingTs = existing.lastMessage?.timestamp ? new Date(existing.lastMessage.timestamp).getTime() : 0;
                 const newLastMsg = sortedMessages[sortedMessages.length - 1];
                 const newTs = newLastMsg?.timestamp ? new Date(newLastMsg.timestamp).getTime() : 0;
                 return newTs > existingTs ? 1 : 0;
               }
-              return existing.unreadCount; // Preserve existing unread count
+              return existing.unreadCount;
             })(),
             status: conv.isArchived ? 'archived' : 'active',
             checkInDate,
@@ -434,9 +428,24 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             conversation.lastActivityType = existing.lastActivityType;
           }
 
-          newConversations.push(conversation);
-        } catch (msgError) {
-          console.error(`[Refresh] Failed to fetch messages for conversation ${conv.id}:`, msgError);
+          return conversation;
+        } catch (err) {
+          console.error(`[Refresh] Failed to process conversation ${conv.id}:`, err);
+          return null;
+        }
+      };
+
+      // Fetch detailed conversations in parallel batches of 5
+      const BATCH_SIZE = 5;
+      for (let batch = 0; batch < Math.ceil(detailConvs.length / BATCH_SIZE); batch++) {
+        const batchSlice = detailConvs.slice(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE);
+        const results = await Promise.allSettled(
+          batchSlice.map(conv => fetchConversationDetails(conv))
+        );
+        for (const result of results) {
+          if (result.status === 'fulfilled' && result.value) {
+            newConversations.push(result.value);
+          }
         }
       }
 
@@ -515,6 +524,9 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       if (!isDemoMode && accountId && apiKey) {
         console.log('[Inbox] Auto-refreshing on mount...');
         handleRefresh();
+
+        // Silently check if AI response index needs rebuilding
+        checkAndRetrainIfNeeded().catch(console.error);
       } else if (isDemoMode || (!accountId && !apiKey)) {
         // Load demo conversations for reviewers / first-time users
         if (conversations.length === 0) {
@@ -585,7 +597,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         {/* ── Rork-style Header ── */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#FFFFFF' }}>
           <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }} accessibilityRole="header">
-            Messages
+            Inbox
           </Text>
         </View>
 

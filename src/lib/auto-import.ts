@@ -130,3 +130,79 @@ export async function startAutoImportAfterConnect(
 export function isAutoImportActive(): boolean {
   return isAutoImportRunning;
 }
+
+/**
+ * Check if the AI needs retraining and trigger it from cached data.
+ * This should be called on app startup (e.g. InboxDashboard mount).
+ * If the response index has fewer than 10 patterns, it means the
+ * initial training failed to properly index guest→host pairs
+ * (likely due to the isIncoming type coercion bug).
+ * 
+ * This re-trains using data already cached in AsyncStorage — no API calls needed.
+ */
+export async function checkAndRetrainIfNeeded(): Promise<void> {
+  try {
+    const state = aiTrainingService.getState();
+    const index = aiTrainingService.getResponseIndex();
+
+    // Only retrain if:
+    // 1. Not currently training
+    // 2. Initial training has completed (data was fetched at some point)
+    // 3. Index is suspiciously low (< 10 patterns from hundreds of messages)
+    if (state.isTraining || state.isAutoTraining) {
+      console.log('[AutoRetrain] Training already in progress, skipping');
+      return;
+    }
+
+    if (!state.hasCompletedInitialTraining) {
+      console.log('[AutoRetrain] No initial training completed yet, skipping');
+      return;
+    }
+
+    if (index.totalPatterns >= 10) {
+      console.log(`[AutoRetrain] Index has ${index.totalPatterns} patterns, looks healthy`);
+      return;
+    }
+
+    console.log(`[AutoRetrain] Index only has ${index.totalPatterns} patterns (expected hundreds). Attempting retrain from cached data...`);
+
+    // Load cached history data from AsyncStorage
+    const { historySyncManager } = await import('./history-sync');
+    await historySyncManager.loadState();
+
+    const data = historySyncManager.getData();
+    if (!data || data.conversations.length === 0) {
+      console.log('[AutoRetrain] No cached history data available for retraining');
+      return;
+    }
+
+    console.log(`[AutoRetrain] Found cached data: ${data.conversations.length} conversations. Starting retrain...`);
+
+    const store = useAppStore.getState();
+    const existingProfile = store.hostStyleProfiles['global'];
+
+    const result = await aiTrainingService.autoTrainOnFetch(
+      data.conversations,
+      data.messages,
+      existingProfile
+    );
+
+    if (result.success) {
+      store.updateHostStyleProfile('global', result.styleProfile);
+      store.updateAILearningProgress({
+        totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+        patternsIndexed: result.stats.patternsIndexed,
+        lastTrainingDate: new Date(),
+        lastTrainingResult: {
+          hostMessagesAnalyzed: result.stats.hostMessagesAnalyzed,
+          patternsIndexed: result.stats.patternsIndexed,
+          trainingSampleSize: result.stats.trainingSampleSize,
+          trainingDurationMs: result.stats.trainingDurationMs,
+        },
+      });
+      console.log(`[AutoRetrain] ✅ Retraining complete: ${result.stats.patternsIndexed} patterns indexed (was ${index.totalPatterns})`);
+    }
+  } catch (error) {
+    console.error('[AutoRetrain] Retraining failed:', error);
+  }
+}

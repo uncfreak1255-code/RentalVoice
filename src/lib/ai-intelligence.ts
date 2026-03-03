@@ -411,23 +411,76 @@ export function generateVoiceDNA(profile: HostStyleProfile): string {
 }
 
 /**
- * Generate a concise system prompt snippet from the Voice DNA.
+ * Generate a rich Voice DNA prompt snippet (~150 words) from the host's style profile.
+ * Every line is derived from the host's actual messages — no generic rules imposed.
  * Designed to be injected into any AI model's system prompt.
  */
 export function generateVoiceDNAPromptSnippet(profile: HostStyleProfile): string {
-  const parts: string[] = [];
+  const lines: string[] = [];
 
-  const formality = profile.formalityLevel < 30 ? 'casual' : profile.formalityLevel < 60 ? 'balanced' : 'formal';
-  const warmth = profile.warmthLevel < 30 ? 'direct' : profile.warmthLevel < 60 ? 'friendly' : 'warm';
-  parts.push(`Tone: ${formality}, ${warmth}.`);
+  // Identity
+  const formality = profile.formalityLevel < 30 ? 'casual and relaxed'
+    : profile.formalityLevel < 60 ? 'balanced — friendly but professional'
+    : 'professional and polished';
+  const warmth = profile.warmthLevel < 30 ? 'direct and efficient'
+    : profile.warmthLevel < 60 ? 'friendly and approachable'
+    : 'very warm and personal — you genuinely care about each guest';
+  lines.push(`TONE: ${formality}. ${warmth}.`);
 
-  if (profile.commonGreetings[0]) parts.push(`Greeting: "${profile.commonGreetings[0]}".`);
-  if (profile.commonSignoffs[0]) parts.push(`Sign-off: "${profile.commonSignoffs[0]}".`);
-  parts.push(profile.usesEmojis ? 'Uses emojis.' : 'No emojis.');
-  parts.push(`~${Math.round(profile.averageResponseLength)} words per response.`);
-  if (profile.commonPhrases[0]) parts.push(`Phrases: "${profile.commonPhrases[0]}".`);
+  // Greeting pattern
+  if (profile.commonGreetings.length > 0) {
+    const greetings = profile.commonGreetings.slice(0, 3).map(g => `"${g}"`).join(' or ');
+    lines.push(`GREETING: Always start with ${greetings} — use the guest's first name. This is non-negotiable.`);
+  }
 
-  return parts.join(' ');
+  // Sign-off pattern — context-aware (NOT on every message)
+  if (profile.commonSignoffs.length > 0) {
+    const signoffs = profile.commonSignoffs.slice(0, 2).map(s => `"${s}"`).join(' or ');
+    lines.push(`SIGN-OFF: ${signoffs} — but ONLY on initial welcome messages. For follow-up replies in an ongoing conversation, end naturally without a formal sign-off.`);
+  }
+
+  // Emoji usage
+  if (profile.usesEmojis) {
+    lines.push(`EMOJIS: You use emojis naturally (~${Math.round(profile.emojiFrequency / 10)} per message). They feel warm, not forced.`);
+  } else {
+    lines.push('EMOJIS: You NEVER use emojis. Any emoji in the response is WRONG.');
+  }
+
+  // Length and structure
+  const lengthDesc = profile.averageResponseLength < 40 ? 'short and punchy (1-2 sentences)'
+    : profile.averageResponseLength < 100 ? 'moderate length (2-4 sentences)'
+    : 'detailed when needed (4+ sentences, but never padded)';
+  lines.push(`LENGTH: Your messages are ${lengthDesc}, averaging ~${Math.round(profile.averageResponseLength)} words. Don't pad to seem thorough — match THIS length.`);
+
+  // Signature phrases
+  if (profile.commonPhrases.length > 0) {
+    const phrases = profile.commonPhrases.slice(0, 5).map(p => `"${p}"`).join(', ');
+    lines.push(`YOUR PHRASES (use these naturally): ${phrases}`);
+  }
+
+  // Intent-specific examples (the 85% consistency the user mentioned)
+  if (profile.intentPatterns && Object.keys(profile.intentPatterns).length > 0) {
+    const topIntents = Object.entries(profile.intentPatterns)
+      .filter(([, examples]) => examples.length > 0)
+      .slice(0, 3);
+    if (topIntents.length > 0) {
+      lines.push('HOW YOU TYPICALLY RESPOND:');
+      for (const [intent, examples] of topIntents) {
+        if (examples[0]) {
+          const short = examples[0].length > 120 ? examples[0].substring(0, 120) + '...' : examples[0];
+          lines.push(`  ${intent}: "${short}"`);
+        }
+      }
+    }
+  }
+
+  // Avoided words from edit diffs
+  if (profile.avoidedWords && profile.avoidedWords.length > 0) {
+    const avoided = profile.avoidedWords.slice(0, 8).map(w => `"${w}"`).join(', ');
+    lines.push(`NEVER SAY (you've edited these out before): ${avoided}`);
+  }
+
+  return lines.join('\n');
 }
 
 
