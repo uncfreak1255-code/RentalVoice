@@ -212,9 +212,9 @@ export function MessageComposer({
     if (editedDraft.trim()) {
       Keyboard.dismiss();
       const contentToSend = editedDraft.trim();
-      // Pass the edited content directly to approve — bypasses stale state
-      // No need for onEditAiDraft or setTimeout workarounds
-      setIsEditingDraft(false);
+      // Don't manually setIsEditingDraft(false) here — the useEffect watching
+      // aiDraft handles cleanup when the draft is cleared by handleApproveAiDraft.
+      // Setting it manually causes a FadeOut animation race with the optimistic UI update.
       onApproveAiDraft(contentToSend);
     }
   };
