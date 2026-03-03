@@ -599,6 +599,8 @@ export function MessageComposer({
             onPress={handleSend}
             disabled={!message.trim() || disabled || isGenerating}
             style={[mcStyles.sendBtn, { backgroundColor: message.trim() && !isGenerating ? colors.accent.DEFAULT : colors.bg.hover }]}
+            accessibilityLabel="Send message"
+            accessibilityHint="Sends your typed message to the guest"
           >
             <Send
               size={20}
