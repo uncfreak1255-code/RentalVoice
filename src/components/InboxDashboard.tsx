@@ -34,7 +34,7 @@ import {
   SENTIMENT_PRIORITY,
 } from '@/lib/sentiment-analysis';
 import { checkAndSendScheduledMessages } from '@/lib/automation-engine';
-import { convertListingToProperty, getChannelPlatform, convertHostawayMessage } from '@/lib/hostaway-utils';
+import { convertListingToProperty, getChannelPlatform, convertHostawayMessage, parseHostawayTimestamp } from '@/lib/hostaway-utils';
 import { UndoToast } from './UndoToast';
 import {
   notifyNewGuestMessage,
@@ -46,12 +46,16 @@ import {
 
 
 // Helper function to get the effective timestamp for sorting
+// Prioritize actual message timestamp over local activity timestamp
+// to match Hostaway's sort order (most recent message at top)
 function getEffectiveTimestamp(conversation: Conversation): number {
-  if (conversation.lastActivityTimestamp) {
-    return new Date(conversation.lastActivityTimestamp).getTime();
-  }
+  // Use the last message timestamp as the primary sort key
   if (conversation.lastMessage?.timestamp) {
     return new Date(conversation.lastMessage.timestamp).getTime();
+  }
+  // Fallback to local activity timestamp
+  if (conversation.lastActivityTimestamp) {
+    return new Date(conversation.lastActivityTimestamp).getTime();
   }
   return 0;
 }
@@ -307,7 +311,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               conversationId: String(conv.id),
               content: conv.lastMessage,
               sender: 'guest',
-              timestamp: new Date(conv.lastMessageSentAt || Date.now()),
+              timestamp: parseHostawayTimestamp(conv.lastMessageSentAt || Date.now()),
               isRead: true,
             } : undefined,
             unreadCount: (() => {
@@ -315,7 +319,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               if (!existing) return conv.isRead ? 0 : 1;
               if (existing.unreadCount === 0) {
                 const existingTs = existing.lastMessage?.timestamp ? new Date(existing.lastMessage.timestamp).getTime() : 0;
-                const newTs = conv.lastMessageSentAt ? new Date(conv.lastMessageSentAt).getTime() : 0;
+                const newTs = conv.lastMessageSentAt ? parseHostawayTimestamp(conv.lastMessageSentAt).getTime() : 0;
                 return newTs > existingTs ? 1 : 0;
               }
               return existing.unreadCount;

@@ -6,6 +6,38 @@
 import type { Property, Message } from './store';
 import type { HostawayListing, HostawayMessage } from './hostaway';
 
+/**
+ * Parse a Hostaway timestamp string into a proper Date.
+ * Hostaway sends timestamps in UTC (e.g. "2026-03-03 19:03:00") but WITHOUT
+ * a "Z" suffix. JavaScript's Date() treats these as LOCAL time, causing
+ * a 5-hour offset for EST users. This helper ensures UTC interpretation
+ * so toLocaleTimeString() correctly converts to the user's local timezone.
+ */
+export function parseHostawayTimestamp(ts: string | number | Date | undefined | null): Date {
+  if (!ts) return new Date();
+  if (ts instanceof Date) return ts;
+
+  // Unix epoch (seconds or milliseconds)
+  if (typeof ts === 'number') {
+    return ts < 10_000_000_000 ? new Date(ts * 1000) : new Date(ts);
+  }
+
+  // String timestamp — append "Z" if no timezone indicator present
+  const str = String(ts).trim();
+  if (
+    !str.endsWith('Z') &&
+    !str.includes('+') &&
+    !/\d{2}:\d{2}:\d{2}-\d{2}/.test(str) && // No -HH:MM offset
+    !/T.*[+-]\d{2}/.test(str) // No ISO offset
+  ) {
+    // Replace space between date and time with "T" for ISO compat, then add Z
+    const isoStr = str.replace(' ', 'T') + 'Z';
+    return new Date(isoStr);
+  }
+
+  return new Date(str);
+}
+
 /** Convert a Hostaway listing to an app Property */
 export function convertListingToProperty(listing: HostawayListing): Property {
   return {
@@ -49,7 +81,8 @@ export function convertHostawayMessage(msg: HostawayMessage, conversationId: str
     conversationId,
     content: msg.body || '',
     sender: msg.isIncoming ? 'guest' : 'host',
-    timestamp: new Date(msg.sentOn || msg.insertedOn),
+    timestamp: parseHostawayTimestamp(msg.sentOn || msg.insertedOn),
     isRead: true,
   };
 }
+

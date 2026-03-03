@@ -22,7 +22,7 @@ import {
   extractGuestName,
 } from '../hostaway';
 import type { HostawayConversation } from '../hostaway';
-import { convertListingToProperty, convertHostawayMessage, getChannelPlatform } from '../hostaway-utils';
+import { convertListingToProperty, convertHostawayMessage, getChannelPlatform, parseHostawayTimestamp } from '../hostaway-utils';
 
 // Store credentials in the adapter so they persist across calls
 let storedAccountId: string | null = null;
@@ -45,7 +45,7 @@ function convertConversation(conv: HostawayConversation, properties: Property[])
     conversationId: String(conv.id),
     content: typeof lastMsg === 'string' ? lastMsg : '',
     sender: 'guest' as const,
-    timestamp: new Date(conv.lastMessageSentAt || Date.now()),
+    timestamp: parseHostawayTimestamp(conv.lastMessageSentAt || Date.now()),
     isRead: true,
   } : undefined;
 

@@ -11,6 +11,7 @@ import {
   hasStoredCredentials,
   tokenNeedsRefresh,
 } from './secure-storage';
+import { parseHostawayTimestamp } from './hostaway-utils';
 
 const HOSTAWAY_API_BASE = 'https://api.hostaway.com/v1';
 
@@ -841,7 +842,7 @@ export function filterMessagesByDateRange(
   endDate?: Date
 ): HostawayMessage[] {
   return messages.filter(msg => {
-    const msgDate = new Date(msg.insertedOn);
+    const msgDate = parseHostawayTimestamp(msg.insertedOn);
     if (startDate && msgDate < startDate) return false;
     if (endDate && msgDate > endDate) return false;
     return true;
