@@ -179,6 +179,27 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
   const generateDraft = useCallback(async (modifier?: RegenerationOption['modifier']) => {
     if (!conversation || isGenerating) return;
 
+    // ── RESPONSE-NEEDED GATE ──
+    // Don't draft for closing/acknowledgment messages — a real host wouldn't reply to "Ok, thank you"
+    const CLOSING_PATTERNS = /^\s*(ok|okay|k|got it|thanks?|thank you|thank you!|thx|ty|perfect|great|sounds good|awesome|understood|will do|no worries|all good|all set|cool|sure|noted|appreciate it|much appreciated|you're the best|wonderful|excellent|👍|🙏|❤️|😊|🙌|👌)\s*[.!]*\s*$/i;
+    const nonDraftMessages = conversation.messages.filter(m => m.sender !== 'ai_draft');
+    const lastMsg = nonDraftMessages[nonDraftMessages.length - 1];
+    const secondLastMsg = nonDraftMessages[nonDraftMessages.length - 2];
+
+    if (
+      lastMsg?.sender === 'guest' &&
+      secondLastMsg?.sender === 'host' &&
+      CLOSING_PATTERNS.test(lastMsg.content.trim()) &&
+      lastMsg.content.trim().length < 50  // Short messages only
+    ) {
+      console.log('[useAIDraft] ⏭️ Skipping draft — guest sent closing message:', lastMsg.content.trim());
+      setDraft({
+        content: "You're welcome! 😊",
+        confidence: 95,
+      });
+      return;
+    }
+
     setIsGenerating(true);
 
     try {

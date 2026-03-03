@@ -2013,7 +2013,10 @@ export async function generateEnhancedAIResponse(options: {
     .filter((m) => m.sender !== 'ai_draft')
     .map((m, idx) => {
       const role = m.sender === 'guest' ? 'Guest' : 'Host';
-      return `[${idx + 1}] ${role}: ${m.content}`;
+      const time = m.timestamp
+        ? new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : '';
+      return `[${idx + 1}] [${time}] ${role}: ${m.content}`;
     })
     .join('\n');
 
@@ -2445,7 +2448,7 @@ IMPORTANT: Focus ONLY on NEW topics or follow-up clarifications the guest is ask
         flowGuidance = 'The guest seems confused or needs clarification. Explain more clearly and offer additional help.';
         break;
       case 'resolution':
-        flowGuidance = 'The guest seems satisfied or is wrapping up. Keep response brief and friendly.';
+        flowGuidance = 'The guest is acknowledging/thanking you for your previous reply. They do NOT need a substantive answer. Respond with ONLY a brief, warm closing (e.g. "You\'re welcome!", "Happy to help!", "Enjoy your stay!") — 1 sentence max, no more than 10 words. Do NOT re-explain anything or bring up new information.';
         break;
       case 'new_topic':
         flowGuidance = 'This is a new topic. Provide a complete, helpful response.';

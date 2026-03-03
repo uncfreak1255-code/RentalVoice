@@ -278,7 +278,10 @@ function buildConversationContext(messages: Message[]): string {
     .filter((m) => m.sender !== 'ai_draft')
     .map((m) => {
       const role = m.sender === 'guest' ? 'Guest' : 'Host';
-      return `${role}: ${m.content}`;
+      const time = m.timestamp
+        ? new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : '';
+      return `[${time}] ${role}: ${m.content}`;
     })
     .join('\n');
 }
