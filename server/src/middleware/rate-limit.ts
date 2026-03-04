@@ -25,7 +25,7 @@ interface RateLimitConfig {
 export function rateLimit(config: RateLimitConfig) {
   return async (c: Context, next: Next): Promise<Response | void> => {
     const userId = c.get('userId') as string | undefined;
-    const key = userId || c.req.header('x-forwarded-for') || 'anonymous';
+    const key = userId || 'unauthenticated';
     const storeKey = `${key}:${c.req.path}`;
 
     const now = Date.now();
@@ -55,7 +55,7 @@ export function rateLimit(config: RateLimitConfig) {
     }
 
     // Clean up expired entries periodically
-    if (rateLimitStore.size > 10000) {
+    if (rateLimitStore.size > 1000) {
       for (const [k, v] of rateLimitStore) {
         if (v.resetAt < now) rateLimitStore.delete(k);
       }
@@ -77,3 +77,11 @@ export function rateLimit(config: RateLimitConfig) {
 export const aiRateLimit = rateLimit({ maxRequests: 100, windowMs: 60 * 60 * 1000 });
 export const apiRateLimit = rateLimit({ maxRequests: 1000, windowMs: 60 * 60 * 1000 });
 export const learnRateLimit = rateLimit({ maxRequests: 30, windowMs: 60 * 60 * 1000 });
+
+// Periodic cleanup of expired entries to prevent unbounded memory growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateLimitStore) {
+    if (v.resetAt < now) rateLimitStore.delete(k);
+  }
+}, 60 * 1000); // Every 60 seconds

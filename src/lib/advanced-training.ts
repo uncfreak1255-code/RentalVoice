@@ -287,6 +287,14 @@ class MultiPassTrainer {
     const passes: TrainingPass[] = ['style_tone', 'intent_mapping', 'phrase_mining', 'contextual', 'edge_cases'];
 
     for (const pass of passes) {
+      // Skip statistical passes for small datasets where they can't produce useful results
+      if (messages.length < 10 && (pass === 'contextual' || pass === 'edge_cases')) {
+        console.log(`[MultiPassTrainer] Skipping ${pass} — only ${messages.length} messages (need 10+)`);
+        this.state.passProgress[pass] = 100;
+        this.state.passesCompleted.push(pass);
+        continue;
+      }
+
       this.state.currentPass = pass;
       this.state.passProgress[pass] = 0;
       this.notifyCallbacks();

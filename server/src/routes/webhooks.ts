@@ -114,6 +114,11 @@ webhooksRouter.post('/stripe', async (c) => {
       const userId = session.metadata?.userId;
       const plan = session.metadata?.plan;
 
+      if (!userId || !plan) {
+        console.warn(`[Webhooks] checkout.session.completed missing metadata — userId: ${userId}, plan: ${plan}, event: ${event.id}`);
+        break;
+      }
+
       if (userId && plan) {
         await supabase
           .from('users')

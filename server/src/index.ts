@@ -10,6 +10,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { bodyLimit } from 'hono/body-limit';
+import { initializeDatabase } from './db/supabase.js';
 import { aiRouter } from './routes/ai-generate.js';
 import { authRouter } from './routes/auth.js';
 import { settingsRouter } from './routes/settings.js';
@@ -42,6 +44,9 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
+
+// Request body size limit (1MB)
+app.use('*', bodyLimit({ maxSize: 1024 * 1024 }));
 
 // Request logging
 app.use('*', logger());
@@ -101,6 +106,9 @@ app.onError((err, c) => {
 // ============================================================
 // Export & Start
 // ============================================================
+
+// Fail fast if database env vars are missing
+initializeDatabase();
 
 // For Vercel: export as default
 export default app;

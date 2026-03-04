@@ -189,13 +189,22 @@ export async function checkAndSendScheduledMessages(
   const activeScheduled = scheduledMessages.filter((m) => m.isActive);
   if (activeScheduled.length === 0) return results;
 
+  // Index active conversations by propertyId for O(1) lookup instead of O(n) filter per scheduled message
+  const conversationsByProperty = new Map<string, typeof conversations>();
+  for (const c of conversations) {
+    if (c.status !== 'active') continue;
+    const propId = c.property.id;
+    if (!conversationsByProperty.has(propId)) {
+      conversationsByProperty.set(propId, []);
+    }
+    conversationsByProperty.get(propId)!.push(c);
+  }
+
   let keysChanged = false;
 
   for (const scheduled of activeScheduled) {
-    // Only check conversations for the specified property
-    const propertyConversations = conversations.filter(
-      (c) => c.property.id === scheduled.propertyId && c.status === 'active'
-    );
+    // O(1) lookup via index
+    const propertyConversations = conversationsByProperty.get(scheduled.propertyId) || [];
     const property = properties.find((p) => p.id === scheduled.propertyId);
     if (!property) continue;
 

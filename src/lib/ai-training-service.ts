@@ -211,7 +211,16 @@ class AITrainingService {
       // Trim index if too large
       if (this.responseIndex.patterns.length > TRAINING_CONFIG.maxIndexEntries) {
         this.responseIndex.patterns = this.responseIndex.patterns.slice(-TRAINING_CONFIG.maxIndexEntries);
-        this.rebuildIndexMaps();
+        // Rebuild maps with corruption guard — revert on failure
+        const oldIntentGroups = { ...this.responseIndex.intentGroups };
+        const oldKeywordIndex = { ...this.responseIndex.keywordIndex };
+        try {
+          this.rebuildIndexMaps();
+        } catch (rebuildErr) {
+          console.error('[AITraining] rebuildIndexMaps failed, reverting:', rebuildErr);
+          this.responseIndex.intentGroups = oldIntentGroups;
+          this.responseIndex.keywordIndex = oldKeywordIndex;
+        }
       }
       await AsyncStorage.setItem(scopedKey(RESPONSE_INDEX_KEY), JSON.stringify(this.responseIndex));
     } catch (error) {
