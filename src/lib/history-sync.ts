@@ -40,6 +40,7 @@ export interface SyncState {
   lastConversationOffset: number;
   lastConversationId: number | null;
   processedConversationIds: number[];
+  partialSync: boolean; // true if sync was interrupted (e.g. rate limiting)
 
   // Timing
   startTime: number | null;
@@ -144,6 +145,7 @@ class HistorySyncManager {
       lastConversationOffset: 0,
       lastConversationId: null,
       processedConversationIds: [],
+      partialSync: false,
       startTime: null,
       estimatedTimeRemaining: null,
       dateRangeMonths: 24,
@@ -173,6 +175,10 @@ class HistorySyncManager {
   // Save state to storage for resumability
   async saveState(): Promise<void> {
     try {
+      // Cap processedConversationIds to prevent unbounded memory growth
+      if (this.state.processedConversationIds.length > 10000) {
+        this.state.processedConversationIds = this.state.processedConversationIds.slice(-10000);
+      }
       await AsyncStorage.setItem(SYNC_STATE_KEY, JSON.stringify(this.state));
     } catch (error) {
       console.error('[HistorySync] Failed to save state:', error);
@@ -362,6 +368,12 @@ class HistorySyncManager {
       return;
     }
 
+    // Clear stale callbacks from previous sync runs to prevent memory leaks
+    this.progressCallback = null;
+    this.dataCallback = null;
+    this.errorCallback = null;
+    this.completeCallback = null;
+
     this.accountId = accountId;
     this.apiKey = apiKey;
     this.abortController = new AbortController();
@@ -479,6 +491,19 @@ class HistorySyncManager {
 
       if (result.error) {
         this.addError('conversations', result.error, undefined, result.rateLimited);
+        if (result.rateLimited) {
+          // Rate limit exhausted — save partial state so we can resume later
+          this.state.partialSync = true;
+          await this.saveState();
+          if (this.errorCallback) {
+            this.errorCallback({
+              timestamp: Date.now(),
+              phase: 'conversations',
+              message: `Sync incomplete — ${this.fetchedConversations.length} conversations fetched so far. Will retry automatically.`,
+              retryable: true,
+            });
+          }
+        }
         throw new Error(result.error);
       }
 

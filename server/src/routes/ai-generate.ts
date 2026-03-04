@@ -26,7 +26,7 @@ const aiRouter = new Hono();
 const generateSchema = z.object({
   message: z.string().min(1).max(10000),
   conversationHistory: z.array(z.object({
-    role: z.string(),
+    role: z.enum(['user', 'assistant']),
     content: z.string(),
   })).optional(),
   propertyId: z.string().optional(),
@@ -40,7 +40,7 @@ const autopilotSchema = z.object({
   message: z.string().min(1).max(10000),
   conversationId: z.string().min(1),
   conversationHistory: z.array(z.object({
-    role: z.string(),
+    role: z.enum(['user', 'assistant']),
     content: z.string(),
   })).optional(),
   propertyId: z.string().optional(),
@@ -203,23 +203,18 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
       reason = `Confidence ${confidencePercent}% < threshold ${threshold}%`;
     }
 
-    // 5. Log the decision (async, non-blocking)
-    Promise.resolve(
-      supabase
-        .from('autopilot_actions')
-        .insert({
-          org_id: auth.orgId,
-          conversation_id: parsed.data.conversationId,
-          property_id: parsed.data.propertyId || null,
-          action,
-          confidence: result.confidence,
-          draft_preview: result.draft.slice(0, 200),
-          reason,
-          guest_message_preview: parsed.data.message.slice(0, 200),
-        })
-    )
-      .then(() => console.log(`[Autopilot] Logged: ${action} (${confidencePercent}%)`))
-      .catch((err: unknown) => console.error('[Autopilot] Log failed:', err));
+    // 5. Log the decision (async, non-blocking, with retry)
+    const logData = {
+      org_id: auth.orgId,
+      conversation_id: parsed.data.conversationId,
+      property_id: parsed.data.propertyId || null,
+      action,
+      confidence: result.confidence,
+      draft_preview: result.draft.slice(0, 200),
+      reason,
+      guest_message_preview: parsed.data.message.slice(0, 200),
+    };
+    logAutopilotAction(supabase, logData, confidencePercent);
 
     return c.json({
       action,
@@ -262,6 +257,19 @@ aiRouter.post('/learn', requireAuth, learnRateLimit, async (c) => {
 
     const auth = getAuthContext(c);
     const supabase = getSupabaseAdmin();
+
+    // Validate propertyId belongs to the org
+    if (parsed.data.propertyId) {
+      const { data: prop } = await supabase
+        .from('properties')
+        .select('id')
+        .eq('id', parsed.data.propertyId)
+        .eq('org_id', auth.orgId)
+        .single();
+      if (!prop) {
+        return c.json({ message: 'Property not found', code: 'NOT_FOUND', status: 404 }, 404);
+      }
+    }
 
     // 1. Store the edit pattern
     await supabase.from('edit_patterns').insert({
@@ -488,6 +496,30 @@ Do not include a subject line or greeting format — just the response text.
 
 GUEST REVIEW:
 "${data.review}"`;
+}
+
+// ============================================================
+// Helper: Log autopilot action with retry
+// ============================================================
+
+async function logAutopilotAction(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  data: Record<string, unknown>,
+  confidencePercent: number,
+): Promise<void> {
+  try {
+    await supabase.from('autopilot_actions').insert(data);
+    console.log(`[Autopilot] Logged: ${data.action} (${confidencePercent}%)`);
+  } catch (err) {
+    console.warn('[Autopilot] Log failed, retrying once...');
+    try {
+      await new Promise((r) => setTimeout(r, 1000));
+      await supabase.from('autopilot_actions').insert(data);
+      console.log(`[Autopilot] Logged on retry: ${data.action} (${confidencePercent}%)`);
+    } catch (retryErr) {
+      console.error('[Autopilot] Log permanently failed:', JSON.stringify(data), retryErr);
+    }
+  }
 }
 
 export { aiRouter };

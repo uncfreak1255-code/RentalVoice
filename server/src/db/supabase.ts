@@ -38,6 +38,15 @@ export function getSupabaseAdmin(): SupabaseClient {
 }
 
 /**
+ * Eagerly initialize the database connection.
+ * Call at startup to fail fast if env vars are missing.
+ */
+export function initializeDatabase(): void {
+  getSupabaseAdmin();
+  console.log('[Supabase] Database client initialized');
+}
+
+/**
  * Get a Supabase client scoped to a specific user's JWT (respects RLS).
  * Use for operations where RLS should enforce data access.
  */

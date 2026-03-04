@@ -14,7 +14,7 @@ const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
 /**
- * Get the encryption key from environment.
+ * Get the current encryption key from environment.
  * Must be exactly 32 bytes (256 bits) hex-encoded (64 hex chars).
  */
 function getEncryptionKey(): Buffer {
@@ -26,6 +26,18 @@ function getEncryptionKey(): Buffer {
     throw new Error('[Encryption] ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
   }
   return Buffer.from(key, 'hex');
+}
+
+/**
+ * Get the legacy (v0) encryption key for rotation support.
+ * Falls back to current key if no legacy key is set.
+ */
+function getLegacyKey(): Buffer {
+  const legacyKey = process.env.ENCRYPTION_KEY_V0;
+  if (legacyKey && legacyKey.length === 64) {
+    return Buffer.from(legacyKey, 'hex');
+  }
+  return getEncryptionKey();
 }
 
 /**
@@ -44,7 +56,7 @@ export function encrypt(plaintext: string): string {
 
   // Format: IV (16 bytes) + Tag (16 bytes) + Ciphertext
   const result = Buffer.concat([iv, tag, encrypted]);
-  return result.toString('base64');
+  return 'v1:' + result.toString('base64');
 }
 
 /**
@@ -52,8 +64,10 @@ export function encrypt(plaintext: string): string {
  * Throws if the data has been tampered with (GCM auth tag check).
  */
 export function decrypt(encryptedBase64: string): string {
-  const key = getEncryptionKey();
-  const data = Buffer.from(encryptedBase64, 'base64');
+  const version = encryptedBase64.startsWith('v1:') ? 1 : 0;
+  const raw = version === 1 ? encryptedBase64.slice(3) : encryptedBase64;
+  const key = version === 0 ? getLegacyKey() : getEncryptionKey();
+  const data = Buffer.from(raw, 'base64');
 
   if (data.length < IV_LENGTH + TAG_LENGTH) {
     throw new Error('[Encryption] Invalid encrypted data: too short');

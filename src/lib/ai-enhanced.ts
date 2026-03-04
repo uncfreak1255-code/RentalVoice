@@ -275,12 +275,15 @@ export function analyzeSentimentAdvanced(content: string): SentimentAnalysis {
     /\b(will|would|can|could) help\b/i,
   ];
 
-  const isUrgent = urgentPatterns.some(p => p.test(content));
-  const isBenign = benignPhrases.some(p => p.test(content));
+  // Context-aware check: split into sentences and see if urgency appears
+  // in a sentence that doesn't also contain benign phrases
+  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const hasUrgentSentence = sentences.some(
+    s => urgentPatterns.some(p => p.test(s)) && !benignPhrases.some(p => p.test(s))
+  );
 
-  // Only classify as urgent if we match urgent patterns AND the message
-  // doesn't look like a calm/informational message
-  if (isUrgent && !isBenign) {
+  // Only classify as urgent if urgency appears in a non-benign sentence
+  if (hasUrgentSentence) {
     return {
       primary: 'urgent',
       intensity: 95,

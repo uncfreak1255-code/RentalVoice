@@ -25,6 +25,7 @@ export interface IntentResult {
   label: string;             // Human-readable badge text
   color: string;             // Badge color
   priority: number;          // 1 = highest priority in inbox
+  secondaryIntents: { intent: GuestIntent; confidence: number }[]; // Additional detected intents
 }
 
 export interface SafetyFlag {
@@ -136,7 +137,7 @@ const INTENT_CONFIG: Record<GuestIntent, { label: string; color: string; priorit
 
 export function detectIntent(message: string): IntentResult {
   if (!message || message.trim().length === 0) {
-    return { ...INTENT_CONFIG.general, intent: 'general', confidence: 0, safetyFlags: [] };
+    return { ...INTENT_CONFIG.general, intent: 'general', confidence: 0, safetyFlags: [], secondaryIntents: [] };
   }
 
   const text = message.toLowerCase().trim();
@@ -144,6 +145,7 @@ export function detectIntent(message: string): IntentResult {
   let bestScore = 0;
 
   // Score each intent by number of matching patterns
+  const allScores: { intent: GuestIntent; score: number }[] = [];
   for (const [intent, patterns] of Object.entries(PATTERNS) as [GuestIntent, RegExp[]][]) {
     if (patterns.length === 0) continue;
 
@@ -153,11 +155,21 @@ export function detectIntent(message: string): IntentResult {
     }
 
     const score = matches / patterns.length;
+    if (score > 0) {
+      allScores.push({ intent, score });
+    }
     if (score > bestScore) {
       bestScore = score;
       bestIntent = intent;
     }
   }
+
+  // Build secondary intents (above 30% confidence, excluding primary)
+  const secondaryIntents = allScores
+    .filter(s => s.intent !== bestIntent && Math.round(s.score * 100) >= 30)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map(s => ({ intent: s.intent, confidence: Math.round(s.score * 100) }));
 
   // Check safety flags
   const safetyFlags: SafetyFlag[] = [];
@@ -186,6 +198,7 @@ export function detectIntent(message: string): IntentResult {
     label: config.label,
     color: config.color,
     priority: config.priority,
+    secondaryIntents,
   };
 }
 

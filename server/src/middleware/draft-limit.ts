@@ -80,7 +80,25 @@ export async function checkDraftLimit(c: Context, next: Next): Promise<Response 
         );
       }
 
-      // Paid tiers: allow overage, flag it so ai-proxy can track overage cost
+      // Paid tiers: require client acknowledgment before allowing overage
+      const acknowledged = c.req.header('X-Overage-Acknowledged') === 'true';
+      if (!acknowledged) {
+        return c.json(
+          {
+            message: `Monthly draft limit reached. This draft will cost $${limits.overageDraftCost} as overage.`,
+            code: 'OVERAGE_CONFIRMATION_REQUIRED',
+            status: 402,
+            details: {
+              draftsUsed: totalDrafts,
+              draftsLimit: limits.maxDraftsPerMonth,
+              overageCost: limits.overageDraftCost,
+              plan,
+            },
+          },
+          402
+        );
+      }
+
       c.set('isOverage', true);
       c.set('overageCost', limits.overageDraftCost);
       console.log(`[Draft Limit] Org ${orgId} is in overage — ${totalDrafts}/${limits.maxDraftsPerMonth} drafts at $${limits.overageDraftCost}/extra`);
