@@ -6,7 +6,7 @@ Last updated: 2026-03-06
 
 - Canonical workspace: `/Users/sawbeck/Projects/RentalVoice`
 - Primary branch in use: `main`
-- Current pushed HEAD before this status batch: `290a731`
+- Current pushed HEAD should be checked directly with `git rev-parse --short HEAD`
 - GitHub is now being used as a structured backup and collaboration remote, but the local workspace remains the operational source of truth during foundation work.
 
 ## Current product truth
@@ -45,6 +45,7 @@ Last updated: 2026-03-06
 ## Implemented commercialization foundation
 
 - Billing, entitlements, analytics, and founder diagnostics routes exist server-side
+- Founder diagnostics now surface environment truth and readiness state
 - Server-managed Hostaway paths for staged commercial flows exist
 - Local-to-commercial / personal-to-founder migration base exists
 - Founder bootstrap, live preflight, rehearsal preflight, and live-readiness checklist tooling exist
