@@ -8,7 +8,15 @@
     "ios": "expo run:ios",
     "web": "DARK_MODE=class expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ops:checkpoint": "bash ops/checkpoint/create-checkpoint.sh",
+    "ops:checkpoint:verify": "bash ops/checkpoint/verify-checkpoint.sh",
+    "ops:baseline:protect": "bash ops/baseline/create-protected-local-baseline.sh",
+    "ops:rollback:fast": "bash ops/rollback/fast-rollback.sh",
+    "ops:restore:db": "bash ops/restore/restore-db-from-checkpoint.sh",
+    "ops:drill": "bash ops/drill/run-restore-drill.sh",
+    "ops:migration:controlled": "bash ops/migration/run-controlled-commercial-migration.sh",
+    "ops:founder:bootstrap": "bash ops/founder/bootstrap-founder-account.sh"
   },
   "dependencies": {
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",

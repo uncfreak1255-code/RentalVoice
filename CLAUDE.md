@@ -1,30 +1,109 @@
-# RentalVoice — AI Guest Messaging
+# Rental Voice — Current Engineering Context
 
-## What This Is
-AI-powered guest messaging system trained on 23,000+ historical messages from Seascape Vacations.
-Handles automated responses with human-in-the-loop approval via Flask dashboards.
+## What this repo is now
 
-## Tech Stack
-- Python/Flask backend
-- Hostaway API integration (OAuth2, conversations endpoint)
-- Supabase database (project: Rental Voice, us-east-1, currently INACTIVE)
-- Flask approval dashboards for human review
+Rental Voice is an Expo React Native app with a TypeScript backend in `server/`.
 
-## Key Integrations
-- Hostaway API: OAuth2 auth, conversations/messages endpoints
-- Message classification: intent detection, urgency scoring
-- Response generation: context-aware replies based on property + guest history
+Primary folders:
 
-## Architecture
-- Message ingestion from Hostaway webhooks
-- AI classification → response generation → approval queue
-- Human approves/edits → sends via Hostaway API
-- All interactions logged for training data
+- `/Users/sawbeck/Projects/RentalVoice/src`: mobile app
+- `/Users/sawbeck/Projects/RentalVoice/server/src`: backend API
+- `/Users/sawbeck/Projects/RentalVoice/ops`: checkpoint, rollback, migration, and baseline tooling
+- `/Users/sawbeck/Projects/RentalVoice/docs/runbooks`: operational runbooks
+- `/Users/sawbeck/Projects/RentalVoice/.agents`: agent workflow entry points
 
-## Development Notes
-- Supabase project needs to be restored (currently INACTIVE)
-- Historical message corpus: 23K+ messages for fine-tuning/RAG
-- Rate limiting: respect Hostaway API limits, token refresh patterns
+## Canonical source of truth
 
-## Skills
-Read skills: hostaway-api, api-patterns, python-patterns, database-design
+- Current canonical codebase: local workspace at `/Users/sawbeck/Projects/RentalVoice`
+- GitHub remote is behind local and should not be treated as canonical until a controlled promotion happens
+- Protected local baseline is now the rollback anchor
+
+Baseline artifacts:
+
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260305.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260305.baseline.json`
+
+## Current product modes
+
+Rental Voice has two explicit operating modes:
+
+- `personal`: current real user-facing app path
+- `commercial`: staged future multi-user/server-managed path
+
+Current default:
+
+- `src/lib/config.ts` defaults to `personal`
+- the current user-facing UX must remain Hostaway-first during foundation work
+
+## Current UX truth
+
+The current app is still organized around:
+
+- Hostaway Account ID + API key onboarding
+- personal-mode workflows
+- local/device-first behavior where personal mode still applies
+
+Do not assume:
+
+- email/password auth is live in the current app UX
+- the founder account already exists as an app-auth user
+- commercial mode is ready to become the default app path
+
+## Current backend truth
+
+Backend lives in `/Users/sawbeck/Projects/RentalVoice/server/src`.
+
+Implemented staged backend capabilities already include:
+
+- managed billing routes
+- entitlements routes
+- analytics ingestion
+- founder diagnostics
+- server-managed Hostaway routes for staged commercial flows
+- local-learning migration routes
+
+These exist, but they do not override the requirement that the current app remain personal-mode first until cutover is intentional.
+
+## Supabase truth
+
+Known current Supabase projects:
+
+- `gqnocsoouudbogwislsl` (`Rental Voice`): linked project with test/smoke app users
+- `cqbzsntmlwpsaxwnoath` (`uncfreak1255-code's Project`): separate project with no app auth users
+
+Neither current project should be treated as the real founder/live app-auth environment.
+
+The future founder app-auth account for `sawyerbeck25@gmail.com` must be created intentionally later in the chosen live environment.
+
+## AI learning and migration truth
+
+Current goal:
+
+- preserve existing personal learning data
+- later import it one-way into the future founder/commercial account
+
+Existing migration base:
+
+- client snapshot builder: `/Users/sawbeck/Projects/RentalVoice/src/lib/commercial-migration.ts`
+- server import route: `/Users/sawbeck/Projects/RentalVoice/server/src/routes/migration.ts`
+- founder bootstrap script: `/Users/sawbeck/Projects/RentalVoice/ops/founder/bootstrap-founder-account.sh`
+- founder bootstrap runtime: `/Users/sawbeck/Projects/RentalVoice/server/scripts/bootstrap-founder-account.ts`
+
+## Required operating discipline
+
+Before risky work:
+
+1. create or reference a protected baseline
+2. keep current user-facing mode in `personal`
+3. avoid changing current onboarding/auth UX unless the task is explicitly about cutover
+4. treat GitHub promotion as a separate deliberate workflow
+
+## Start here
+
+Read these in order:
+
+1. `/Users/sawbeck/Projects/RentalVoice/AGENTS.md`
+2. `/Users/sawbeck/Projects/RentalVoice/.agents/README.md`
+3. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
+4. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
+5. task-specific files

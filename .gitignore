@@ -59,3 +59,13 @@ server/.env
 coverage/
 src/components/AILearningScreen.tsx.bak
 arch-previews.html
+.skills
+
+# Local ops artifacts (keep scripts/runbooks, ignore generated backups/manifests/logs)
+ops/checkpoints/
+ops/logs/
+ops/manifests/*.json
+
+# Local audit scratch files
+Ai Learning Audit
+Current State Audit
