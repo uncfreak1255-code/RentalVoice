@@ -30,6 +30,8 @@ export interface UsageData {
   approvedAsIs: number;
   /** Drafts rejected */
   rejectedDrafts: number;
+  /** Billing telemetry counters */
+  billingEvents: Record<string, number>;
 }
 
 function getCurrentMonth(): string {
@@ -53,6 +55,7 @@ function getDefaultUsageData(): UsageData {
     editedDrafts: 0,
     approvedAsIs: 0,
     rejectedDrafts: 0,
+    billingEvents: {},
   };
 }
 
@@ -123,6 +126,30 @@ export async function trackDraftOutcomeUsage(outcome: 'approved' | 'edited' | 'r
 export async function trackAutoPilotSend(): Promise<void> {
   const data = await loadUsageData();
   data.autoPilotSends++;
+  await saveUsageData(data);
+}
+
+/** Track billing/paywall events */
+export async function trackBillingEvent(
+  event:
+    | 'billing_screen_viewed'
+    | 'billing_checkout_started'
+    | 'billing_portal_opened'
+    | 'billing_memory_addon_enabled'
+    | 'billing_memory_addon_disabled'
+    | 'billing_returned',
+  properties?: Record<string, string | number | boolean | null | undefined>
+): Promise<void> {
+  const data = await loadUsageData();
+  const suffix = properties
+    ? Object.entries(properties)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => `${key}:${String(value)}`)
+        .join('|')
+    : '';
+  const eventKey = suffix ? `${event}|${suffix}` : event;
+  data.billingEvents[eventKey] = (data.billingEvents[eventKey] || 0) + 1;
   await saveUsageData(data);
 }
 

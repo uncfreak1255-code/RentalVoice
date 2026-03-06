@@ -113,9 +113,9 @@ export type AIProvider = 'openai' | 'anthropic' | 'google';
 export interface AIConfig {
   id: string;
   orgId: string;
-  mode: 'managed' | 'byok';
+  mode: 'managed';
   provider: AIProvider | null; // null = use managed default
-  encryptedApiKey: string | null; // null = managed mode
+  encryptedApiKey: string | null; // always null in managed-only mode
   model: string | null;
   createdAt: Date;
 }
@@ -155,6 +155,7 @@ export interface AIGenerateResponse {
   detectedLanguage: string;
   provider: AIProvider;
   model: string;
+  usedFallback: boolean;
   tokensUsed: { input: number; output: number };
 }
 
@@ -163,6 +164,18 @@ export interface AIUsageResponse {
   draftsUsed: number;
   draftsLimit: number;
   tokensUsed: number;
+}
+
+export interface MemoryEntitlements {
+  supermemoryEnabled: boolean;
+  supermemoryMode: 'off' | 'full' | 'degraded';
+  supermemoryTrialEndsAt: string | null;
+  supermemoryWriteLimitMonthly: number;
+  supermemoryReadLimitMonthly: number;
+  supermemoryRetentionDays: number;
+  supermemoryTopK: number;
+  supermemoryCrossProperty: boolean;
+  supermemoryTeamShared: boolean;
 }
 
 // ============================================================
@@ -220,19 +233,81 @@ export interface PlanLimits {
   overageDraftCost: number;    // USD per extra draft beyond limit
   extraPropertyCost: number;   // USD per extra property/mo beyond included
   styleLearning: 'basic' | 'full' | 'full_custom';
+  supermemoryIncluded: boolean;
+  supermemoryWriteLimitMonthly: number;
+  supermemoryReadLimitMonthly: number;
+  supermemoryRetentionDays: number;
+  supermemoryTopK: number;
+  supermemoryCrossProperty: boolean;
+  supermemoryTeamShared: boolean;
 }
+
+export interface ManagedModelTarget {
+  provider: AIProvider;
+  model: string;
+  label: string;
+}
+
+export interface ManagedModelPolicy {
+  primary: ManagedModelTarget;
+  fallbacks: ManagedModelTarget[];
+  maxOutputTokensPerDraft: number;
+  maxEstimatedCostUsdPerDraft: number;
+}
+
+export const MANAGED_MODEL_POLICY: Record<PlanTier, ManagedModelPolicy> = {
+  starter: {
+    primary: { provider: 'google', model: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    fallbacks: [
+      { provider: 'openai', model: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    ],
+    maxOutputTokensPerDraft: 700,
+    maxEstimatedCostUsdPerDraft: 0.003,
+  },
+  professional: {
+    primary: { provider: 'google', model: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    fallbacks: [
+      { provider: 'openai', model: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    ],
+    maxOutputTokensPerDraft: 900,
+    maxEstimatedCostUsdPerDraft: 0.008,
+  },
+  business: {
+    primary: { provider: 'openai', model: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    fallbacks: [
+      { provider: 'google', model: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+    ],
+    maxOutputTokensPerDraft: 1200,
+    maxEstimatedCostUsdPerDraft: 0.02,
+  },
+  enterprise: {
+    primary: { provider: 'openai', model: 'gpt-4o', label: 'GPT-4o' },
+    fallbacks: [
+      { provider: 'anthropic', model: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
+    ],
+    maxOutputTokensPerDraft: 1600,
+    maxEstimatedCostUsdPerDraft: 0.08,
+  },
+};
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   starter: {
     maxProperties: 2,
     maxDraftsPerMonth: 100,
-    managedAI: false,
+    managedAI: true,
     teamMembers: 1,
     autopilot: false,
-    aiModel: 'gpt-4o-mini',
+    aiModel: 'Gemini 2.0 Flash',
     overageDraftCost: 0,       // no overage — hard cap on free tier
     extraPropertyCost: 0,      // cannot add extra properties on free
     styleLearning: 'basic',
+    supermemoryIncluded: false,
+    supermemoryWriteLimitMonthly: 0,
+    supermemoryReadLimitMonthly: 0,
+    supermemoryRetentionDays: 30,
+    supermemoryTopK: 0,
+    supermemoryCrossProperty: false,
+    supermemoryTeamShared: false,
   },
   professional: {
     maxProperties: 10,
@@ -240,10 +315,17 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     managedAI: true,
     teamMembers: 3,
     autopilot: true,
-    aiModel: 'gpt-4o',
+    aiModel: 'Gemini 2.0 Flash',
     overageDraftCost: 0.02,    // $0.02 per extra draft
     extraPropertyCost: 5,      // $5/prop/mo beyond 10
     styleLearning: 'full',
+    supermemoryIncluded: true,
+    supermemoryWriteLimitMonthly: 10000,
+    supermemoryReadLimitMonthly: 40000,
+    supermemoryRetentionDays: 730,
+    supermemoryTopK: 6,
+    supermemoryCrossProperty: true,
+    supermemoryTeamShared: false,
   },
   business: {
     maxProperties: 50,
@@ -251,10 +333,17 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     managedAI: true,
     teamMembers: Infinity,
     autopilot: true,
-    aiModel: 'gpt-4o',
+    aiModel: 'GPT-4o Mini',
     overageDraftCost: 0.01,    // $0.01 per extra draft
     extraPropertyCost: 3,      // $3/prop/mo beyond 50
     styleLearning: 'full_custom',
+    supermemoryIncluded: true,
+    supermemoryWriteLimitMonthly: 40000,
+    supermemoryReadLimitMonthly: 150000,
+    supermemoryRetentionDays: 730,
+    supermemoryTopK: 8,
+    supermemoryCrossProperty: true,
+    supermemoryTeamShared: true,
   },
   enterprise: {
     maxProperties: Infinity,
@@ -262,9 +351,16 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     managedAI: true,
     teamMembers: Infinity,
     autopilot: true,
-    aiModel: 'gpt-4o',
+    aiModel: 'GPT-4o',
     overageDraftCost: 0,
     extraPropertyCost: 0,
     styleLearning: 'full_custom',
+    supermemoryIncluded: true,
+    supermemoryWriteLimitMonthly: 250000,
+    supermemoryReadLimitMonthly: 1000000,
+    supermemoryRetentionDays: 1095,
+    supermemoryTopK: 10,
+    supermemoryCrossProperty: true,
+    supermemoryTeamShared: true,
   },
 };

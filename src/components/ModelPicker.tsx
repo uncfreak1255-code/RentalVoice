@@ -1,5 +1,5 @@
 // Model Picker — simplified to a compact "⚡ AI" badge
-// No model selection needed — the app uses Gemini Flash by default
+// No manual model selection is exposed in managed mode
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';

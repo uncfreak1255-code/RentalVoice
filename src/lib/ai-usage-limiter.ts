@@ -5,7 +5,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Tier Configuration ──────────────────────────────────────
-export type UsageTier = 'free' | 'starter' | 'pro';
+export type UsageTier = 'free' | 'starter' | 'professional';
+type StoredUsageTier = UsageTier | 'pro';
 
 interface TierLimits {
   draftsPerDay: number;
@@ -17,7 +18,7 @@ interface TierLimits {
 export const TIER_LIMITS: Record<UsageTier, TierLimits> = {
   free:    { draftsPerDay: 10,  draftsPerMonth: 200,    requestsPerMinute: 3,  label: 'Free' },
   starter: { draftsPerDay: 50,  draftsPerMonth: 1500,   requestsPerMinute: 5,  label: 'Starter' },
-  pro:     { draftsPerDay: 999, draftsPerMonth: 999999, requestsPerMinute: 10, label: 'Pro' },
+  professional: { draftsPerDay: 999, draftsPerMonth: 999999, requestsPerMinute: 10, label: 'Professional' },
 };
 
 // ─── Storage Keys ────────────────────────────────────────────
@@ -114,6 +115,7 @@ async function saveUsageData(data: UsageData): Promise<void> {
 export async function getCurrentTier(): Promise<UsageTier> {
   try {
     const tier = await AsyncStorage.getItem(TIER_KEY);
+    if (tier === 'pro') return 'professional';
     if (tier && tier in TIER_LIMITS) return tier as UsageTier;
   } catch (e) {
     console.error('[UsageLimiter] Failed to load tier:', e);

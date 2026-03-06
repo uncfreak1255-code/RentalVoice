@@ -9,9 +9,10 @@
 import { Hono } from 'hono';
 import { getSupabaseAdmin } from '../db/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
-import { PLAN_LIMITS } from '../lib/types.js';
+import { MANAGED_MODEL_POLICY, PLAN_LIMITS } from '../lib/types.js';
 import type { PlanTier } from '../lib/types.js';
 import type { AppEnv } from '../lib/env.js';
+import { getEffectivePlan, isFounderAccount } from '../lib/founder-access.js';
 
 export const usageRouter = new Hono<AppEnv>();
 
@@ -25,6 +26,7 @@ usageRouter.get('/', async (c) => {
   try {
     const orgId = c.get('orgId');
     const userId = c.get('userId');
+    const userEmail = c.get('userEmail');
     const supabase = getSupabaseAdmin();
 
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -43,8 +45,10 @@ usageRouter.get('/', async (c) => {
       .eq('id', userId)
       .single();
 
-    const plan = (user?.plan || 'starter') as PlanTier;
+    const basePlan = (user?.plan || 'starter') as PlanTier;
+    const plan = getEffectivePlan(basePlan, userId, userEmail);
     const limits = PLAN_LIMITS[plan];
+    const modelPolicy = MANAGED_MODEL_POLICY[plan];
 
     // Aggregate across providers
     const totalRequests = usageRecords?.reduce((sum, r) => sum + r.requests, 0) || 0;
@@ -58,6 +62,8 @@ usageRouter.get('/', async (c) => {
     return c.json({
       month: currentMonth,
       plan,
+      basePlan,
+      founderAccess: isFounderAccount(userId, userEmail),
       isTrialActive,
       trialEndsAt: user?.trial_ends_at,
       usage: {
@@ -74,10 +80,18 @@ usageRouter.get('/', async (c) => {
         managedAI: limits.managedAI,
         teamMembers: limits.teamMembers,
         autopilot: limits.autopilot,
-        aiModel: limits.aiModel,
+        aiModel: modelPolicy.primary.label,
         overageDraftCost: limits.overageDraftCost,
         extraPropertyCost: limits.extraPropertyCost,
         styleLearning: limits.styleLearning,
+      },
+      managedModel: {
+        label: modelPolicy.primary.label,
+        provider: modelPolicy.primary.provider,
+        model: modelPolicy.primary.model,
+        fallbackCount: modelPolicy.fallbacks.length,
+        maxOutputTokensPerDraft: modelPolicy.maxOutputTokensPerDraft,
+        maxEstimatedCostUsdPerDraft: modelPolicy.maxEstimatedCostUsdPerDraft,
       },
       byProvider: usageRecords?.map((r) => ({
         provider: r.provider,
@@ -90,6 +104,90 @@ usageRouter.get('/', async (c) => {
   } catch (err) {
     console.error('[Usage] Error:', err);
     return c.json({ message: 'Failed to fetch usage', code: 'INTERNAL_ERROR', status: 500 }, 500);
+  }
+});
+
+// ============================================================
+// GET /api/usage/memory — Current month Supermemory usage
+// ============================================================
+
+usageRouter.get('/memory', async (c) => {
+  try {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    const userEmail = c.get('userEmail');
+    const supabase = getSupabaseAdmin();
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('plan')
+      .eq('id', userId)
+      .single();
+
+    const basePlan = (user?.plan || 'starter') as PlanTier;
+    const plan = getEffectivePlan(basePlan, userId, userEmail);
+    const planLimits = PLAN_LIMITS[plan];
+
+    const { data: ent } = await supabase
+      .from('org_entitlements')
+      .select('*')
+      .eq('org_id', orgId)
+      .single();
+
+    const { data: usage } = await supabase
+      .from('supermemory_usage_monthly')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('period_month', currentMonth)
+      .single();
+
+    const trialEndsAt = ent?.supermemory_trial_ends_at || null;
+    const trialActive = trialEndsAt ? new Date(trialEndsAt) > new Date() : false;
+    const addonActive = ent?.supermemory_addon_active === true;
+    const enabled = planLimits.supermemoryIncluded || addonActive || trialActive;
+
+    const writeLimit = enabled
+      ? (ent?.supermemory_write_limit_monthly ?? planLimits.supermemoryWriteLimitMonthly)
+      : 0;
+    const readLimit = enabled
+      ? (ent?.supermemory_read_limit_monthly ?? planLimits.supermemoryReadLimitMonthly)
+      : 0;
+
+    const writes = usage?.memory_writes || 0;
+    const reads = usage?.memory_reads || 0;
+    const mode: 'off' | 'full' | 'degraded' = !enabled
+      ? 'off'
+      : ((writes >= writeLimit && writeLimit > 0) || (reads >= readLimit && readLimit > 0) ? 'degraded' : 'full');
+
+    return c.json({
+      month: currentMonth,
+      mode,
+      enabled: enabled && mode !== 'off',
+      usage: {
+        memoryReads: reads,
+        memoryWrites: writes,
+      },
+      limits: {
+        memoryReads: readLimit,
+        memoryWrites: writeLimit,
+      },
+      remaining: {
+        memoryReads: Math.max(0, readLimit - reads),
+        memoryWrites: Math.max(0, writeLimit - writes),
+      },
+      trial: {
+        isTrialActive: trialActive,
+        trialEndsAt,
+      },
+      addon: {
+        active: addonActive,
+      },
+      founderAccess: isFounderAccount(userId, userEmail),
+    });
+  } catch (err) {
+    console.error('[Usage] Memory usage error:', err);
+    return c.json({ message: 'Failed to fetch memory usage', code: 'INTERNAL_ERROR', status: 500 }, 500);
   }
 });
 

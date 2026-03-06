@@ -10,7 +10,6 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { getSupabaseAdmin } from '../db/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
-import { encrypt } from '../lib/encryption.js';
 import type { AppEnv } from '../lib/env.js';
 
 export const settingsRouter = new Hono<AppEnv>();
@@ -35,10 +34,10 @@ settingsRouter.get('/', async (c) => {
     return c.json({
       settings: settingsResult.data || {},
       aiConfig: aiConfigResult.data ? {
-        mode: aiConfigResult.data.mode,
+        mode: 'managed',
         provider: aiConfigResult.data.provider,
         model: aiConfigResult.data.model,
-        hasApiKey: !!aiConfigResult.data.encrypted_api_key,
+        hasApiKey: false,
       } : null,
     });
   } catch (err) {
@@ -100,11 +99,11 @@ settingsRouter.put('/', async (c) => {
 // ============================================================
 
 const updateAIConfigSchema = z.object({
-  mode: z.enum(['managed', 'byok']),
-  provider: z.enum(['openai', 'anthropic', 'google']).optional(),
-  apiKey: z.string().optional(), // Will be encrypted before storage
+  mode: z.string().optional(),
+  provider: z.string().optional(),
+  apiKey: z.string().optional(),
   model: z.string().optional(),
-});
+}).passthrough();
 
 settingsRouter.put('/ai', async (c) => {
   try {
@@ -119,27 +118,13 @@ settingsRouter.put('/ai', async (c) => {
       );
     }
 
-    const { mode, provider, apiKey, model } = parsed.data;
-
-    // BYOK requires provider + apiKey
-    if (mode === 'byok' && (!provider || !apiKey)) {
-      return c.json(
-        { message: 'BYOK mode requires provider and apiKey', code: 'VALIDATION_ERROR', status: 400 },
-        400
-      );
-    }
-
     const supabase = getSupabaseAdmin();
-    const updates: Record<string, unknown> = { mode };
-
-    if (provider) updates.provider = provider;
-    if (model) updates.model = model;
-    if (apiKey) updates.encrypted_api_key = encrypt(apiKey);
-    if (mode === 'managed') {
-      updates.encrypted_api_key = null;
-      updates.provider = null;
-      updates.model = null;
-    }
+    const updates: Record<string, unknown> = {
+      mode: 'managed',
+      encrypted_api_key: null,
+      provider: null,
+      model: null,
+    };
 
     const { error } = await supabase
       .from('ai_configs')
@@ -149,7 +134,7 @@ settingsRouter.put('/ai', async (c) => {
       return c.json({ message: 'Failed to update AI config', code: 'DB_ERROR', status: 500 }, 500);
     }
 
-    return c.json({ message: 'AI configuration updated', mode });
+    return c.json({ message: 'AI configuration updated', mode: 'managed' });
   } catch (err) {
     console.error('[Settings] AI config error:', err);
     return c.json({ message: 'Failed to update AI config', code: 'INTERNAL_ERROR', status: 500 }, 500);

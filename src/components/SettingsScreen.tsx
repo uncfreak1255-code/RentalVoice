@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { useAppStore } from '@/lib/store';
-import { disconnectHostaway } from '@/lib/hostaway';
+import { disconnectHostaway as disconnectLocalHostaway } from '@/lib/hostaway';
 import { useNotifications } from '@/lib/NotificationProvider';
 import {
   Wifi, Key, Bell, Shield, LogOut,
@@ -16,6 +16,14 @@ import { colors, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
 import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
+import { features } from '@/lib/config';
+import {
+  disconnectHostaway as disconnectHostawayServer,
+  getAIUsage,
+  getCurrentEntitlements,
+  type EntitlementsResponse,
+  type UsageResponse,
+} from '@/lib/api-client';
 
 // ── Build stamp — changes with every OTA push, verifies update applied ──
 const BUILD_STAMP = '2026-03-01T13:45';  // Update this each OTA push
@@ -42,8 +50,47 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   // AI Usage stats
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [activeModelName, setActiveModelName] = useState('Auto');
+  const [commercialUsage, setCommercialUsage] = useState<UsageResponse | null>(null);
+  const [commercialEntitlements, setCommercialEntitlements] = useState<EntitlementsResponse | null>(null);
+  const [isLoadingCommercialEntitlements, setIsLoadingCommercialEntitlements] = useState(false);
+  const [commercialEntitlementsError, setCommercialEntitlementsError] = useState<string | null>(null);
+
+  const loadCommercialEntitlements = useCallback(async () => {
+    if (!features.serverProxiedAI) return;
+    setIsLoadingCommercialEntitlements(true);
+    setCommercialEntitlementsError(null);
+    try {
+      const data = await getCurrentEntitlements();
+      setCommercialEntitlements(data);
+    } catch (error) {
+      console.error('[SettingsScreen] Failed to load commercial entitlements:', error);
+      setCommercialEntitlements(null);
+      setCommercialEntitlementsError('Unavailable');
+    } finally {
+      setIsLoadingCommercialEntitlements(false);
+    }
+  }, []);
+
+  const loadCommercialUsage = useCallback(async () => {
+    if (!features.serverProxiedAI) return;
+    try {
+      const usage = await getAIUsage();
+      setCommercialUsage(usage);
+      setActiveModelName('Managed AI');
+    } catch (error) {
+      console.error('[SettingsScreen] Failed to load commercial usage:', error);
+      setCommercialUsage(null);
+      setActiveModelName('Managed AI');
+    }
+  }, []);
+
   useEffect(() => {
     getUsageStats().then(setUsageStats).catch(console.error);
+    if (features.serverProxiedAI) {
+      loadCommercialEntitlements();
+      loadCommercialUsage();
+      return;
+    }
     // Load active model name
     (async () => {
       const selectedId = await getSelectedModel();
@@ -55,7 +102,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
       const available = await getAvailableModels();
       if (available.length > 0) setActiveModelName(available[0].name);
     })();
-  }, []);
+  }, [loadCommercialEntitlements, loadCommercialUsage]);
 
   const { isRegistered, registerForNotifications } = useNotifications();
 
@@ -82,13 +129,41 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           style: 'destructive',
           onPress: async () => {
             setIsDisconnecting(true);
-            if (!isDemoMode) await disconnectHostaway();
+            if (!isDemoMode) {
+              if (features.serverProxiedAI) {
+                await disconnectHostawayServer();
+              } else {
+                await disconnectLocalHostaway();
+              }
+            }
             onLogout();
           },
         },
       ]
     );
   };
+
+  const commercialDraftLimit = commercialUsage?.usage.draftsLimit || 0;
+  const commercialDraftsUsed = commercialUsage?.usage.draftsUsed || 0;
+  const isFiniteCommercialLimit = Number.isFinite(commercialDraftLimit) && commercialDraftLimit > 0;
+  const usageLabel = features.serverProxiedAI ? 'Drafts Used' : 'Drafts Today';
+  const usageValue = features.serverProxiedAI
+    ? (commercialUsage
+      ? (isFiniteCommercialLimit
+        ? `${commercialDraftsUsed} / ${commercialDraftLimit}`
+        : `${commercialDraftsUsed} / Unlimited`)
+      : '–')
+    : (usageStats ? `${usageStats.draftsToday} / ${usageStats.dailyLimit}` : '–');
+  const usagePercent = features.serverProxiedAI
+    ? (isFiniteCommercialLimit ? (commercialDraftsUsed / commercialDraftLimit) * 100 : 0)
+    : (usageStats?.dailyPercentage || 0);
+  const shouldShowUsageBar = features.serverProxiedAI ? !!commercialUsage && isFiniteCommercialLimit : !!usageStats;
+  const thisMonthValue = features.serverProxiedAI
+    ? (commercialUsage ? `${commercialUsage.usage.draftsUsed} drafts` : '–')
+    : (usageStats ? `${usageStats.draftsThisMonth} drafts` : '–');
+  const usageFooterText = features.serverProxiedAI
+    ? `${commercialUsage?.plan ? `${commercialUsage.plan.charAt(0).toUpperCase()}${commercialUsage.plan.slice(1)}` : 'Starter'} plan • Managed AI metering`
+    : `${usageStats?.tierLabel || 'Starter'} plan • Resets daily at midnight`;
 
   return (
     <View style={sLocal.root}>
@@ -119,7 +194,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             />
             <LinkRow
               icon={<Key size={18} color={colors.primary.DEFAULT} />}
-              label="Configure API Keys"
+              label="Manage PMS Connection"
               onPress={() => handleNavigate('apiSettings')}
               isLast
             />
@@ -130,39 +205,138 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <View style={s.card}>
             <Row
               icon={<Zap size={18} color={colors.primary.DEFAULT} />}
-              label="Drafts Today"
+              label={usageLabel}
               right={
                 <Text style={s.tealValue}>
-                  {usageStats ? `${usageStats.draftsToday} / ${usageStats.dailyLimit}` : '–'}
+                  {usageValue}
                 </Text>
               }
             />
-            {usageStats && (
+            {shouldShowUsageBar && (
               <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
                 <View style={{ height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
                   <View style={{
                     height: 6,
                     borderRadius: 3,
-                    width: `${Math.min(usageStats.dailyPercentage, 100)}%`,
-                    backgroundColor: usageStats.dailyPercentage < 70 ? colors.primary.DEFAULT
-                      : usageStats.dailyPercentage < 90 ? '#F59E0B' : '#EF4444',
+                    width: `${Math.min(usagePercent, 100)}%`,
+                    backgroundColor: usagePercent < 70 ? colors.primary.DEFAULT
+                      : usagePercent < 90 ? '#F59E0B' : '#EF4444',
                   }} />
                 </View>
               </View>
             )}
             <ValueRow
               icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
-              label="Model"
+              label={features.serverProxiedAI ? 'AI Routing' : 'Model'}
               value={activeModelName}
             />
             <ValueRow
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
               label="This Month"
-              value={usageStats ? `${usageStats.draftsThisMonth} drafts` : '–'}
+              value={thisMonthValue}
               isLast
             />
           </View>
-          <SectionFooter text={`${usageStats?.tierLabel || 'Starter'} plan • Resets daily at midnight`} />
+          <SectionFooter text={usageFooterText} />
+
+          {/* ── Commercial Memory Entitlements ── */}
+          {features.serverProxiedAI && (
+            <>
+              <SectionHeader title="Memory Plan" />
+              <View style={s.card}>
+                {isLoadingCommercialEntitlements ? (
+                  <Row
+                    icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+                    label="Loading memory entitlements"
+                    right={<ActivityIndicator size="small" color={colors.primary.DEFAULT} />}
+                    isLast
+                  />
+                ) : commercialEntitlements ? (
+                  <>
+                    <ValueRow
+                      icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
+                      label="Plan"
+                      value={`${commercialEntitlements.plan.charAt(0).toUpperCase()}${commercialEntitlements.plan.slice(1)}`}
+                    />
+                    <ValueRow
+                      icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+                      label="Memory Mode"
+                      value={
+                        commercialEntitlements.entitlements.supermemoryMode === 'full'
+                          ? 'Full'
+                          : commercialEntitlements.entitlements.supermemoryMode === 'degraded'
+                            ? 'Degraded'
+                            : 'Off'
+                      }
+                      valueColor={
+                        commercialEntitlements.entitlements.supermemoryMode === 'full'
+                          ? '#10B981'
+                          : commercialEntitlements.entitlements.supermemoryMode === 'degraded'
+                            ? '#F59E0B'
+                            : '#EF4444'
+                      }
+                    />
+                    <ValueRow
+                      icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
+                      label="Reads Remaining"
+                      value={
+                        commercialEntitlements.entitlements.supermemoryReadLimitMonthly > 0
+                          ? `${commercialEntitlements.entitlements.supermemoryReadRemaining} / ${commercialEntitlements.entitlements.supermemoryReadLimitMonthly}`
+                          : 'Not included'
+                      }
+                    />
+                    <ValueRow
+                      icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
+                      label="Writes Remaining"
+                      value={
+                        commercialEntitlements.entitlements.supermemoryWriteLimitMonthly > 0
+                          ? `${commercialEntitlements.entitlements.supermemoryWriteRemaining} / ${commercialEntitlements.entitlements.supermemoryWriteLimitMonthly}`
+                          : 'Not included'
+                      }
+                      isLast={commercialEntitlements.entitlements.supermemoryMode === 'full'}
+                    />
+                    {commercialEntitlements.entitlements.supermemoryMode !== 'full' && (
+                      <LinkRow
+                        icon={<Zap size={18} color={colors.primary.DEFAULT} />}
+                        label="Upgrade Memory Capacity"
+                        onPress={() => handleNavigate(features.serverProxiedAI ? 'billingMemory' : 'upsells')}
+                        isLast
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <ValueRow
+                      icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+                      label="Memory Entitlements"
+                      value={commercialEntitlementsError || 'Unavailable'}
+                    />
+                    <LinkRow
+                      icon={<Zap size={18} color={colors.primary.DEFAULT} />}
+                      label="Retry Entitlements Check"
+                      onPress={loadCommercialEntitlements}
+                      isLast
+                    />
+                  </>
+                )}
+              </View>
+              <SectionFooter text="When memory is off or degraded, drafts still work but with reduced personalization." />
+            </>
+          )}
+
+          {features.serverProxiedAI && (
+            <>
+              <SectionHeader title="Billing" />
+              <View style={s.card}>
+                <LinkRow
+                  icon={<Shield size={18} color={colors.primary.DEFAULT} />}
+                  label="Plans & Billing"
+                  onPress={() => handleNavigate('billing')}
+                  isLast
+                />
+              </View>
+            </>
+          )}
 
           {/* ── Auto-Pilot ── */}
           <SectionHeader title="Auto-Pilot" />

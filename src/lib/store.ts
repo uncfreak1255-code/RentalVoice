@@ -333,6 +333,7 @@ export interface Conversation {
   issues?: Issue[];
   lastResponseTime?: number; // Time to respond in seconds
   aiDraftSentAt?: Date;
+  isInquiry?: boolean; // True if this is a pre-booking inquiry (no reservation)
   // Activity tracking for sorting
   lastActivityTimestamp?: Date; // Most recent activity timestamp
   lastActivityType?: ConversationActivityType; // Type of last activity
@@ -347,6 +348,7 @@ export interface AppSettings {
   pmsProvider: PMSProvider;
   accountId: string | null;
   apiKey: string | null;
+  stableAccountId: string | null; // Permanent Hostaway account ID from /v1/users (survives key rotation)
   isOnboarded: boolean;
   autoPilotEnabled: boolean;
   autoPilotConfidenceThreshold: number;
@@ -455,6 +457,7 @@ interface AppState {
   setAccountId: (id: string) => void;
   setApiKey: (key: string) => void;
   setCredentials: (accountId: string, apiKey: string) => void;
+  setStableAccountId: (id: string | null) => void;
   setOnboarded: (value: boolean) => void;
   setAutoPilot: (enabled: boolean) => void;
   setAutoPilotThreshold: (threshold: number) => void;
@@ -575,8 +578,8 @@ interface AppState {
   resetProviderUsage: (provider: string) => void;
 
   // Subscription
-  currentTier: 'free' | 'starter' | 'pro' | 'business';
-  setCurrentTier: (tier: 'free' | 'starter' | 'pro' | 'business') => void;
+  currentTier: 'free' | 'starter' | 'professional' | 'pro' | 'business';
+  setCurrentTier: (tier: 'free' | 'starter' | 'professional' | 'pro' | 'business') => void;
   connectedPMSProvider: 'hostaway' | 'guesty' | 'ownerrez' | 'hospitable' | 'lodgify' | null;
   setConnectedPMSProvider: (provider: 'hostaway' | 'guesty' | 'ownerrez' | 'hospitable' | 'lodgify' | null) => void;
 
@@ -596,6 +599,7 @@ const initialSettings: AppSettings = {
   pmsProvider: 'hostaway',
   accountId: null,
   apiKey: null,
+  stableAccountId: null,
   isOnboarded: false,
   autoPilotEnabled: false,
   autoPilotConfidenceThreshold: 85,
@@ -672,8 +676,20 @@ export const useAppStore = create<AppState>()(
           settings: { ...state.settings, apiKey: key },
         })),
       setCredentials: (accountId, apiKey) =>
+        set((state) => {
+          const shouldKeepStableId = state.settings.accountId === accountId;
+          return {
+            settings: {
+              ...state.settings,
+              accountId,
+              apiKey,
+              stableAccountId: shouldKeepStableId ? state.settings.stableAccountId : null,
+            },
+          };
+        }),
+      setStableAccountId: (id) =>
         set((state) => ({
-          settings: { ...state.settings, accountId, apiKey },
+          settings: { ...state.settings, stableAccountId: id },
         })),
       setOnboarded: (value) =>
         set((state) => ({

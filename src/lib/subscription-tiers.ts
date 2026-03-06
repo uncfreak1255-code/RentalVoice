@@ -5,7 +5,8 @@
  * Property caps are the gate — AI quality is the same across all tiers.
  */
 
-export type TierName = 'free' | 'starter' | 'pro' | 'business';
+export type TierName = 'free' | 'starter' | 'professional' | 'business';
+export type TierNameInput = TierName | 'pro';
 
 export interface TierConfig {
   id: TierName;
@@ -46,9 +47,9 @@ export const TIERS: Record<TierName, TierConfig> = {
     revenueCatProductId: 'rv_starter_monthly',
     highlights: ['3 properties', '200 drafts/month', 'Style learning'],
   },
-  pro: {
-    id: 'pro',
-    name: 'Pro',
+  professional: {
+    id: 'professional',
+    name: 'Professional',
     price: 49,
     maxProperties: 10,
     maxDraftsPerMonth: 1000,
@@ -73,20 +74,25 @@ export const TIERS: Record<TierName, TierConfig> = {
 };
 
 /** Get tier config by name */
-export function getTierConfig(tier: TierName): TierConfig {
-  return TIERS[tier];
+export function normalizeTierName(tier: TierNameInput): TierName {
+  return tier === 'pro' ? 'professional' : tier;
+}
+
+export function getTierConfig(tier: TierNameInput): TierConfig {
+  return TIERS[normalizeTierName(tier)];
 }
 
 /** Get the next tier upgrade from current */
-export function getNextTier(current: TierName): TierName | null {
-  const order: TierName[] = ['free', 'starter', 'pro', 'business'];
-  const idx = order.indexOf(current);
+export function getNextTier(current: TierNameInput): TierName | null {
+  const normalizedCurrent = normalizeTierName(current);
+  const order: TierName[] = ['free', 'starter', 'professional', 'business'];
+  const idx = order.indexOf(normalizedCurrent);
   return idx < order.length - 1 ? order[idx + 1] : null;
 }
 
 /** Check if a tier has a specific feature */
-export function tierHasFeature(tier: TierName, feature: keyof Pick<TierConfig, 'autopilotEnabled' | 'smartRouting' | 'reviewResponses'>): boolean {
-  return TIERS[tier][feature];
+export function tierHasFeature(tier: TierNameInput, feature: keyof Pick<TierConfig, 'autopilotEnabled' | 'smartRouting' | 'reviewResponses'>): boolean {
+  return TIERS[normalizeTierName(tier)][feature];
 }
 
 /** Get all tiers as array (for paywall display) */
@@ -95,14 +101,14 @@ export function getAllTiers(): TierConfig[] {
 }
 
 /** Format property limit for display */
-export function formatPropertyLimit(tier: TierName): string {
-  const config = TIERS[tier];
+export function formatPropertyLimit(tier: TierNameInput): string {
+  const config = TIERS[normalizeTierName(tier)];
   return config.maxProperties === Infinity ? 'Unlimited' : String(config.maxProperties);
 }
 
 /** Format draft limit for display */
-export function formatDraftLimit(tier: TierName): string {
-  const config = TIERS[tier];
+export function formatDraftLimit(tier: TierNameInput): string {
+  const config = TIERS[normalizeTierName(tier)];
   if (config.maxDraftsPerMonth === Infinity) return 'Unlimited';
   return config.maxDraftsPerMonth.toLocaleString();
 }

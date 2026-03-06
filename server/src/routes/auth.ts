@@ -8,10 +8,11 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { getSupabaseAdmin } from '../db/supabase.js';
-import type { AuthResponse } from '../lib/types.js';
+import { getSupabaseAdmin, getSupabaseAuthClient } from '../db/supabase.js';
+import type { AuthResponse, PlanTier } from '../lib/types.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { AppEnv } from '../lib/env.js';
+import { getEffectivePlan, isFounderAccount } from '../lib/founder-access.js';
 
 export const authRouter = new Hono<AppEnv>();
 
@@ -121,7 +122,8 @@ authRouter.post('/signup', async (c) => {
     }
 
     // Sign in to get session tokens
-    const { data: signInData } = await supabase.auth.signInWithPassword({
+    const authClient = getSupabaseAuthClient();
+    const { data: signInData } = await authClient.auth.signInWithPassword({
       email,
       password,
     });
@@ -130,6 +132,8 @@ authRouter.post('/signup', async (c) => {
       return c.json({ message: 'Account created but login failed', code: 'SESSION_ERROR', status: 500 }, 500);
     }
 
+    const founderAccess = isFounderAccount(userId, email);
+    const effectivePlan = getEffectivePlan('starter', userId, email);
     const response: AuthResponse = {
       token: signInData.session.access_token,
       refreshToken: signInData.session.refresh_token,
@@ -138,12 +142,12 @@ authRouter.post('/signup', async (c) => {
         email,
         name,
         createdAt: new Date(),
-        plan: 'starter',
+        plan: effectivePlan,
         trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     };
 
-    return c.json(response, 201);
+    return c.json({ ...response, founderAccess }, 201);
   } catch (err) {
     console.error('[Auth] Signup error:', err);
     return c.json({ message: 'Signup failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
@@ -168,8 +172,9 @@ authRouter.post('/login', async (c) => {
 
     const { email, password } = parsed.data;
     const supabase = getSupabaseAdmin();
+    const authClient = getSupabaseAuthClient();
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
 
     if (error || !data.session) {
       return c.json({ message: 'Invalid email or password', code: 'INVALID_CREDENTIALS', status: 401 }, 401);
@@ -186,6 +191,8 @@ authRouter.post('/login', async (c) => {
       return c.json({ message: 'User profile not found', code: 'USER_NOT_FOUND', status: 404 }, 404);
     }
 
+    const founderAccess = isFounderAccount(user.id, user.email);
+    const effectivePlan = getEffectivePlan((user.plan || 'starter') as PlanTier, user.id, user.email);
     const response: AuthResponse = {
       token: data.session.access_token,
       refreshToken: data.session.refresh_token,
@@ -194,12 +201,12 @@ authRouter.post('/login', async (c) => {
         email: user.email,
         name: user.name,
         createdAt: new Date(user.created_at),
-        plan: user.plan,
+        plan: effectivePlan,
         trialEndsAt: user.trial_ends_at ? new Date(user.trial_ends_at) : null,
       },
     };
 
-    return c.json(response);
+    return c.json({ ...response, founderAccess });
   } catch (err) {
     console.error('[Auth] Login error:', err);
     return c.json({ message: 'Login failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
@@ -232,15 +239,20 @@ authRouter.get('/me', requireAuth, async (c) => {
       .eq('user_id', userId)
       .single();
 
+    const founderAccess = isFounderAccount(user.id, user.email);
+    const effectivePlan = getEffectivePlan((user.plan || 'starter') as PlanTier, user.id, user.email);
+
     return c.json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        plan: user.plan,
+        plan: effectivePlan,
+        basePlan: user.plan,
         trialEndsAt: user.trial_ends_at,
         createdAt: user.created_at,
       },
+      founderAccess,
       organization: membership ? {
         id: membership.org_id,
         role: membership.role,
@@ -265,8 +277,8 @@ authRouter.post('/refresh', async (c) => {
       return c.json({ message: 'Refresh token required', code: 'VALIDATION_ERROR', status: 400 }, 400);
     }
 
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    const authClient = getSupabaseAuthClient();
+    const { data, error } = await authClient.auth.refreshSession({ refresh_token: refreshToken });
 
     if (error || !data.session) {
       return c.json({ message: 'Invalid refresh token', code: 'INVALID_TOKEN', status: 401 }, 401);

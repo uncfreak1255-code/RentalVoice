@@ -18,9 +18,13 @@ import { settingsRouter } from './routes/settings.js';
 import { knowledgeRouter } from './routes/knowledge.js';
 import { accountRouter } from './routes/account.js';
 import { usageRouter } from './routes/usage.js';
+import { analyticsRouter } from './routes/analytics.js';
 import { hostawayRouter } from './routes/hostaway.js';
+import './adapters/hostaway-adapter.js'; // Self-registers Hostaway adapter
 import { billingRouter } from './routes/billing.js';
+import { entitlementsRouter } from './routes/entitlements.js';
 import { webhooksRouter } from './routes/webhooks.js';
+import { migrationRouter } from './routes/migration.js';
 import { guestyRouter } from './routes/guesty.js';
 import './adapters/guesty-adapter.js'; // Self-registers Guesty adapter
 import { lodgifyRouter } from './routes/lodgify.js';
@@ -73,8 +77,11 @@ app.route('/settings', settingsRouter);
 app.route('/knowledge', knowledgeRouter);
 app.route('/account', accountRouter);
 app.route('/usage', usageRouter);
+app.route('/analytics', analyticsRouter);
 app.route('/hostaway', hostawayRouter);
 app.route('/billing', billingRouter);
+app.route('/entitlements', entitlementsRouter);
+app.route('/migration', migrationRouter);
 app.route('/webhooks', webhooksRouter);
 app.route('/guesty', guestyRouter);
 app.route('/lodgify', lodgifyRouter);
@@ -116,7 +123,7 @@ export default app;
 // For local dev: start with `bun run --hot src/index.ts`
 const port = parseInt(process.env.PORT || '3001', 10);
 
-if (typeof Bun !== 'undefined') {
+if (typeof (globalThis as { Bun?: unknown }).Bun !== 'undefined') {
   console.log(`[Server] Rental Voice API running at http://localhost:${port}`);
 }
 

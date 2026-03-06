@@ -190,6 +190,7 @@ export interface AIGenerateResponse {
   detectedLanguage: string;
   provider: string;
   model: string;
+  usedFallback: boolean;
   tokensUsed: { input: number; output: number };
 }
 
@@ -219,6 +220,7 @@ export interface AutoPilotResponse {
   pmsError?: string | null;
   provider?: string;
   model?: string;
+  usedFallback?: boolean;
   tokensUsed?: { input: number; output: number };
 }
 
@@ -244,6 +246,26 @@ export async function submitEditFeedback(
 ): Promise<{ success: boolean; patternsAnalyzed: number }> {
   const { data } = await apiClient.post('/api/ai/learn', req as unknown as Record<string, unknown>);
   return data as { success: boolean; patternsAnalyzed: number };
+}
+
+export interface DraftOutcomeFeedbackRequest {
+  outcomeType: 'approved' | 'edited' | 'rejected' | 'independent';
+  propertyId?: string;
+  guestIntent?: string;
+  confidence?: number;
+  aiDraft?: string;
+  hostReply?: string;
+  guestMessage?: string;
+}
+
+export async function recordDraftOutcomeViaServer(
+  req: DraftOutcomeFeedbackRequest
+): Promise<{ success: boolean; outcomeType: string; patternsAnalyzed: number }> {
+  const { data } = await apiClient.post(
+    '/api/ai/outcome',
+    req as unknown as Record<string, unknown>
+  );
+  return data as { success: boolean; outcomeType: string; patternsAnalyzed: number };
 }
 
 /**
@@ -317,11 +339,115 @@ export interface UsageResponse {
     extraPropertyCost: number;
     styleLearning: string;
   };
+  managedModel?: {
+    label: string;
+    provider: string;
+    model: string;
+    fallbackCount: number;
+    maxOutputTokensPerDraft: number;
+    maxEstimatedCostUsdPerDraft: number;
+  };
 }
 
 export async function getAIUsage(): Promise<UsageResponse> {
   const { data } = await apiClient.get('/api/usage');
   return data as UsageResponse;
+}
+
+export interface EntitlementsResponse {
+  plan: string;
+  entitlements: {
+    supermemoryEnabled: boolean;
+    supermemoryMode: 'off' | 'full' | 'degraded';
+    supermemoryTrialEndsAt: string | null;
+    supermemoryWriteLimitMonthly: number;
+    supermemoryReadLimitMonthly: number;
+    supermemoryWriteRemaining: number;
+    supermemoryReadRemaining: number;
+    supermemoryRetentionDays: number;
+    supermemoryTopK: number;
+    supermemoryCrossProperty: boolean;
+    supermemoryTeamShared: boolean;
+    supermemoryAddonActive: boolean;
+  };
+  usage: {
+    month: string;
+    memoryReads: number;
+    memoryWrites: number;
+  };
+  trial: {
+    isTrialActive: boolean;
+    trialEndsAt: string | null;
+  };
+}
+
+export async function getCurrentEntitlements(): Promise<EntitlementsResponse> {
+  const { data } = await apiClient.get<EntitlementsResponse>('/api/entitlements/current');
+  return data;
+}
+
+export interface LocalLearningMigrationImportRequest {
+  snapshotId?: string;
+  stableAccountId?: string;
+  source?: string;
+  hostStyleProfiles?: Record<string, unknown>;
+  aiLearningProgress?: Record<string, unknown>;
+  learningEntries?: Record<string, unknown>[];
+  draftOutcomes?: Record<string, unknown>[];
+  replyDeltas?: Record<string, unknown>[];
+  calibrationEntries?: Record<string, unknown>[];
+  conversationFlows?: Record<string, unknown>[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface LocalLearningMigrationImportResponse {
+  snapshotId: string;
+  source: string;
+  stats: {
+    importedAt: string;
+    hostStyleProfilesReceived: number;
+    hostStyleProfilesUpserted: number;
+    learningEntriesReceived: number;
+    editPatternsInserted: number;
+    draftOutcomesReceived: number;
+    replyDeltasReceived: number;
+    calibrationEntriesReceived: number;
+    conversationFlowsReceived: number;
+  };
+  imported: {
+    hostStyleProfiles: number;
+    editPatterns: number;
+  };
+}
+
+export interface LocalLearningMigrationStatusResponse {
+  hasSnapshot: boolean;
+  latestSnapshot: {
+    id: string;
+    source: string;
+    stableAccountId: string | null;
+    importedAt: string;
+    stats: Record<string, unknown>;
+  } | null;
+  serverTotals: {
+    hostStyleProfiles: number;
+    editPatterns: number;
+  };
+}
+
+export async function importLocalLearningSnapshot(
+  payload: LocalLearningMigrationImportRequest
+): Promise<LocalLearningMigrationImportResponse> {
+  const { data } = await apiClient.post<LocalLearningMigrationImportResponse>(
+    '/api/migration/local-learning/import',
+    payload as unknown as Record<string, unknown>
+  );
+  return data;
+}
+
+export async function getLocalLearningMigrationStatus(): Promise<LocalLearningMigrationStatusResponse> {
+  const { data } = await apiClient.get<LocalLearningMigrationStatusResponse>('/api/migration/local-learning/status');
+  return data;
 }
 
 // ============================================================
@@ -395,9 +521,12 @@ export async function logout(): Promise<void> {
 
 export interface BillingStatus {
   plan: string;
+  basePlan?: string;
   isTrialing: boolean;
   trialDaysLeft: number;
   hasPaymentMethod: boolean;
+  founderAccess?: boolean;
+  billingBypass?: boolean;
 }
 
 export async function getBillingStatus(): Promise<BillingStatus> {
@@ -408,17 +537,94 @@ export async function getBillingStatus(): Promise<BillingStatus> {
 export async function createCheckoutSession(plan: string): Promise<{ url: string }> {
   const { data } = await apiClient.post<{ id: string; url: string }>('/api/billing/checkout', {
     plan,
-    successUrl: 'rentalvoice://billing/success',
-    cancelUrl: 'rentalvoice://billing/cancel',
+    successUrl: 'rental-voice://settings/billing?checkout=success',
+    cancelUrl: 'rental-voice://settings/billing?checkout=cancelled',
   });
   return { url: data.url };
 }
 
 export async function createBillingPortal(): Promise<{ url: string }> {
   const { data } = await apiClient.post<{ url: string }>('/api/billing/portal', {
-    returnUrl: 'rentalvoice://settings',
+    returnUrl: 'rental-voice://settings/billing?portal=returned',
   });
   return { url: data.url };
+}
+
+export async function setSupermemoryAddon(active: boolean): Promise<{ success: boolean; entitlements: Record<string, unknown> }> {
+  const { data } = await apiClient.post<{ success: boolean; entitlements: Record<string, unknown> }>('/api/billing/addons/supermemory', {
+    active,
+  });
+  return data;
+}
+
+export interface ProductEventRequest {
+  eventName:
+    | 'billing_screen_viewed'
+    | 'billing_checkout_started'
+    | 'billing_portal_opened'
+    | 'billing_memory_addon_enabled'
+    | 'billing_memory_addon_disabled'
+    | 'billing_returned';
+  category: 'billing';
+  source?: string;
+  properties?: Record<string, string | number | boolean | null>;
+  occurredAt?: string;
+}
+
+export async function trackProductEvent(event: ProductEventRequest): Promise<void> {
+  await apiClient.post('/api/analytics/events', { ...event });
+}
+
+export interface FounderDiagnosticsResponse {
+  founderAccess: boolean;
+  billingBypass: boolean;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    basePlan: string;
+    effectivePlan: string;
+    trialEndsAt: string | null;
+    hasStripeCustomer: boolean;
+  };
+  organization: {
+    id: string;
+    name: string | null;
+    role: string | null;
+  };
+  ai: {
+    mode: string | null;
+    usageMonth: string;
+    totalDrafts: number;
+    totalTokens: number;
+    totalCostUsd: number;
+  };
+  memory: {
+    mode: string;
+    enabled: boolean;
+    addonActive: boolean;
+    readLimitMonthly: number;
+    writeLimitMonthly: number;
+    readsUsed: number;
+    writesUsed: number;
+  };
+  pms: {
+    provider: string | null;
+    status: string | null;
+    accountId: string | null;
+    lastSyncAt: string | null;
+  };
+  recentBillingEvents: Array<{
+    event_name: string;
+    source: string | null;
+    properties: Record<string, unknown>;
+    created_at: string;
+  }>;
+}
+
+export async function getFounderDiagnostics(): Promise<FounderDiagnosticsResponse> {
+  const { data } = await apiClient.get<FounderDiagnosticsResponse>('/api/analytics/founder-diagnostics');
+  return data;
 }
 
 // ============================================================
@@ -432,13 +638,149 @@ export interface HostawayStatus {
   lastSyncAt: string | null;
 }
 
+export interface HostawayListingRecord {
+  id: number;
+  name?: string;
+  externalListingName?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  countryCode?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  personCapacity?: number;
+  thumbnailUrl?: string | null;
+  picture?: string | null;
+  [key: string]: unknown;
+}
+
+export interface HostawayCalendarReservationRecord {
+  id: number;
+  listingMapId: number;
+  guestName?: string;
+  guestFirstName?: string;
+  guestLastName?: string;
+  arrivalDate: string;
+  departureDate: string;
+  status?: string;
+  totalPrice?: number;
+  currency?: string;
+  adults?: number;
+  children?: number;
+  nights?: number;
+  channelName?: string;
+  isBlocked?: boolean;
+  [key: string]: unknown;
+}
+
+export interface HostawayConversationRecord {
+  id: number;
+  listingMapId: number;
+  reservationId?: number;
+  guestName?: string;
+  guestFirstName?: string;
+  guestLastName?: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  guestPicture?: string;
+  channelId?: number;
+  channelName?: string;
+  arrivalDate?: string;
+  departureDate?: string;
+  isArchived?: boolean;
+  isRead?: boolean;
+  lastMessage?: string;
+  lastMessageSentAt?: string;
+  listingName?: string;
+  source?: string;
+  guest?: {
+    id?: number;
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    picture?: string;
+  };
+  reservation?: {
+    id?: number;
+    guestName?: string;
+    guestFirstName?: string;
+    guestLastName?: string;
+    guestEmail?: string;
+    guestPhone?: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface HostawayMessageRecord {
+  id: number;
+  conversationId: number;
+  body: string;
+  isIncoming: boolean;
+  status: string;
+  insertedOn: string;
+  sentOn?: string;
+  senderName?: string;
+  [key: string]: unknown;
+}
+
+export interface HostawayReservationRecord {
+  id: number;
+  listingMapId: number;
+  channelId?: number;
+  channelName?: string;
+  guestName?: string;
+  guestFirstName?: string;
+  guestLastName?: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  arrivalDate?: string;
+  departureDate?: string;
+  status?: string;
+  totalPrice?: number;
+  currency?: string;
+  adults?: number;
+  children?: number;
+  source?: string;
+  [key: string]: unknown;
+}
+
+export interface HostawayHistorySyncJob {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  phase: 'idle' | 'conversations' | 'messages' | 'analyzing' | 'complete' | 'error';
+  dateRangeMonths: number;
+  processedConversations: number;
+  totalConversations: number;
+  processedMessages: number;
+  totalMessages: number;
+  lastError: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  payloadAvailable: boolean;
+  isRunningInMemory: boolean;
+}
+
 export async function getHostawayStatus(): Promise<HostawayStatus> {
   const { data } = await apiClient.get<HostawayStatus>('/api/hostaway');
   return data;
 }
 
-export async function connectHostaway(accountId: string, apiKey: string): Promise<{ message: string }> {
-  const { data } = await apiClient.post<{ message: string }>('/api/hostaway', { accountId, apiKey });
+export async function connectHostaway(accountId: string, apiKey: string): Promise<{
+  status: string;
+  provider: string;
+  accountId: string;
+  connectedAt: string;
+}> {
+  const { data } = await apiClient.post<{
+    status: string;
+    provider: string;
+    accountId: string;
+    connectedAt: string;
+  }>('/api/hostaway', { accountId, apiKey });
   return data;
 }
 
@@ -449,6 +791,134 @@ export async function disconnectHostaway(): Promise<void> {
 export async function syncHostaway(): Promise<{ properties: unknown[]; syncedAt: string }> {
   const { data } = await apiClient.post<{ properties: unknown[]; syncedAt: string }>('/api/hostaway/sync', {});
   return data;
+}
+
+export async function getHostawayListingsViaServer(limit = 100): Promise<HostawayListingRecord[]> {
+  const { data } = await apiClient.get<{ result: HostawayListingRecord[] }>(`/api/hostaway/listings?limit=${limit}`);
+  return data.result || [];
+}
+
+export async function getHostawayListingDetailViaServer(
+  listingId: number
+): Promise<HostawayListingRecord | null> {
+  const { data } = await apiClient.get<{ result: HostawayListingRecord | null }>(
+    `/api/hostaway/listings/${listingId}`
+  );
+  return data.result || null;
+}
+
+export async function getHostawayConversationsViaServer(
+  limit = 50,
+  offset = 0
+): Promise<HostawayConversationRecord[]> {
+  const { data } = await apiClient.get<{ result: HostawayConversationRecord[] }>(
+    `/api/hostaway/conversations?limit=${limit}&offset=${offset}`
+  );
+  return data.result || [];
+}
+
+export async function getHostawayMessagesViaServer(
+  conversationId: number,
+  limit = 100,
+  offset = 0
+): Promise<HostawayMessageRecord[]> {
+  const { data } = await apiClient.get<{ result: HostawayMessageRecord[] }>(
+    `/api/hostaway/conversations/${conversationId}/messages?limit=${limit}&offset=${offset}`
+  );
+  return data.result || [];
+}
+
+export async function getHostawayReservationViaServer(
+  reservationId: number
+): Promise<HostawayReservationRecord | null> {
+  const { data } = await apiClient.get<{ result: HostawayReservationRecord | null }>(
+    `/api/hostaway/reservations/${reservationId}`
+  );
+  return data.result || null;
+}
+
+export async function sendHostawayMessageViaServer(
+  conversationId: number,
+  body: string
+): Promise<HostawayMessageRecord | null> {
+  const { data } = await apiClient.post<{ result: HostawayMessageRecord | null }>(
+    `/api/hostaway/conversations/${conversationId}/messages`,
+    { body }
+  );
+  return data.result || null;
+}
+
+export async function startHostawayHistorySyncViaServer(
+  dateRangeMonths: number
+): Promise<HostawayHistorySyncJob> {
+  const { data } = await apiClient.post<{ job: HostawayHistorySyncJob }>(
+    '/api/hostaway/history-sync/start',
+    { dateRangeMonths }
+  );
+  return data.job;
+}
+
+export async function getHostawayHistorySyncStatusViaServer(): Promise<HostawayHistorySyncJob | null> {
+  const { data } = await apiClient.get<{ job: HostawayHistorySyncJob | null }>(
+    '/api/hostaway/history-sync/status'
+  );
+  return data.job;
+}
+
+export async function clearHostawayHistorySyncViaServer(): Promise<void> {
+  await apiClient.delete('/api/hostaway/history-sync/status');
+}
+
+export async function getHostawayHistorySyncResultViaServer(
+  jobId?: string
+): Promise<{
+  job: HostawayHistorySyncJob | null;
+  result: {
+    conversations: Record<string, unknown>[];
+    messages: Record<string, Record<string, unknown>[]>;
+  } | null;
+}> {
+  const query = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
+  const { data } = await apiClient.get<{
+    job: HostawayHistorySyncJob | null;
+    result: {
+      conversations: Record<string, unknown>[];
+      messages: Record<string, Record<string, unknown>[]>;
+    } | null;
+  }>(`/api/hostaway/history-sync/result${query}`);
+  return data;
+}
+
+export async function getHostawayCalendarReservationsViaServer(options?: {
+  startDate?: string;
+  endDate?: string;
+  listingId?: number;
+  status?: string;
+}): Promise<HostawayCalendarReservationRecord[]> {
+  const limit = 100;
+  const allReservations: HostawayCalendarReservationRecord[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    if (options?.startDate) params.set('arrivalStartDate', options.startDate);
+    if (options?.endDate) params.set('arrivalEndDate', options.endDate);
+    if (options?.listingId) params.set('listingId', String(options.listingId));
+    if (options?.status) params.set('status', options.status);
+
+    const { data } = await apiClient.get<{ result: HostawayCalendarReservationRecord[] }>(
+      `/api/hostaway/reservations?${params.toString()}`
+    );
+    const page = data.result || [];
+    allReservations.push(...page);
+    hasMore = page.length === limit;
+    offset += limit;
+  }
+
+  return allReservations;
 }
 
 // ============================================================

@@ -72,3 +72,25 @@ export function getSupabaseForUser(jwt: string): SupabaseClient {
     },
   });
 }
+
+/**
+ * Get a fresh Supabase auth client using the anon key.
+ * Use this for end-user auth flows so the admin client never picks up a user session.
+ */
+export function getSupabaseAuthClient(): SupabaseClient {
+  const url = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error(
+      '[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables'
+    );
+  }
+
+  return createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
