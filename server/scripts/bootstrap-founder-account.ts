@@ -15,6 +15,13 @@ type Args = {
   output?: string;
 };
 
+type RuntimeEnvironmentSummary = {
+  envClass: string;
+  projectRef: string;
+  projectLabel: string;
+  allowNonLive: boolean;
+};
+
 function parseArgs(argv: string[]): Args {
   const parsed: Partial<Args> = {
     email: 'sawyerbeck25@gmail.com',
@@ -70,6 +77,15 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function getRuntimeEnvironmentSummary(): RuntimeEnvironmentSummary {
+  return {
+    envClass: process.env.SUPABASE_ENV_CLASS || 'unset',
+    projectRef: process.env.SUPABASE_PROJECT_REF || 'unknown',
+    projectLabel: process.env.SUPABASE_PROJECT_LABEL || 'unknown',
+    allowNonLive: process.env.ALLOW_NONLIVE_SUPABASE === 'true',
+  };
+}
+
 async function findAuthUserByEmail(
   supabase: ReturnType<typeof createClient>,
   email: string,
@@ -110,6 +126,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const supabaseUrl = requireEnv('SUPABASE_URL');
   const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const runtimeEnvironment = getRuntimeEnvironmentSummary();
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -266,6 +283,7 @@ async function main() {
     orgId,
     basePlan: args.basePlan,
     founderPlan: args.founderPlan,
+    runtimeEnvironment,
     existing: {
       authUser: !!authUser,
       userRow: !!existingUserRow,

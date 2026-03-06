@@ -55,3 +55,14 @@ The founder migration now uses the same base contract with extra metadata:
 5. import into the backend
 6. verify status via `/api/migration/local-learning/status`
 7. keep the snapshot id and baseline id together for rollback/handoff
+
+## Environment safety gate
+
+`ops/migration/run-controlled-commercial-migration.sh` is intended for the eventual live cutover path.
+
+It now refuses to run unless:
+
+- `SUPABASE_ENV_CLASS=live`
+- or `ALLOW_NONLIVE_SUPABASE=true` is set intentionally for a rehearsal
+
+This prevents running founder/commercial cutover steps against the current test-only linked project by accident.

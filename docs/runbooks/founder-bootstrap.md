@@ -19,12 +19,18 @@ npm run ops:founder:bootstrap
 ```
 
 This writes a manifest describing what would be created and which founder env vars still need to be configured.
+The dry run can execute in non-live environments, but the manifest should record the environment class and project ref so it is obvious when the rehearsal is happening in test or smoke only.
 
 ## Execute later in the chosen live environment
 
 ```bash
 npm run ops:founder:bootstrap -- --execute --yes --password '<temporary-password>'
 ```
+
+Execution is blocked unless:
+
+- `SUPABASE_ENV_CLASS=live`
+- or `ALLOW_NONLIVE_SUPABASE=true` is set intentionally for a rehearsal
 
 ## What the bootstrap creates
 
@@ -49,6 +55,12 @@ Those env vars are what activate:
 - founder effective plan
 - founder diagnostics access
 - founder billing bypass
+
+Recommended environment metadata to set alongside them:
+
+- `SUPABASE_ENV_CLASS`
+- `SUPABASE_PROJECT_REF`
+- `SUPABASE_PROJECT_LABEL`
 
 ## Validation after bootstrap
 

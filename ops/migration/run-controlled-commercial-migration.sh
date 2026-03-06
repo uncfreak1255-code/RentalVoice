@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../lib/common.sh
 source "$ROOT_DIR/ops/lib/common.sh"
+# shellcheck source=../lib/require-env-class.sh
+source "$ROOT_DIR/ops/lib/require-env-class.sh"
 
 ensure_dirs
 
@@ -69,6 +71,8 @@ run_optional_cmd() {
 echo "[migration] Starting controlled commercial migration"
 echo "[migration] Checkpoint ID: $checkpoint_id"
 echo "[migration] Log file: $log_file"
+
+require_runtime_env_class "live" "migration"
 
 if [[ "$skip_checkpoint" != "true" ]]; then
   echo "[migration] Step 1/6: Create pre-migration checkpoint"

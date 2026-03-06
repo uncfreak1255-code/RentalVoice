@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=../lib/common.sh
 source "$ROOT_DIR/ops/lib/common.sh"
+# shellcheck source=../lib/require-env-class.sh
+source "$ROOT_DIR/ops/lib/require-env-class.sh"
 
 require_cmd bun
 ensure_dirs
@@ -77,8 +79,10 @@ if [[ "$execute_flag" == "true" && "$yes_flag" != "true" ]]; then
 fi
 
 if [[ "$execute_flag" == "true" ]]; then
+  require_runtime_env_class "live" "founder-bootstrap"
   echo "[founder-bootstrap] Executing founder bootstrap against configured Supabase project"
 else
+  require_runtime_env_class "live,staging,test,smoke,dev,unset" "founder-bootstrap"
   echo "[founder-bootstrap] Dry run only. No auth user or database rows will be created."
 fi
 
