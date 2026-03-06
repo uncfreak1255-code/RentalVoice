@@ -189,6 +189,22 @@ All routes prefixed with `/api`:
 - LLM safeguards: content filtering on AI outputs
 - Privacy policy at `rentalvoice.app/privacy`
 
+## Session Protocol
+
+Before ending a session, the assistant should update this file with new learnings discovered during the session. This includes:
+
+- **Architectural decisions** made (and why)
+- **New gotchas or bugs** discovered (add to Known Technical Debt)
+- **New patterns** established (add to Coding Conventions)
+- **Commands or workflows** that were non-obvious
+- **Dependencies added or removed**
+
+Keep updates concise — curate, don't append logs. Remove stale entries when they no longer apply.
+
+## Session Learnings
+
+<!-- Add learnings below this line. Newest first. -->
+
 ## Skills
 
 Read skills: hostaway-api, api-patterns, python-patterns, database-design

@@ -52,6 +52,9 @@ server/.env
 .env
 .env.local
 
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
+
 # Supabase local
 .supabase/
 
