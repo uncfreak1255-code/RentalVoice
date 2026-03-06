@@ -17,6 +17,7 @@ import type { Context, Next } from 'hono';
 import { getSupabaseAdmin } from '../db/supabase.js';
 import { PLAN_LIMITS } from '../lib/types.js';
 import type { PlanTier } from '../lib/types.js';
+import { getEffectivePlan, isFounderAccount } from '../lib/founder-access.js';
 
 /**
  * Middleware to check if the org has remaining AI drafts for this month.
@@ -25,6 +26,7 @@ import type { PlanTier } from '../lib/types.js';
 export async function checkDraftLimit(c: Context, next: Next): Promise<Response | void> {
   try {
     const userId = c.get('userId') as string;
+    const userEmail = c.get('userEmail') as string;
     const orgId = c.get('orgId') as string;
     const supabase = getSupabaseAdmin();
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
@@ -36,7 +38,8 @@ export async function checkDraftLimit(c: Context, next: Next): Promise<Response 
       .eq('id', userId)
       .single();
 
-    const plan = (user?.plan || 'starter') as PlanTier;
+    const basePlan = (user?.plan || 'starter') as PlanTier;
+    const plan = getEffectivePlan(basePlan, userId, userEmail);
     const limits = PLAN_LIMITS[plan];
 
     // Enterprise / unlimited = skip check
@@ -60,6 +63,7 @@ export async function checkDraftLimit(c: Context, next: Next): Promise<Response 
     c.header('X-Drafts-Used', totalDrafts.toString());
     c.header('X-Drafts-Limit', limits.maxDraftsPerMonth.toString());
     c.header('X-Drafts-Remaining', remaining.toString());
+    c.header('X-Founder-Access', isFounderAccount(userId, userEmail) ? 'true' : 'false');
 
     if (isOverLimit) {
       // Free tier: hard cap — block the request

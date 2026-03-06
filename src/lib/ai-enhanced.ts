@@ -386,7 +386,13 @@ export function analyzeSentimentAdvanced(content: string): SentimentAnalysis {
 }
 
 // Detect multiple topics in a message
-export function detectTopics(content: string, knowledge?: PropertyKnowledge): DetectedTopic[] {
+export function detectTopics(content: string, knowledge?: PropertyKnowledge, options?: { isResolution?: boolean }): DetectedTopic[] {
+  // Resolution messages (thank you, great stay, etc.) don't have actionable topics.
+  // Skip keyword matching entirely to avoid false positives like "clean" triggering housekeeping.
+  if (options?.isResolution) {
+    return [{ topic: 'Resolution/Thanks', intent: 'resolution', priority: 5, hasAnswer: false }];
+  }
+
   const topics: DetectedTopic[] = [];
   // Topic patterns use case-insensitive regex, no need for lowercase variable
   // Define topic patterns with their intents
@@ -1602,8 +1608,11 @@ BANNED PHRASES (these are AI artifacts — no real person writes like this):
 `;
   }
 
-  // Add property knowledge
-  if (knowledge) {
+  // Add property knowledge — but SKIP for resolution messages to avoid
+  // dumping amenity lists and checkout instructions into thank-you responses.
+  // Resolution intent means the guest is saying thanks/goodbye, not asking questions.
+  const hasResolutionTopic = topics.some(t => t.intent === 'resolution');
+  if (knowledge && !hasResolutionTopic) {
     prompt += '\nPROPERTY INFORMATION:\n';
 
     if (knowledge.wifiName && knowledge.wifiPassword) {
@@ -1645,12 +1654,12 @@ BANNED PHRASES (these are AI artifacts — no real person writes like this):
     if (knowledge.lateCheckOutAvailable && knowledge.lateCheckOutFee) {
       prompt += `- Late Check-out: Available for $${knowledge.lateCheckOutFee}\n`;
     }
-  }
 
-  // Add DIRECT ANSWER block for detected topics that have knowledge
-  const directAnswerBlock = getDirectAnswerBlock(topics, knowledge);
-  if (directAnswerBlock) {
-    prompt += directAnswerBlock;
+    // Add DIRECT ANSWER block for detected topics that have knowledge
+    const directAnswerBlock = getDirectAnswerBlock(topics, knowledge);
+    if (directAnswerBlock) {
+      prompt += directAnswerBlock;
+    }
   }
 
   return prompt;
@@ -1914,8 +1923,16 @@ export async function generateEnhancedAIResponse(options: {
   // Analyze message sentiment
   const sentiment = analyzeSentimentAdvanced(lastGuestMessage.content);
 
+  // SHORT-CIRCUIT: Resolution messages (thanks, perfect, great) don't need
+  // topic detection or knowledge injection — they just need a brief warm reply.
+  // This prevents false-positive keyword matches (e.g. "clean" in a review
+  // triggering housekeeping topics, or amenity lists being dumped).
+  const isResolution = contextAnalysis.threadDirection === 'resolution';
+
   // Use filtered topics (excluding already-addressed topics) instead of raw topics
-  const topics = filteredTopics.length > 0 ? filteredTopics : detectTopics(lastGuestMessage.content, propertyKnowledge);
+  const topics = isResolution
+    ? [{ topic: 'Resolution/Thanks', intent: 'resolution', priority: 5, hasAnswer: false } as DetectedTopic]
+    : (filteredTopics.length > 0 ? filteredTopics : detectTopics(lastGuestMessage.content, propertyKnowledge));
 
   const actionItems = detectActionItems(
     lastGuestMessage.content,
@@ -2101,7 +2118,7 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
   let generatedContent: string | null = null;
   let usedProvider = 'local';
 
-  // Use dynamic provider order from BYOK settings
+  // Use dynamic provider order from local provider settings
   const providerOrder = await getProviderOrder();
 
   // Check if user has selected a specific model

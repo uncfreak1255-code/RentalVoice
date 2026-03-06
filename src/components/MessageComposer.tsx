@@ -54,6 +54,8 @@ interface MessageComposerProps {
   onOpenActionsSheet?: () => void;
   rateLimitError?: string | null;
   onDismissRateLimitError?: () => void;
+  rateLimitActionLabel?: string | null;
+  onRateLimitAction?: () => void;
 }
 
 
@@ -76,6 +78,8 @@ export function MessageComposer({
   onOpenActionsSheet,
   rateLimitError,
   onDismissRateLimitError,
+  rateLimitActionLabel,
+  onRateLimitAction,
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
 
@@ -281,12 +285,33 @@ export function MessageComposer({
           }}>
             {rateLimitError}
           </Text>
+          {rateLimitActionLabel && onRateLimitAction && (
+            <Pressable
+              onPress={onRateLimitAction}
+              hitSlop={12}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel={rateLimitActionLabel}
+              style={{
+                paddingHorizontal: spacing['3'],
+                paddingVertical: spacing['1'],
+                borderRadius: radius.md,
+                backgroundColor: colors.primary.DEFAULT,
+              }}
+            >
+              <Text style={{
+                fontSize: 12,
+                color: '#FFFFFF',
+                fontFamily: typography.fontFamily.semibold,
+              }}>{rateLimitActionLabel}</Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={onDismissRateLimitError}
             hitSlop={12}
             accessible
             accessibilityRole="button"
-            accessibilityLabel="Dismiss rate limit warning"
+            accessibilityLabel="Dismiss warning"
             style={{
               paddingHorizontal: spacing['3'],
               paddingVertical: spacing['1'],
@@ -309,6 +334,7 @@ export function MessageComposer({
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
           style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 100 : 280 }]}
+          testID="chat-ai-draft"
         >
           <ScrollView
             keyboardShouldPersistTaps="always"
@@ -365,16 +391,17 @@ export function MessageComposer({
                   accessibilityRole="button"
                   accessibilityLabel="Send AI draft to guest"
                   accessibilityState={{ disabled: !!isBlocked }}
+                  testID="chat-ai-approve"
                 >
                   <Send size={16} color="#FFFFFF" />
                   <Text style={mcStyles.v2SendBtnText}>Send Draft</Text>
                 </Pressable>
 
-                <Pressable onPress={handleEdit} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Edit AI draft">
+                <Pressable onPress={handleEdit} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Edit AI draft" testID="chat-ai-edit">
                   <Edit3 size={20} color={colors.text.secondary} />
                 </Pressable>
 
-                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Regenerate AI draft">
+                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Regenerate AI draft" testID="chat-ai-reject">
                   <RefreshCw size={20} color={colors.text.secondary} />
                 </Pressable>
 
@@ -584,6 +611,7 @@ export function MessageComposer({
               style={mcStyles.textInput}
               multiline
               editable={!disabled && !isGenerating}
+              testID="chat-input"
             />
             {privacyScanResult?.hasIssues && !showPrivacyAlert && (
               <PrivacyIndicator
@@ -601,6 +629,7 @@ export function MessageComposer({
             style={[mcStyles.sendBtn, { backgroundColor: message.trim() && !isGenerating ? colors.accent.DEFAULT : colors.bg.hover }]}
             accessibilityLabel="Send message"
             accessibilityHint="Sends your typed message to the guest"
+            testID="chat-send"
           >
             <Send
               size={20}
