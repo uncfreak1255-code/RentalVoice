@@ -189,6 +189,54 @@ All routes prefixed with `/api`:
 - LLM safeguards: content filtering on AI outputs
 - Privacy policy at `rentalvoice.app/privacy`
 
+## Behavioral Rules
+
+### Do
+- Read existing code before modifying it
+- Use path-scoped rules in `.claude/rules/` for domain-specific guidance
+- Use slash commands (`/add-screen`, `/debug-ai`, `/sync-check`, `/pre-submit`, `/review-pr`, `/curate`)
+- Run `npm run typecheck` after any code changes
+- Batch parallel tool calls in a single message when operations are independent
+- Check existing patterns/decisions before implementing something new
+
+### Do NOT
+- Add features, refactor, or "improve" code beyond what was asked
+- Add docstrings, comments, or type annotations to untouched code
+- Create helpers or abstractions for one-time operations
+- Add error handling for scenarios that can't happen
+- Use backwards-compatibility shims — just change the code
+- Hardcode colors, spacing, or typography values
+- Use `className=` anywhere (NativeWind is legacy)
+- Select the entire Zustand store
+- Skip running typecheck after changes
+
+## Claude Code Setup
+
+### Slash Commands (`.claude/commands/`)
+| Command | Purpose |
+|---------|---------|
+| `/add-screen` | Scaffold a new screen with routing + component |
+| `/debug-ai` | Diagnose AI draft pipeline issues |
+| `/sync-check` | Verify Hostaway PMS sync health |
+| `/pre-submit` | Run App Store pre-submission checklist |
+| `/review-pr` | Review changes against coding standards |
+| `/curate` | Run codebase curator to sync docs with code |
+
+### Path-Scoped Rules (`.claude/rules/`)
+| Rule | Applies To |
+|------|-----------|
+| `frontend.md` | `src/**/*.{ts,tsx}` |
+| `backend.md` | `server/**/*.ts` |
+| `ai-pipeline.md` | `src/lib/ai-*.ts`, `advanced-training.ts`, `useAIDraft.ts` |
+| `testing.md` | `**/__tests__/**/*.test.{ts,tsx}` |
+| `landing.md` | `landing/**` |
+
+### Agents (`.claude/agents/`)
+- **codebase-curator**: Self-evolving agent that audits and syncs documentation with actual codebase state
+
+### Plans Directory
+Plan-mode outputs are saved to `./reports/` for version-controlled tracking.
+
 ## Session Protocol
 
 Before ending a session, the assistant should update this file with new learnings discovered during the session. This includes:
@@ -204,6 +252,15 @@ Keep updates concise — curate, don't append logs. Remove stale entries when th
 ## Session Learnings
 
 <!-- Add learnings below this line. Newest first. -->
+
+### 2026-03-06
+- Set up comprehensive `.claude/` directory: commands, rules, agents, settings
+- Installed ASO skills (15), SEO skills (12), context-engineering skills (4) from GitHub forks
+- Created path-scoped rules for frontend, backend, AI pipeline, testing, landing page
+- Created slash commands: `/add-screen`, `/debug-ai`, `/sync-check`, `/pre-submit`, `/review-pr`, `/curate`
+- Created self-evolving `codebase-curator` agent for documentation drift prevention
+- Configured `settings.json` with Allow/Ask permission split and `plansDirectory: ./reports`
+- SessionEnd hook at `~/.claude/hooks/session-learnings.sh` timestamps CLAUDE.md on exit
 
 ## Skills
 
