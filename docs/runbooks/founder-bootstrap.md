@@ -23,6 +23,14 @@ The dry run can execute in non-live environments, but the manifest should record
 
 ## Execute later in the chosen live environment
 
+First validate the live environment contract:
+
+```bash
+npm run ops:founder:preflight
+```
+
+Then execute intentionally:
+
 ```bash
 npm run ops:founder:bootstrap -- --execute --yes --password '<temporary-password>'
 ```
@@ -61,6 +69,10 @@ Recommended environment metadata to set alongside them:
 - `SUPABASE_ENV_CLASS`
 - `SUPABASE_PROJECT_REF`
 - `SUPABASE_PROJECT_LABEL`
+
+The committed template for these keys lives in:
+
+- `/Users/sawbeck/Projects/RentalVoice/server/.env.example`
 
 ## Validation after bootstrap
 

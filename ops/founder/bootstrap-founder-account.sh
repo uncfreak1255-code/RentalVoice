@@ -80,6 +80,7 @@ fi
 
 if [[ "$execute_flag" == "true" ]]; then
   require_runtime_env_class "live" "founder-bootstrap"
+  bash "$ROOT_DIR/ops/founder/validate-live-environment.sh"
   echo "[founder-bootstrap] Executing founder bootstrap against configured Supabase project"
 else
   require_runtime_env_class "live,staging,test,smoke,dev,unset" "founder-bootstrap"

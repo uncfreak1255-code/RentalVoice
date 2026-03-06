@@ -16,6 +16,7 @@
     "ops:restore:db": "bash ops/restore/restore-db-from-checkpoint.sh",
     "ops:drill": "bash ops/drill/run-restore-drill.sh",
     "ops:migration:controlled": "bash ops/migration/run-controlled-commercial-migration.sh",
+    "ops:founder:preflight": "bash ops/founder/validate-live-environment.sh",
     "ops:founder:bootstrap": "bash ops/founder/bootstrap-founder-account.sh"
   },
   "dependencies": {
