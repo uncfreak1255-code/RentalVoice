@@ -14,6 +14,14 @@ Create a real founder app-auth account and org while leaving the current persona
 
 ## Dry run
 
+Generate the readiness checklist first:
+
+```bash
+npm run ops:founder:checklist
+```
+
+Then run the founder dry run:
+
 ```bash
 npm run ops:founder:bootstrap
 ```

@@ -44,6 +44,7 @@ This folder contains the first production safety layer for RentalVoice:
 - `npm run ops:restore:db -- --checkpoint-id <id> --yes`
 - `npm run ops:drill -- --checkpoint-id <id>`
 - `npm run ops:migration:controlled -- --checkpoint-id <id>`
+- `npm run ops:founder:checklist`
 - `npm run ops:founder:preflight`
 - `npm run ops:founder:bootstrap`
 
@@ -105,6 +106,8 @@ The founder app-auth account does not exist yet in either current Supabase proje
 
 Use the staged bootstrap script only after a real live environment is chosen and the correct Supabase service-role credentials are configured:
 
+- generate live-readiness checklist:
+  - `npm run ops:founder:checklist`
 - validate live environment:
   - `npm run ops:founder:preflight`
 - dry run:
