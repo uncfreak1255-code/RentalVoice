@@ -17,6 +17,7 @@
     "ops:drill": "bash ops/drill/run-restore-drill.sh",
     "ops:migration:controlled": "bash ops/migration/run-controlled-commercial-migration.sh",
     "ops:founder:checklist": "bash ops/founder/generate-live-readiness-checklist.sh",
+    "ops:founder:packet": "bash ops/founder/generate-bootstrap-packet.sh",
     "ops:founder:preflight": "bash ops/founder/validate-live-environment.sh",
     "ops:founder:preflight:rehearsal": "ALLOW_NONLIVE_SUPABASE=true bash ops/founder/validate-live-environment.sh --mode rehearsal",
     "ops:founder:bootstrap": "bash ops/founder/bootstrap-founder-account.sh"

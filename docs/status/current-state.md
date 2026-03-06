@@ -48,6 +48,7 @@ Last updated: 2026-03-06
 - Server-managed Hostaway paths for staged commercial flows exist
 - Local-to-commercial / personal-to-founder migration base exists
 - Founder bootstrap, live preflight, rehearsal preflight, and live-readiness checklist tooling exist
+- Founder bootstrap packet generator exists
 
 ## Current engineering rule
 

@@ -32,6 +32,7 @@ Last updated: 2026-03-06
 - rehearsal preflight with forbidden project-ref gating
 - live founder env template
 - founder live-readiness checklist
+- founder bootstrap packet generator
 
 ## What remains blocked
 

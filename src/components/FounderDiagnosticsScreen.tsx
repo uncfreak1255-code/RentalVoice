@@ -52,9 +52,20 @@ export function FounderDiagnosticsScreen({ onBack }: FounderDiagnosticsScreenPro
               <SectionHeader title="Identity" />
               <View style={s.card}>
                 <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Founder Access" value={data.founderAccess ? 'Yes' : 'No'} />
-                <ValueRow icon={<CreditCard size={18} color={colors.primary.DEFAULT} />} label="Billing Bypass" value={data.billingBypass ? 'Enabled' : 'Disabled'} />
+                <ValueRow icon={<CreditCard size={18} color={colors.primary.DEFAULT} />} label="Billing Bypass" value={data.founder.billingBypass ? 'Enabled' : 'Disabled'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Plan Override" value={data.founder.planOverride} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Entitlement Source" value={data.founder.entitlementSource} />
                 <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Effective Plan" value={data.user.effectivePlan} />
                 <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Base Plan" value={data.user.basePlan} isLast />
+              </View>
+
+              <SectionHeader title="Environment" />
+              <View style={s.card}>
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Env Class" value={data.environment.envClass} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Project Label" value={data.environment.projectLabel || 'Unavailable'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Project Ref" value={data.environment.projectRef || 'Unavailable'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Forbidden Ref" value={data.environment.isForbiddenProjectRef ? 'Yes' : 'No'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Forbidden Reason" value={data.environment.forbiddenProjectRefReason || 'None'} isLast />
               </View>
 
               <SectionHeader title="Organization" />
@@ -79,6 +90,16 @@ export function FounderDiagnosticsScreen({ onBack }: FounderDiagnosticsScreenPro
                 <ValueRow icon={<Wifi size={18} color={colors.primary.DEFAULT} />} label="Account ID" value={data.pms.accountId || 'Unavailable'} isLast />
               </View>
 
+              <SectionHeader title="Readiness" />
+              <View style={s.card}>
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Founder Env Configured" value={data.readiness.founderEnvConfigured ? 'Yes' : 'No'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Bootstrap Ready" value={data.readiness.founderBootstrapReady ? 'Yes' : 'No'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Bootstrap Reason" value={data.readiness.founderBootstrapReason} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Migration Ready" value={data.readiness.migrationReady ? 'Yes' : 'No'} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Migration Reason" value={data.readiness.migrationReason} />
+                <ValueRow icon={<Shield size={18} color={colors.primary.DEFAULT} />} label="Checklist Present" value={data.readiness.liveReadinessChecklistPresent ? 'Yes' : 'No'} isLast />
+              </View>
+
               <SectionHeader title="Recent Billing Events" />
               <View style={styles.eventsCard}>
                 {data.recentBillingEvents.length === 0 ? (
@@ -92,7 +113,7 @@ export function FounderDiagnosticsScreen({ onBack }: FounderDiagnosticsScreenPro
                   ))
                 )}
               </View>
-              <SectionFooter text="Use this screen to verify founder access, effective plan, PMS connection, and the billing telemetry stream on your own account." />
+              <SectionFooter text="Use this screen to verify founder access, environment truth, readiness state, PMS connection, and the billing telemetry stream on your own account." />
             </>
           ) : null}
         </ScrollView>

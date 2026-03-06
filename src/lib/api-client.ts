@@ -578,6 +578,12 @@ export async function trackProductEvent(event: ProductEventRequest): Promise<voi
 export interface FounderDiagnosticsResponse {
   founderAccess: boolean;
   billingBypass: boolean;
+  founder: {
+    isFounderMatch: boolean;
+    billingBypass: boolean;
+    planOverride: string;
+    entitlementSource: 'founder_override' | 'base_plan';
+  };
   user: {
     id: string;
     email: string;
@@ -591,6 +597,21 @@ export interface FounderDiagnosticsResponse {
     id: string;
     name: string | null;
     role: string | null;
+  };
+  environment: {
+    envClass: string;
+    projectRef: string;
+    projectLabel: string;
+    isForbiddenProjectRef: boolean;
+    forbiddenProjectRefReason: string | null;
+  };
+  readiness: {
+    founderBootstrapReady: boolean;
+    founderBootstrapReason: string;
+    migrationReady: boolean;
+    migrationReason: string;
+    founderEnvConfigured: boolean;
+    liveReadinessChecklistPresent: boolean;
   };
   ai: {
     mode: string | null;

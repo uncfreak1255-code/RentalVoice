@@ -20,6 +20,12 @@ Generate the readiness checklist first:
 npm run ops:founder:checklist
 ```
 
+Then generate the founder bootstrap packet:
+
+```bash
+npm run ops:founder:packet
+```
+
 Then run the founder dry run:
 
 ```bash
@@ -106,6 +112,10 @@ The committed template for these keys lives in:
 
 - `/Users/sawbeck/Projects/RentalVoice/server/.env.example`
 - `/Users/sawbeck/Projects/RentalVoice/server/.env.live-template`
+
+The founder bootstrap packet generator is:
+
+- `npm run ops:founder:packet`
 
 ## Validation after bootstrap
 

@@ -45,6 +45,7 @@ This folder contains the first production safety layer for RentalVoice:
 - `npm run ops:drill -- --checkpoint-id <id>`
 - `npm run ops:migration:controlled -- --checkpoint-id <id>`
 - `npm run ops:founder:checklist`
+- `npm run ops:founder:packet`
 - `npm run ops:founder:preflight`
 - `npm run ops:founder:preflight:rehearsal`
 - `npm run ops:founder:bootstrap`
@@ -109,6 +110,8 @@ Use the staged bootstrap script only after a real live environment is chosen and
 
 - generate live-readiness checklist:
   - `npm run ops:founder:checklist`
+- generate founder bootstrap packet:
+  - `npm run ops:founder:packet`
 - validate live environment:
   - `npm run ops:founder:preflight`
 - validate non-live rehearsal environment:

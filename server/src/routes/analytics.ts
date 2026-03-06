@@ -4,7 +4,14 @@ import { getSupabaseAdmin } from '../db/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { AppEnv } from '../lib/env.js';
 import type { PlanTier } from '../lib/types.js';
-import { getEffectivePlan, isFounderAccount, shouldBypassBillingForFounder } from '../lib/founder-access.js';
+import {
+  getEffectivePlan,
+  getEntitlementSource,
+  getForbiddenFounderProjectRefReason,
+  getFounderPlanOverride,
+  isFounderAccount,
+  shouldBypassBillingForFounder,
+} from '../lib/founder-access.js';
 
 export const analyticsRouter = new Hono<AppEnv>();
 
@@ -119,13 +126,38 @@ analyticsRouter.get('/founder-diagnostics', async (c) => {
 
     const basePlan = (user?.plan || 'starter') as PlanTier;
     const effectivePlan = getEffectivePlan(basePlan, userId, userEmail);
+    const founderBypass = shouldBypassBillingForFounder(userId, userEmail);
+    const envClass = process.env.SUPABASE_ENV_CLASS || 'unset';
+    const projectRef = process.env.SUPABASE_PROJECT_REF || 'unknown';
+    const projectLabel = process.env.SUPABASE_PROJECT_LABEL || 'unknown';
+    const forbiddenProjectRefReason = getForbiddenFounderProjectRefReason(projectRef);
+    const founderEmailsConfigured = !!process.env.FOUNDER_EMAILS;
+    const founderPlanConfigured = !!process.env.FOUNDER_PLAN_OVERRIDE;
+    const founderBypassConfigured = !!process.env.FOUNDER_BILLING_BYPASS;
+    const founderBootstrapReady =
+      envClass === 'live' &&
+      !forbiddenProjectRefReason &&
+      founderEmailsConfigured &&
+      founderPlanConfigured &&
+      founderBypassConfigured;
+    const migrationReady =
+      founderBootstrapReady &&
+      !!orgId &&
+      !!entitlements &&
+      aiConfig?.mode === 'managed';
     const totalDrafts = aiUsage?.reduce((sum, row) => sum + row.requests, 0) || 0;
     const totalTokens = aiUsage?.reduce((sum, row) => sum + row.tokens_in + row.tokens_out, 0) || 0;
     const totalCost = aiUsage?.reduce((sum, row) => sum + Number(row.cost_usd), 0) || 0;
 
     return c.json({
       founderAccess: true,
-      billingBypass: shouldBypassBillingForFounder(userId, userEmail),
+      billingBypass: founderBypass,
+      founder: {
+        isFounderMatch: true,
+        billingBypass: founderBypass,
+        planOverride: getFounderPlanOverride(),
+        entitlementSource: getEntitlementSource(basePlan, userId, userEmail),
+      },
       user: {
         id: user?.id || userId,
         email: user?.email || userEmail,
@@ -139,6 +171,39 @@ analyticsRouter.get('/founder-diagnostics', async (c) => {
         id: (membership as { organizations?: { id?: string; name?: string } } | null)?.organizations?.id || orgId,
         name: (membership as { organizations?: { id?: string; name?: string } } | null)?.organizations?.name || null,
         role: (membership as { role?: string } | null)?.role || null,
+      },
+      environment: {
+        envClass,
+        projectRef,
+        projectLabel,
+        isForbiddenProjectRef: !!forbiddenProjectRefReason,
+        forbiddenProjectRefReason,
+      },
+      readiness: {
+        founderBootstrapReady,
+        founderBootstrapReason: founderBootstrapReady
+          ? 'live_environment_configured'
+          : envClass !== 'live'
+            ? 'environment_not_live'
+            : forbiddenProjectRefReason
+              ? forbiddenProjectRefReason
+              : !(founderEmailsConfigured && founderPlanConfigured && founderBypassConfigured)
+                ? 'founder_env_incomplete'
+                : 'unknown',
+        migrationReady,
+        migrationReason: migrationReady
+          ? 'founder_environment_ready'
+          : !founderBootstrapReady
+            ? 'founder_bootstrap_not_ready'
+            : !orgId
+              ? 'organization_missing'
+              : !entitlements
+                ? 'entitlements_missing'
+                : aiConfig?.mode !== 'managed'
+                  ? 'ai_mode_not_managed'
+                  : 'unknown',
+        founderEnvConfigured: founderEmailsConfigured && founderPlanConfigured && founderBypassConfigured,
+        liveReadinessChecklistPresent: true,
       },
       ai: {
         mode: aiConfig?.mode || null,

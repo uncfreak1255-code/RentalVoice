@@ -17,6 +17,10 @@ function normalize(value: string | undefined | null): string {
 
 const founderEmails = parseCsvList(process.env.FOUNDER_EMAILS);
 const founderUserIds = parseCsvList(process.env.FOUNDER_USER_IDS);
+const FORBIDDEN_FOUNDER_PROJECT_REFS: Record<string, string> = {
+  gqnocsoouudbogwislsl: 'linked_test_project_with_test_smoke_app_users_only',
+  cqbzsntmlwpsaxwnoath: 'legacy_project_with_no_app_auth_users',
+};
 
 function getFounderPlan(): PlanTier {
   const raw = (process.env.FOUNDER_PLAN_OVERRIDE || 'enterprise').toLowerCase();
@@ -46,6 +50,10 @@ export function getEffectivePlan(
   return getFounderPlan();
 }
 
+export function getFounderPlanOverride(): PlanTier {
+  return getFounderPlan();
+}
+
 export function shouldBypassBillingForFounder(
   userId?: string | null,
   email?: string | null,
@@ -53,3 +61,15 @@ export function shouldBypassBillingForFounder(
   return isFounderAccount(userId, email) && founderBillingBypassEnabled();
 }
 
+export function getEntitlementSource(
+  basePlan: PlanTier,
+  userId?: string | null,
+  email?: string | null,
+): 'founder_override' | 'base_plan' {
+  return getEffectivePlan(basePlan, userId, email) === basePlan ? 'base_plan' : 'founder_override';
+}
+
+export function getForbiddenFounderProjectRefReason(projectRef?: string | null): string | null {
+  if (!projectRef) return null;
+  return FORBIDDEN_FOUNDER_PROJECT_REFS[projectRef] || null;
+}

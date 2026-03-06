@@ -4,23 +4,14 @@ Last updated: 2026-03-06
 
 ## Approved next engineering batch
 
-Improve founder diagnostics and founder handoff artifacts without changing the current personal-mode user flow.
+Choose and prepare the eventual real live founder environment, then rehearse founder bootstrap only on a distinct non-live rehearsal target.
 
 ## Scope
 
-1. Upgrade founder diagnostics to show:
-   - environment classification
-   - project ref and project label
-   - whether founder bypass is active
-   - effective plan and entitlements source
-   - whether the current project ref is forbidden
-   - readiness summary for founder bootstrap and migration
-2. Add a founder bootstrap packet artifact generator that emits:
-   - required env keys
-   - command order
-   - preflight steps
-   - post-bootstrap verification endpoints
-   - rollback requirement to create a fresh baseline first
+1. Confirm or create the future live Supabase founder environment
+2. Fill the live template and founder packet with real values
+3. Keep the current linked test project blocked
+4. Only rehearse founder bootstrap on a distinct rehearsal target when it exists
 
 ## Constraints
 
@@ -31,14 +22,14 @@ Improve founder diagnostics and founder handoff artifacts without changing the c
 
 ## Likely files
 
-- `/Users/sawbeck/Projects/RentalVoice/server/src/routes/analytics.ts`
-- `/Users/sawbeck/Projects/RentalVoice/src/components/FounderDiagnosticsScreen.tsx`
-- `/Users/sawbeck/Projects/RentalVoice/src/app/settings/founder-diagnostics.tsx`
+- `/Users/sawbeck/Projects/RentalVoice/server/.env.live-template`
 - `/Users/sawbeck/Projects/RentalVoice/ops/founder/`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/`
+- `/Users/sawbeck/Projects/RentalVoice/docs/status/`
 
 ## Definition of done
 
-- Founder diagnostics surfaces current environment truth clearly
-- Founder packet generator exists and is documented
-- Current test project remains blocked for live and rehearsal execute paths
+- A real live founder environment is designated
+- Founder packet is filled against the real target
+- Current linked test project remains blocked
+- Rehearsal target, if used, is distinct from both forbidden refs

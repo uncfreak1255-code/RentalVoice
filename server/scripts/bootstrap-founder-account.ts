@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
 import { PLAN_LIMITS, type PlanTier } from '../src/lib/types.js';
 
@@ -87,7 +88,16 @@ function getRuntimeEnvironmentSummary(): RuntimeEnvironmentSummary {
 }
 
 async function findAuthUserByEmail(
-  supabase: ReturnType<typeof createClient>,
+  supabase: {
+    auth: {
+      admin: {
+        listUsers: (args: { page: number; perPage: number }) => Promise<{
+          data: { users?: Array<{ id: string; email?: string | null }> };
+          error: unknown;
+        }>;
+      };
+    };
+  },
   email: string,
 ) {
   const normalized = email.trim().toLowerCase();
@@ -303,7 +313,7 @@ async function main() {
   };
 
   if (args.output) {
-    await Bun.write(args.output, `${JSON.stringify(result, null, 2)}\n`);
+    await writeFile(args.output, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
   }
 
   console.log(JSON.stringify(result, null, 2));
