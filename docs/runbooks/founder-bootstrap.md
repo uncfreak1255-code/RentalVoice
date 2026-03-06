@@ -29,6 +29,30 @@ npm run ops:founder:bootstrap
 This writes a manifest describing what would be created and which founder env vars still need to be configured.
 The dry run can execute in non-live environments, but the manifest should record the environment class and project ref so it is obvious when the rehearsal is happening in test or smoke only.
 
+## Rehearsal execute mode
+
+When a distinct non-live rehearsal project exists, you can rehearse the execute path there.
+
+Requirements:
+
+- `ALLOW_NONLIVE_SUPABASE=true`
+- `SUPABASE_ENV_CLASS` must be one of `staging`, `test`, `smoke`, or `dev`
+- target project ref must not be one of the forbidden refs
+
+Rehearsal preflight:
+
+```bash
+npm run ops:founder:preflight:rehearsal
+```
+
+Rehearsal execute:
+
+```bash
+ALLOW_NONLIVE_SUPABASE=true npm run ops:founder:bootstrap -- --execute --yes --rehearsal --password '<temporary-password>'
+```
+
+Do not use the current linked test project for rehearsal execute. It is explicitly forbidden.
+
 ## Execute later in the chosen live environment
 
 First validate the live environment contract:
@@ -81,6 +105,7 @@ Recommended environment metadata to set alongside them:
 The committed template for these keys lives in:
 
 - `/Users/sawbeck/Projects/RentalVoice/server/.env.example`
+- `/Users/sawbeck/Projects/RentalVoice/server/.env.live-template`
 
 ## Validation after bootstrap
 

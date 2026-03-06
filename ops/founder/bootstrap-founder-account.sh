@@ -25,6 +25,7 @@ base_plan="starter"
 founder_plan="${FOUNDER_PLAN_OVERRIDE:-enterprise}"
 execute_flag="false"
 yes_flag="false"
+rehearsal_flag="false"
 password=""
 output_path="$MANIFEST_DIR/founder-bootstrap-$(timestamp_utc).json"
 
@@ -62,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       execute_flag="true"
       shift
       ;;
+    --rehearsal)
+      rehearsal_flag="true"
+      shift
+      ;;
     --yes)
       yes_flag="true"
       shift
@@ -78,10 +83,20 @@ if [[ "$execute_flag" == "true" && "$yes_flag" != "true" ]]; then
   exit 1
 fi
 
+if [[ "$rehearsal_flag" == "true" && "$execute_flag" != "true" ]]; then
+  echo "Refusing rehearsal mode without --execute" >&2
+  exit 1
+fi
+
 if [[ "$execute_flag" == "true" ]]; then
-  require_runtime_env_class "live" "founder-bootstrap"
-  bash "$ROOT_DIR/ops/founder/validate-live-environment.sh"
-  echo "[founder-bootstrap] Executing founder bootstrap against configured Supabase project"
+  if [[ "$rehearsal_flag" == "true" ]]; then
+    bash "$ROOT_DIR/ops/founder/validate-live-environment.sh" --mode rehearsal
+    echo "[founder-bootstrap] Executing founder bootstrap rehearsal against configured Supabase project"
+  else
+    require_runtime_env_class "live" "founder-bootstrap"
+    bash "$ROOT_DIR/ops/founder/validate-live-environment.sh" --mode live
+    echo "[founder-bootstrap] Executing founder bootstrap against configured Supabase project"
+  fi
 else
   require_runtime_env_class "live,staging,test,smoke,dev,unset" "founder-bootstrap"
   echo "[founder-bootstrap] Dry run only. No auth user or database rows will be created."

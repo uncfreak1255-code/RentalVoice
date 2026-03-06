@@ -46,6 +46,7 @@ This folder contains the first production safety layer for RentalVoice:
 - `npm run ops:migration:controlled -- --checkpoint-id <id>`
 - `npm run ops:founder:checklist`
 - `npm run ops:founder:preflight`
+- `npm run ops:founder:preflight:rehearsal`
 - `npm run ops:founder:bootstrap`
 
 ## Safe default workflow per release
@@ -110,10 +111,14 @@ Use the staged bootstrap script only after a real live environment is chosen and
   - `npm run ops:founder:checklist`
 - validate live environment:
   - `npm run ops:founder:preflight`
+- validate non-live rehearsal environment:
+  - `npm run ops:founder:preflight:rehearsal`
 - dry run:
   - `npm run ops:founder:bootstrap`
 - execute intentionally:
   - `npm run ops:founder:bootstrap -- --execute --yes --password '<temporary-password>'`
+- rehearsal execute intentionally on a distinct non-live project only:
+  - `ALLOW_NONLIVE_SUPABASE=true npm run ops:founder:bootstrap -- --execute --yes --rehearsal --password '<temporary-password>'`
 
 The bootstrap script is idempotent and is designed to:
 

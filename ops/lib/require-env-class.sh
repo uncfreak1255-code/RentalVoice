@@ -36,3 +36,34 @@ require_runtime_env_class() {
 EOF
   exit 1
 }
+
+forbidden_founder_project_ref_reason() {
+  local project_ref="${SUPABASE_PROJECT_REF:-unknown}"
+
+  if [[ "$project_ref" == "gqnocsoouudbogwislsl" ]]; then
+    echo "linked test project ref gqnocsoouudbogwislsl"
+    return
+  fi
+
+  if [[ "$project_ref" == "cqbzsntmlwpsaxwnoath" ]]; then
+    echo "legacy empty project ref cqbzsntmlwpsaxwnoath"
+    return
+  fi
+
+  echo ""
+}
+
+require_non_forbidden_founder_project_ref() {
+  local action_label="$1"
+  local project_ref="${SUPABASE_PROJECT_REF:-unknown}"
+  local reason
+  reason="$(forbidden_founder_project_ref_reason)"
+
+  if [[ -z "$reason" ]]; then
+    return
+  fi
+
+  echo "[$action_label] Refusing $reason as a founder bootstrap target." >&2
+  echo "[$action_label] Configure a distinct rehearsal or live Supabase project first." >&2
+  exit 1
+}

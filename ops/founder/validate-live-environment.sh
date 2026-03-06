@@ -21,18 +21,45 @@ require_env "SUPABASE_ENV_CLASS"
 require_env "SUPABASE_PROJECT_REF"
 require_env "SUPABASE_PROJECT_LABEL"
 
-require_runtime_env_class "live" "founder-preflight"
+mode="live"
 
-if [[ "${SUPABASE_PROJECT_REF}" == "gqnocsoouudbogwislsl" ]]; then
-  echo "[founder-preflight] Refusing linked test project ref gqnocsoouudbogwislsl as a live founder target." >&2
-  exit 1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mode)
+      mode="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+case "$mode" in
+  live)
+    require_runtime_env_class "live" "founder-preflight"
+    ;;
+  rehearsal)
+    if [[ "${ALLOW_NONLIVE_SUPABASE:-false}" != "true" ]]; then
+      echo "[founder-preflight] Refusing rehearsal mode without ALLOW_NONLIVE_SUPABASE=true." >&2
+      exit 1
+    fi
+    require_runtime_env_class "staging,test,smoke,dev" "founder-preflight"
+    ;;
+  *)
+    echo "Unknown mode: $mode" >&2
+    exit 1
+    ;;
+esac
+
+require_non_forbidden_founder_project_ref "founder-preflight"
+
+if [[ "$mode" == "live" ]]; then
+  echo "[founder-preflight] Live founder environment metadata looks valid."
+else
+  echo "[founder-preflight] Rehearsal founder environment metadata looks valid."
 fi
 
-if [[ "${SUPABASE_PROJECT_REF}" == "cqbzsntmlwpsaxwnoath" ]]; then
-  echo "[founder-preflight] Refusing legacy empty project ref cqbzsntmlwpsaxwnoath as a live founder target." >&2
-  exit 1
-fi
-
-echo "[founder-preflight] Live founder environment metadata looks valid."
 echo "[founder-preflight] Project: ${SUPABASE_PROJECT_LABEL} (${SUPABASE_PROJECT_REF})"
 echo "[founder-preflight] SUPABASE_ENV_CLASS=${SUPABASE_ENV_CLASS}"
