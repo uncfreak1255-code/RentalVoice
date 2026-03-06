@@ -112,6 +112,10 @@ type ProgressCallback = (progress: SyncProgress) => void;
 type DataCallback = (conversations: HostawayConversation[], messages: Record<number, HostawayMessage[]>) => void;
 type ErrorCallback = (error: SyncError) => void;
 type CompleteCallback = (stats: { conversations: number; messages: number }) => void;
+type SyncFetchers = {
+  fetchConversations: (offset: number, limit: number) => Promise<HostawayConversation[]>;
+  fetchMessages: (conversationId: number, offset: number, limit: number) => Promise<HostawayMessage[]>;
+};
 
 // Singleton sync manager
 class HistorySyncManager {
@@ -123,6 +127,7 @@ class HistorySyncManager {
   private completeCallback: CompleteCallback | null = null;
   private accountId: string = '';
   private apiKey: string = '';
+  private customFetchers: SyncFetchers | null = null;
 
   // Fetched data storage
   private fetchedConversations: HostawayConversation[] = [];
@@ -368,15 +373,37 @@ class HistorySyncManager {
       return;
     }
 
-    // Clear stale callbacks from previous sync runs to prevent memory leaks
-    this.progressCallback = null;
-    this.dataCallback = null;
-    this.errorCallback = null;
-    this.completeCallback = null;
-
     this.accountId = accountId;
     this.apiKey = apiKey;
+    this.customFetchers = null;
     this.abortController = new AbortController();
+
+    await this.startInternal(options);
+  }
+
+  async startWithFetchers(
+    fetchers: SyncFetchers,
+    options?: { dateRangeMonths?: number; resume?: boolean }
+  ): Promise<void> {
+    if (this.state.isRunning) {
+      console.log('[HistorySync] Already running');
+      return;
+    }
+
+    this.accountId = '';
+    this.apiKey = '';
+    this.customFetchers = fetchers;
+    this.abortController = new AbortController();
+
+    await this.startInternal(options);
+  }
+
+  private async startInternal(
+    options?: { dateRangeMonths?: number; resume?: boolean }
+  ): Promise<void> {
+    if (!this.abortController) {
+      this.abortController = new AbortController();
+    }
 
     // Check if resuming or starting fresh
     if (options?.resume && this.canResume()) {
@@ -485,9 +512,15 @@ class HistorySyncManager {
     while (hasMore) {
       await this.checkPauseAndCancel();
 
-      const result = await this.fetchWithRetry<HostawayConversation[]>(
-        `${HOSTAWAY_API_BASE}/conversations?limit=${CONFIG.conversationsPerBatch}&offset=${offset}&includeResources=1`
-      );
+      const result = this.customFetchers
+        ? {
+            data: await this.customFetchers.fetchConversations(offset, CONFIG.conversationsPerBatch),
+            error: null,
+            rateLimited: false,
+          }
+        : await this.fetchWithRetry<HostawayConversation[]>(
+            `${HOSTAWAY_API_BASE}/conversations?limit=${CONFIG.conversationsPerBatch}&offset=${offset}&includeResources=1`
+          );
 
       if (result.error) {
         this.addError('conversations', result.error, undefined, result.rateLimited);
@@ -612,9 +645,19 @@ class HistorySyncManager {
     while (hasMore) {
       await this.checkPauseAndCancel();
 
-      const result = await this.fetchWithRetry<HostawayMessage[]>(
-        `${HOSTAWAY_API_BASE}/conversations/${conversationId}/messages?limit=${CONFIG.messagesPerBatch}&offset=${offset}&includeScheduledMessages=1`
-      );
+      const result = this.customFetchers
+        ? {
+            data: await this.customFetchers.fetchMessages(
+              conversationId,
+              offset,
+              CONFIG.messagesPerBatch
+            ),
+            error: null,
+            rateLimited: false,
+          }
+        : await this.fetchWithRetry<HostawayMessage[]>(
+            `${HOSTAWAY_API_BASE}/conversations/${conversationId}/messages?limit=${CONFIG.messagesPerBatch}&offset=${offset}&includeScheduledMessages=1`
+          );
 
       if (result.error) {
         if (result.error.includes('404')) {

@@ -47,6 +47,12 @@ import {
   fetchListings,
   type HostawayListing,
 } from '@/lib/hostaway';
+import {
+  getHostawayCalendarReservationsViaServer,
+  getHostawayListingsViaServer,
+  type HostawayListingRecord,
+} from '@/lib/api-client';
+import { isCommercial } from '@/lib/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LISTING_COLUMN_WIDTH = 110;
@@ -147,6 +153,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   const accountId = useAppStore((s) => s.settings.accountId);
   const apiKey = useAppStore((s) => s.settings.apiKey);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const isCommercialMode = isCommercial;
 
   // Generate dates
   const dates = useMemo(() => generateDates(currentMonth), [currentMonth]);
@@ -240,7 +247,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
       return;
     }
 
-    if (!accountId || !apiKey) {
+    if (!isCommercialMode && (!accountId || !apiKey)) {
       setIsLoading(false);
       return;
     }
@@ -250,12 +257,14 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
 
       // Fetch listings if needed
       if (properties.length === 0) {
-        const listings = await fetchListings(accountId, apiKey);
-        const convertedProperties = listings.map((l: HostawayListing) => ({
+        const listings = isCommercialMode
+          ? await getHostawayListingsViaServer()
+          : await fetchListings(accountId!, apiKey!);
+        const convertedProperties = listings.map((l: HostawayListing | HostawayListingRecord) => ({
           id: String(l.id),
           name: l.name || l.externalListingName || 'Unnamed Property',
           address: [l.address, l.city, l.state].filter(Boolean).join(', '),
-          image: l.thumbnailUrl || l.picture,
+          image: l.thumbnailUrl || l.picture || undefined,
         }));
         setProperties(convertedProperties);
       }
@@ -264,10 +273,12 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
       const startDate = format(subMonths(new Date(), 1), 'yyyy-MM-dd');
       const endDate = format(addMonths(new Date(), 2), 'yyyy-MM-dd');
 
-      const reservations = await fetchCalendarReservations(accountId, apiKey, {
-        startDate,
-        endDate,
-      });
+      const reservations = isCommercialMode
+        ? await getHostawayCalendarReservationsViaServer({ startDate, endDate })
+        : await fetchCalendarReservations(accountId!, apiKey!, {
+            startDate,
+            endDate,
+          });
 
       const calendarEntries: CalendarEntry[] = reservations.map((r) => {
         const nights = r.nights || differenceInDays(parseISO(r.departureDate), parseISO(r.arrivalDate));
@@ -295,7 +306,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [isDemoMode, accountId, apiKey, properties, setProperties]);
+  }, [isDemoMode, isCommercialMode, accountId, apiKey, properties, setProperties]);
 
   useEffect(() => {
     loadCalendarData();

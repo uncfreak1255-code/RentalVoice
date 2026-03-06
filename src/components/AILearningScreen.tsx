@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, AppState, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -55,6 +55,17 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ValueRow, LinkRow, s } from './ui/SettingsComponents';
+import {
+  clearHostawayHistorySyncViaServer,
+  getHostawayConversationsViaServer,
+  getHostawayHistorySyncResultViaServer,
+  getHostawayHistorySyncStatusViaServer,
+  getHostawayMessagesViaServer,
+  getHostawayStatus,
+  startHostawayHistorySyncViaServer,
+  type HostawayHistorySyncJob,
+} from '@/lib/api-client';
+import { isCommercial } from '@/lib/config';
 
 interface AILearningScreenProps {
   onBack: () => void;
@@ -95,11 +106,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const setHistoryDateRange = useAppStore((s) => s.setHistoryDateRange);
   const accountId = useAppStore((s) => s.settings.accountId);
   const apiKey = useAppStore((s) => s.settings.apiKey);
+  const isCommercialMode = isCommercial;
 
   const [isTraining, setIsTraining] = useState(false);
   const [showDateRangeModal, setShowDateRangeModal] = useState(false);
   const [dateRangeMonths, setDateRangeMonths] = useState<string>('24');
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+  const [isServerConnected, setIsServerConnected] = useState(!isCommercialMode);
 
 
   // Background sync state
@@ -112,6 +125,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const [trainingState, setTrainingState] = useState<TrainingState | null>(null);
   const [showTrainingComplete, setShowTrainingComplete] = useState(false);
   const [lastTrainingResult, setLastTrainingResult] = useState<TrainingResult | null>(null);
+  const appliedCommercialBackgroundJobId = useRef<string | null>(null);
 
   // Store reference to fetched data for manual training
   const [fetchedHistoryData, setFetchedHistoryData] = useState<{
@@ -121,6 +135,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
   // Animated rotation for loading spinner
   const spinValue = useSharedValue(0);
+
+  useEffect(() => {
+    if (!isCommercialMode) return;
+    getHostawayStatus()
+      .then((status) => setIsServerConnected(status.connected))
+      .catch(() => setIsServerConnected(false));
+  }, [isCommercialMode]);
 
   useEffect(() => {
     if (historySyncStatus.isSyncing) {
@@ -137,6 +158,141 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinValue.value}deg` }],
   }));
+
+  const mapCommercialJobToBackgroundState = useCallback((job: HostawayHistorySyncJob | null): {
+    state: BackgroundSyncState | null;
+    progress: BackgroundSyncProgress | null;
+  } => {
+    if (!job) {
+      return { state: null, progress: null };
+    }
+
+    const phase = job.status === 'completed'
+      ? 'complete'
+      : job.status === 'failed' || job.status === 'cancelled'
+        ? 'error'
+        : job.phase;
+
+    const totalWork = job.totalConversations + job.totalMessages;
+    const completedWork = job.processedConversations + job.processedMessages;
+    const percentage = totalWork > 0 ? Math.round((completedWork / totalWork) * 100) : 0;
+
+    return {
+      state: {
+        isEnabled: job.status !== 'cancelled',
+        isRunning: job.status === 'queued' || job.status === 'running',
+        phase,
+        totalConversations: job.totalConversations,
+        processedConversations: job.processedConversations,
+        totalMessages: job.totalMessages,
+        processedMessages: job.processedMessages,
+        currentConversationIndex: job.processedConversations,
+        lastConversationOffset: 0,
+        processedConversationIds: [],
+        conversationIds: [],
+        dateRangeMonths: job.dateRangeMonths,
+        startTime: job.startedAt ? new Date(job.startedAt).getTime() : null,
+        lastRunTime: job.updatedAt ? new Date(job.updatedAt).getTime() : null,
+        errorCount: job.lastError ? 1 : 0,
+        lastError: job.lastError,
+      },
+      progress: {
+        phase,
+        percentage,
+        processedConversations: job.processedConversations,
+        totalConversations: job.totalConversations,
+        processedMessages: job.processedMessages,
+        totalMessages: job.totalMessages,
+        isRunning: job.status === 'queued' || job.status === 'running',
+        lastRunTime: job.updatedAt ? new Date(job.updatedAt).getTime() : null,
+        errorCount: job.lastError ? 1 : 0,
+      },
+    };
+  }, []);
+
+  const applyFetchedHistoryTraining = useCallback(async (
+    fetchedConversations: HostawayConversation[],
+    messagesByConversation: Record<number, HostawayMessage[]>
+  ) => {
+    setFetchedHistoryData({
+      conversations: fetchedConversations,
+      messages: messagesByConversation,
+    });
+
+    const existingProfile = hostStyleProfiles['global'];
+    const result = await aiTrainingService.autoTrainOnFetch(
+      fetchedConversations,
+      messagesByConversation,
+      existingProfile
+    );
+
+    if (result.success) {
+      updateHostStyleProfile('global', result.styleProfile);
+      updateAILearningProgress({
+        totalMessagesAnalyzed: result.stats.totalMessagesAnalyzed,
+        patternsIndexed: result.stats.patternsIndexed,
+        lastTrainingDate: new Date(),
+        lastTrainingResult: {
+          hostMessagesAnalyzed: result.stats.hostMessagesAnalyzed,
+          patternsIndexed: result.stats.patternsIndexed,
+          trainingSampleSize: result.stats.trainingSampleSize,
+          trainingDurationMs: result.stats.trainingDurationMs,
+        },
+      });
+
+      setLastTrainingResult(result);
+      setShowTrainingComplete(true);
+    }
+  }, [hostStyleProfiles, updateHostStyleProfile, updateAILearningProgress]);
+
+  const refreshCommercialBackgroundSync = useCallback(async () => {
+    if (!isCommercialMode) return;
+
+    const job = await getHostawayHistorySyncStatusViaServer();
+    const mapped = mapCommercialJobToBackgroundState(job);
+    setBackgroundSyncState(mapped.state);
+    setBackgroundSyncProgress(mapped.progress);
+
+    if (
+      job &&
+      job.status === 'completed' &&
+      job.payloadAvailable &&
+      appliedCommercialBackgroundJobId.current !== job.id
+    ) {
+      appliedCommercialBackgroundJobId.current = job.id;
+      const result = await getHostawayHistorySyncResultViaServer(job.id);
+      if (result.result) {
+        await applyFetchedHistoryTraining(
+          result.result.conversations as unknown as HostawayConversation[],
+          result.result.messages as unknown as Record<number, HostawayMessage[]>
+        );
+      }
+    }
+  }, [isCommercialMode, mapCommercialJobToBackgroundState, applyFetchedHistoryTraining]);
+
+  useEffect(() => {
+    if (!isCommercialMode) return;
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        await refreshCommercialBackgroundSync();
+      } catch (error) {
+        if (!cancelled) {
+          console.error('[AI Learning] Failed to refresh commercial background sync:', error);
+        }
+      }
+    };
+
+    void poll();
+    const intervalId = setInterval(poll, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [isCommercialMode, refreshCommercialBackgroundSync]);
 
   // Initialize sync manager and set up callbacks
   useEffect(() => {
@@ -400,7 +556,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
   // Start/Resume history fetch using the new sync manager
   const handleStartSync = useCallback(async (resume: boolean = false) => {
-    if (!accountId || !apiKey) {
+    if (!isCommercialMode && (!accountId || !apiKey)) {
       Alert.alert('Not Connected', 'Please connect your Hostaway account first.');
       return;
     }
@@ -416,11 +572,26 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
     const months = parseInt(dateRangeMonths, 10) || 12;
 
-    await historySyncManager.start(accountId, apiKey, {
+    if (isCommercialMode) {
+      await historySyncManager.startWithFetchers(
+        {
+          fetchConversations: (offset, limit) => getHostawayConversationsViaServer(limit, offset),
+          fetchMessages: (conversationId, offset, limit) =>
+            getHostawayMessagesViaServer(conversationId, limit, offset),
+        },
+        {
+          dateRangeMonths: months,
+          resume,
+        }
+      );
+      return;
+    }
+
+    await historySyncManager.start(accountId!, apiKey!, {
       dateRangeMonths: months,
       resume,
     });
-  }, [accountId, apiKey, dateRangeMonths, updateHistorySyncStatus]);
+  }, [isCommercialMode, accountId, apiKey, dateRangeMonths, updateHistorySyncStatus]);
 
   // Pause sync
   const handlePauseSync = useCallback(() => {
@@ -475,6 +646,21 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
   // Background sync handlers
   const handleEnableBackgroundSync = useCallback(async () => {
+    if (isCommercialMode) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const months = parseInt(dateRangeMonths, 10) || 12;
+      const job = await startHostawayHistorySyncViaServer(months);
+      const mapped = mapCommercialJobToBackgroundState(job);
+      setBackgroundSyncState(mapped.state);
+      setBackgroundSyncProgress(mapped.progress);
+      Alert.alert(
+        'Background Sync Enabled',
+        'Server-managed history sync is running. You can close the app and check back later.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (!backgroundFetchAvailable) {
       Alert.alert(
         'Background Fetch Unavailable',
@@ -505,24 +691,35 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
     } else {
       Alert.alert('Error', 'Failed to enable background sync. Please make sure you are connected to Hostaway.');
     }
-  }, [backgroundFetchAvailable, backgroundFetchStatusText, dateRangeMonths]);
+  }, [isCommercialMode, dateRangeMonths, mapCommercialJobToBackgroundState, backgroundFetchAvailable, backgroundFetchStatusText]);
 
   const handleDisableBackgroundSync = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isCommercialMode) {
+      await clearHostawayHistorySyncViaServer();
+      appliedCommercialBackgroundJobId.current = null;
+      setBackgroundSyncState(null);
+      setBackgroundSyncProgress(null);
+      return;
+    }
     await backgroundSyncManager.disable();
     const state = await backgroundSyncManager.loadState();
     setBackgroundSyncState(state);
     setBackgroundSyncProgress(null);
-  }, []);
+  }, [isCommercialMode]);
 
   const handleResumeBackgroundSyncInForeground = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isCommercialMode) {
+      await refreshCommercialBackgroundSync();
+      return;
+    }
     // Resume sync in foreground for faster completion
     await backgroundSyncManager.resumeInForeground();
     const state = await backgroundSyncManager.loadState();
     setBackgroundSyncState(state);
     setBackgroundSyncProgress(backgroundSyncManager.getProgress());
-  }, []);
+  }, [isCommercialMode, refreshCommercialBackgroundSync]);
 
   const handleClearBackgroundSync = useCallback(async () => {
     Alert.alert(
@@ -535,6 +732,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           style: 'destructive',
           onPress: async () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            if (isCommercialMode) {
+              await clearHostawayHistorySyncViaServer();
+              appliedCommercialBackgroundJobId.current = null;
+              setBackgroundSyncState(null);
+              setBackgroundSyncProgress(null);
+              return;
+            }
             await backgroundSyncManager.clearState();
             const state = await backgroundSyncManager.loadState();
             setBackgroundSyncState(state);
@@ -543,7 +747,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
         },
       ]
     );
-  }, []);
+  }, [isCommercialMode]);
 
   const handleTrainModel = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -656,6 +860,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
       ]
     );
   };
+
+  const canStartHistoryImport = isCommercialMode ? isServerConnected : !!(accountId && apiKey);
+  const backgroundSyncAvailableInMode = isCommercialMode ? canStartHistoryImport : backgroundFetchAvailable === true;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
@@ -1572,9 +1779,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {/* Import Button */}
                   <LinkRow
                     icon={<Download size={18} color={colors.primary.DEFAULT} />}
-                    label={!accountId ? "Connect Hostaway First" : historySyncStatus.lastFullSync ? "Fetch More History" : "Import All History"}
+                    label={!canStartHistoryImport ? "Connect Hostaway First" : historySyncStatus.lastFullSync ? "Fetch More History" : "Import All History"}
                     onPress={() => {
-                      if (accountId) handleStartSync(false);
+                      if (canStartHistoryImport) handleStartSync(false);
                     }}
                     isLast
                   />
@@ -1597,7 +1804,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text.primary, fontWeight: '500' }}>Continue in Background</Text>
                   <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 2 }}>
-                    Sync history even when the app is closed
+                    {isCommercialMode
+                      ? 'Sync history from the Rental Voice server'
+                      : 'Sync history even when the app is closed'}
                   </Text>
                 </View>
               </View>
@@ -1607,9 +1816,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <Text style={{ color: colors.text.primary, fontSize: 12, fontWeight: '500' }}>System Status</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {backgroundFetchAvailable === null ? (
+                    {isCommercialMode ? (
+                      <>
+                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#22C55E', marginRight: 6 }} />
+                        <Text style={{ color: '#16A34A', fontSize: 12 }}>Server Managed</Text>
+                      </>
+                    ) : backgroundFetchAvailable === null ? (
                       <Text style={{ color: '#94A3B8', fontSize: 12 }}>Checking...</Text>
-                    ) : backgroundFetchAvailable ? (
+                    ) : backgroundSyncAvailableInMode ? (
                       <>
                         <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#22C55E', marginRight: 6 }} />
                         <Text style={{ color: '#16A34A', fontSize: 12 }}>Available</Text>
@@ -1622,8 +1836,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     )}
                   </View>
                 </View>
-                {!backgroundFetchAvailable && backgroundFetchStatusText && (
+                {!backgroundSyncAvailableInMode && backgroundFetchStatusText && !isCommercialMode && (
                   <Text style={{ color: '#64748B', fontSize: 12 }}>{backgroundFetchStatusText}</Text>
+                )}
+                {isCommercialMode && (
+                  <Text style={{ color: '#64748B', fontSize: 12 }}>
+                    Sync runs on the Rental Voice server and keeps going after the app closes.
+                  </Text>
                 )}
               </View>
 
@@ -1680,7 +1899,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: colors.primary.DEFAULT, borderRadius: 8, paddingVertical: 8, marginRight: 8, opacity: pressed ? 0.8 : 1 })}
                     >
                       <Smartphone size={14} color="#FFFFFF" />
-                      <Text style={{ color: colors.text.primary, fontWeight: '500', fontSize: 14, marginLeft: 4 }}>Speed Up</Text>
+                      <Text style={{ color: colors.text.primary, fontWeight: '500', fontSize: 14, marginLeft: 4 }}>
+                        {isCommercialMode ? 'Refresh' : 'Speed Up'}
+                      </Text>
                     </Pressable>
                     <Pressable
                       onPress={handleDisableBackgroundSync}
@@ -1716,19 +1937,21 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               {!backgroundSyncState?.isEnabled && backgroundSyncState?.phase !== 'complete' && (
                 <Pressable
                   onPress={handleEnableBackgroundSync}
-                  disabled={!accountId || !backgroundFetchAvailable}
-                  style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: !accountId || !backgroundFetchAvailable ? '#E2E8F0' : colors.primary.DEFAULT, opacity: pressed ? 0.8 : 1 })}
+                  disabled={!canStartHistoryImport || !backgroundSyncAvailableInMode}
+                  style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: !canStartHistoryImport || !backgroundSyncAvailableInMode ? '#E2E8F0' : colors.primary.DEFAULT, opacity: pressed ? 0.8 : 1 })}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {!accountId ? (
+                    {!canStartHistoryImport ? (
                       <>
                         <AlertCircle size={18} color="#64748B" />
                         <Text style={{ color: '#64748B', fontWeight: '600', marginLeft: 8 }}>Connect Hostaway First</Text>
                       </>
-                    ) : !backgroundFetchAvailable ? (
+                    ) : !backgroundSyncAvailableInMode ? (
                       <>
                         <CloudOff size={18} color="#64748B" />
-                        <Text style={{ color: '#64748B', fontWeight: '600', marginLeft: 8 }}>Background Fetch Unavailable</Text>
+                        <Text style={{ color: '#64748B', fontWeight: '600', marginLeft: 8 }}>
+                          {isCommercialMode ? 'Server Sync Unavailable' : 'Background Fetch Unavailable'}
+                        </Text>
                       </>
                     ) : (
                       <>
@@ -1745,8 +1968,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <Clock size={14} color={colors.primary.DEFAULT} />
                   <Text style={{ color: colors.primary.DEFAULT, fontSize: 12, marginLeft: 8, flex: 1 }}>
-                    Background sync runs periodically (every 15-30 min on iOS) to fetch history in small chunks.
-                    Use "Speed Up" to process faster while the app is open.
+                    {isCommercialMode
+                      ? 'Server-managed sync continues outside the app and imports history in the background.'
+                      : 'Background sync runs periodically (every 15-30 min on iOS) to fetch history in small chunks. Use "Speed Up" to process faster while the app is open.'}
                   </Text>
                 </View>
               </View>

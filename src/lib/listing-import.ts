@@ -128,13 +128,16 @@ export function extractKnowledgeFromListing(
   }
 
   // ── Amenities → Appliance Guide ──
+  // Cap to top 10 amenities in compact format to avoid prompt bloat.
+  // Previously stored 40+ items as bullet points, inflating every AI prompt.
   if (!existingKnowledge?.applianceGuide && d?.listingAmenities && d.listingAmenities.length > 0) {
     const amenityNames = d.listingAmenities
       .map(a => a.amenityName)
       .filter(Boolean) as string[];
     if (amenityNames.length > 0) {
-      extracted.applianceGuide = 'Available amenities:\n• ' + amenityNames.join('\n• ');
-      details.push({ field: 'applianceGuide', value: `${amenityNames.length} amenities`, source: 'Hostaway listing amenities' });
+      const topAmenities = amenityNames.slice(0, 10);
+      extracted.applianceGuide = 'Key amenities: ' + topAmenities.join(', ');
+      details.push({ field: 'applianceGuide', value: `${topAmenities.length} of ${amenityNames.length} amenities`, source: 'Hostaway listing amenities' });
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,9 +6,19 @@ import { useAppStore, type PMSProvider } from '@/lib/store';
 import { ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff, Cpu, ChevronDown, RotateCcw } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { initializeConnection, disconnectHostaway, validateCredentials } from '@/lib/hostaway';
+import {
+  initializeConnection as initializeLocalConnection,
+  disconnectHostaway as disconnectLocalHostaway,
+  validateCredentials as validateLocalCredentials,
+} from '@/lib/hostaway';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { startAutoImportAfterConnect } from '@/lib/auto-import';
+import { features } from '@/lib/config';
+import {
+  connectHostaway as connectHostawayServer,
+  disconnectHostaway as disconnectHostawayServer,
+  getHostawayStatus,
+} from '@/lib/api-client';
 
 const PMS_PROVIDERS: { key: PMSProvider; name: string; color: string; helpText: string; fields: { id: string; key: string }; comingSoon?: boolean }[] = [
   {
@@ -52,6 +62,8 @@ const AI_PROVIDERS = [
   },
 ];
 
+const SHOW_LEGACY_AI_PROVIDER_SECTION = false;
+
 interface ApiSettingsScreenProps {
   onBack: () => void;
 }
@@ -79,34 +91,65 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [commercialConnected, setCommercialConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!features.serverProxiedAI) return;
+    let isMounted = true;
+
+    getHostawayStatus()
+      .then((status) => {
+        if (!isMounted) return;
+        setCommercialConnected(status.connected);
+        if (status.accountId) {
+          setAccountId(status.accountId);
+        }
+      })
+      .catch((err) => {
+        console.warn('[ApiSettings] Failed to fetch commercial Hostaway status:', err);
+        if (isMounted) setCommercialConnected(false);
+      });
+
+    return () => { isMounted = false; };
+  }, []);
 
   const handleSave = async () => {
     if (!accountId.trim() || !apiKey.trim()) {
-      setError('Please enter both Account ID and API Key');
+      setError(`Please enter both ${pmsConfig.fields.id} and ${pmsConfig.fields.key}`);
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsSaving(true);
     setError(null);
     try {
-      const isValid = await validateCredentials(accountId.trim(), apiKey.trim());
-      if (!isValid) {
-        setError('Invalid credentials. Please check your Account ID and API Key.');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setIsSaving(false);
-        return;
-      }
-      const success = await initializeConnection(accountId.trim(), apiKey.trim());
-      if (success) {
-        setCredentials(accountId.trim(), apiKey.trim());
+      if (features.serverProxiedAI) {
+        await connectHostawayServer(accountId.trim(), apiKey.trim());
+        setCommercialConnected(true);
+        setCredentials('', '');
         updateSettings({ pmsProvider: selectedPms });
         setDemoMode(false);
+        setApiKey('');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Auto-start 12-month history import + AI training in background
-        startAutoImportAfterConnect(accountId.trim(), apiKey.trim());
       } else {
-        setError('Failed to initialize connection. Please try again.');
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        const isValid = await validateLocalCredentials(accountId.trim(), apiKey.trim());
+        if (!isValid) {
+          setError(`Invalid credentials. Please check your ${pmsConfig.fields.id} and ${pmsConfig.fields.key}.`);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          setIsSaving(false);
+          return;
+        }
+        const success = await initializeLocalConnection(accountId.trim(), apiKey.trim());
+        if (success) {
+          setCredentials(accountId.trim(), apiKey.trim());
+          updateSettings({ pmsProvider: selectedPms });
+          setDemoMode(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          // Auto-start 12-month history import + AI training in background
+          startAutoImportAfterConnect(accountId.trim(), apiKey.trim());
+        } else {
+          setError('Failed to initialize connection. Please try again.');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
       }
     } catch (err) {
       console.error('[ApiSettings] Connection error:', err);
@@ -118,6 +161,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
   };
 
   const handleUseDemoMode = () => {
+    if (features.serverProxiedAI) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setDemoMode(true);
     setAccountId('');
@@ -132,11 +176,18 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
         setIsDisconnecting(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         try {
-          await disconnectHostaway();
+          if (features.serverProxiedAI) {
+            await disconnectHostawayServer();
+            setCommercialConnected(false);
+          } else {
+            await disconnectLocalHostaway();
+          }
           setAccountId('');
           setApiKey('');
           setCredentials('', '');
-          setDemoMode(true);
+          if (!features.serverProxiedAI) {
+            setDemoMode(true);
+          }
         } catch (err) {
           console.error('[ApiSettings] Disconnect error:', err);
           Alert.alert('Error', 'Failed to disconnect. Please try again.');
@@ -147,7 +198,9 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
     ]);
   };
 
-  const isConnected = !isDemoMode && storedApiKey && storedAccountId;
+  const isConnected = features.serverProxiedAI
+    ? commercialConnected === true
+    : (!isDemoMode && !!storedApiKey && !!storedAccountId);
   const hasInput = accountId.trim() && apiKey.trim();
 
   return (
@@ -198,7 +251,11 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
               <Text style={ap.statusTitle}>{isConnected ? 'Connected' : isDemoMode ? 'Demo Mode' : 'Not Connected'}</Text>
             </View>
             <Text style={ap.statusDesc}>
-              {isConnected ? 'Your Hostaway account is connected. Messages and properties are syncing.' : isDemoMode ? 'Using sample data. Connect your Hostaway API to access real properties.' : 'Enter your API key to connect your Hostaway account.'}
+              {isConnected
+                ? `Your ${pmsConfig.name} workspace is connected. Messages and properties are syncing.`
+                : isDemoMode
+                  ? 'Using sample data. Connect your PMS workspace to access live properties.'
+                  : `Enter your ${pmsConfig.fields.key.toLowerCase()} to connect your ${pmsConfig.name} workspace.`}
             </Text>
           </Animated.View>
 
@@ -210,7 +267,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
             </View>
           </Animated.View>
 
-          {/* API Key */}
+          {/* Credential Secret */}
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={ap.fieldWrapLg}>
             <Text style={ap.fieldLabel}>{pmsConfig.fields.key}</Text>
             <View style={ap.inputRow}>
@@ -244,7 +301,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
           </Animated.View>
 
           {/* Demo Mode */}
-          {!isDemoMode && (
+          {!isDemoMode && !features.serverProxiedAI && (
             <Animated.View entering={FadeInDown.delay(400).duration(400)} style={ap.fieldWrap}>
               <Pressable onPress={handleUseDemoMode} style={({ pressed }) => [ap.secondaryBtn, { opacity: pressed ? 0.8 : 1 }]}>
                 <Text style={ap.secondaryText}>Use Demo Mode</Text>
@@ -271,7 +328,11 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
               <CheckCircle size={18} color={colors.primary.DEFAULT} />
               <View style={{ flex: 1, marginLeft: spacing['2'] }}>
                 <Text style={ap.securityTitle}>Secure Storage</Text>
-                <Text style={ap.securityDesc}>Your credentials are encrypted and stored securely using platform-native encryption (Keychain on iOS, Keystore on Android).</Text>
+                <Text style={ap.securityDesc}>
+                  {features.serverProxiedAI
+                    ? 'Your workspace credentials are encrypted before storage and used through Rental Voice managed connections.'
+                    : 'Your credentials are encrypted and stored securely using platform-native encryption (Keychain on iOS, Keystore on Android).'}
+                </Text>
               </View>
             </View>
           </Animated.View>
@@ -285,6 +346,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
           </Animated.View>
 
           {/* AI Provider Usage & Model Picker */}
+          {SHOW_LEGACY_AI_PROVIDER_SECTION && (
           <Animated.View entering={FadeInDown.delay(550).duration(400)} style={{ marginBottom: spacing['4'] }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing['3'], marginLeft: 4 }}>
               <Cpu size={16} color={colors.text.disabled} />
@@ -362,6 +424,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
               );
             })}
           </Animated.View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>

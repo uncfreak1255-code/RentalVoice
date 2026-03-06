@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Pla
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeInUp, SlideInRight, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { MessageSquare, Key, ArrowRight, Sparkles, Shield, Zap, User, AlertCircle } from 'lucide-react-native';
+import { MessageSquare, Key, ArrowRight, Sparkles, Shield, Zap, User, AlertCircle, Eye, EyeOff, Check, Loader } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore, type Conversation, type Guest, type PMSProvider } from '@/lib/store';
 import { demoConversations, demoProperties } from '@/lib/mockData';
@@ -11,6 +11,8 @@ import { validateCredentials, fetchListings, fetchConversations, fetchMessages, 
 import { convertListingToProperty, getChannelPlatform, convertHostawayMessage } from '@/lib/hostaway-utils';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { startAutoImportAfterConnect } from '@/lib/auto-import';
+import { features as appFeatures } from '@/lib/config';
+import { connectHostaway as connectHostawayServer } from '@/lib/api-client';
 
 const PMS_OPTIONS: { key: PMSProvider; name: string; color: string; subtitle: string; fieldId: string; fieldKey: string; comingSoon?: boolean }[] = [
   { key: 'hostaway', name: 'Hostaway', color: '#14B8A6', subtitle: 'Enter your Hostaway credentials to sync properties and conversations', fieldId: 'Account ID', fieldKey: 'API Key' },
@@ -27,6 +29,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [connectionStep, setConnectionStep] = useState(0);  // 0 = not started, 1-5 = active phase
+  const [connectionTotal] = useState(5);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const connectionProgress = useSharedValue(0);
   const progress = useSharedValue(0);
 
   const setOnboarded = useAppStore((s) => s.setOnboarded);
@@ -48,25 +55,54 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const handleConnectHostaway = async () => {
     if (!accountId.trim() || !apiKey.trim()) return;
-    setIsValidating(true); setError(null); setStatusMessage('Validating credentials...');
+    setIsValidating(true); setError(null); setCompletedSteps([]);
+    setConnectionStep(1); setStatusMessage('Validating credentials...');
+    connectionProgress.value = withSpring(0.1, { damping: 15 });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      if (appFeatures.serverProxiedAI) {
+        setConnectionStep(2); setStatusMessage('Connecting server-managed PMS...');
+        connectionProgress.value = withSpring(0.5, { damping: 15 });
+        await connectHostawayServer(accountId.trim(), apiKey.trim());
+        setCompletedSteps(prev => [...prev, 'Server-managed Hostaway connection established']);
+        setConnectionStep(3); setStatusMessage('Finalizing setup...');
+        connectionProgress.value = withSpring(1, { damping: 15 });
+        setCredentials('', '');
+        setDemoMode(false);
+        setProperties([]);
+        setConversations([]);
+        setOnboarded(true);
+        updateSettings({ pmsProvider: selectedPms });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setStatusMessage(null);
+        setIsValidating(false);
+        setConnectionStep(0);
+        onComplete();
+        return;
+      }
+
       const isValid = await validateCredentials(accountId.trim(), apiKey.trim());
-      if (!isValid) { setError('Invalid credentials. Please check your Account ID and API Key.'); setIsValidating(false); setStatusMessage(null); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); return; }
-      setStatusMessage('Fetching your properties...');
+      if (!isValid) { setError('Invalid credentials. Please check your Account ID and API Key.'); setIsValidating(false); setStatusMessage(null); setConnectionStep(0); connectionProgress.value = withSpring(0, { damping: 15 }); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); return; }
+      setCompletedSteps(prev => [...prev, 'Credentials validated']);
+      setConnectionStep(2); setStatusMessage('Fetching your properties...');
+      connectionProgress.value = withSpring(0.25, { damping: 15 });
       const listings = await fetchListings(accountId.trim(), apiKey.trim());
       const properties = listings.map(convertListingToProperty);
+      setCompletedSteps(prev => [...prev, `Found ${properties.length} properties`]);
 
       // ── Auto-import Knowledge Base from listing details ──
-      setStatusMessage('Importing property knowledge...');
+      setConnectionStep(3); setStatusMessage(`Importing property knowledge...`);
+      connectionProgress.value = withSpring(0.45, { damping: 15 });
       const { extractKnowledgeFromListing } = await import('@/lib/listing-import');
-      for (const listing of listings) {
+      for (let i = 0; i < listings.length; i++) {
+        const listing = listings[i];
+        setStatusMessage(`Importing property ${i + 1} of ${listings.length}...`);
         try {
           const detail = await fetchListingDetail(accountId.trim(), apiKey.trim(), listing.id);
           const property = properties.find((p) => p.id === String(listing.id));
           if (property && detail) {
             const { extracted } = extractKnowledgeFromListing(property, undefined, detail);
-            if (Object.keys(extracted).length > 1) { // more than just propertyId
+            if (Object.keys(extracted).length > 1) {
               setPropertyKnowledge(String(listing.id), {
                 propertyId: String(listing.id),
                 propertyType: 'vacation_rental',
@@ -79,12 +115,20 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           console.warn(`[KB] Failed to import knowledge for listing ${listing.id}:`, err);
         }
       }
+      setCompletedSteps(prev => [...prev, 'Property knowledge imported']);
 
-      setStatusMessage('Fetching conversations...');
+      setConnectionStep(4); setStatusMessage('Fetching conversations...');
+      connectionProgress.value = withSpring(0.65, { damping: 15 });
       const hostawayConvos = await fetchConversations(accountId.trim(), apiKey.trim());
-      setStatusMessage('Loading messages...');
+      setCompletedSteps(prev => [...prev, `Found ${hostawayConvos.length} conversations`]);
+
+      setConnectionStep(5); setStatusMessage('Loading messages...');
+      connectionProgress.value = withSpring(0.8, { damping: 15 });
       const conversations: Conversation[] = [];
-      for (const conv of hostawayConvos.slice(0, 20)) {
+      const convSlice = hostawayConvos.slice(0, 20);
+      for (let i = 0; i < convSlice.length; i++) {
+        const conv = convSlice[i];
+        setStatusMessage(`Loading messages ${i + 1} of ${convSlice.length}...`);
         try {
           const messages = await fetchMessages(accountId.trim(), apiKey.trim(), conv.id);
           const property = properties.find((p) => p.id === String(conv.listingMapId)) || { id: String(conv.listingMapId), name: conv.listingName || 'Unknown Property', address: '' };
@@ -98,20 +142,21 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           conversations.push({ id: String(conv.id), guest, property, messages: converted, lastMessage: converted[converted.length - 1], unreadCount: conv.isRead ? 0 : 1, status: conv.isArchived ? 'archived' : 'active', checkInDate: conv.arrivalDate ? new Date(conv.arrivalDate) : undefined, checkOutDate: conv.departureDate ? new Date(conv.departureDate) : undefined, platform: getChannelPlatform(conv.channelName), hasAiDraft: false });
         } catch {} // skip individual conversation errors
       }
+      connectionProgress.value = withSpring(1, { damping: 15 });
       await initializeConnection(accountId.trim(), apiKey.trim());
       setCredentials(accountId.trim(), apiKey.trim()); setDemoMode(false); setProperties(properties); setConversations(conversations); setOnboarded(true);
       updateSettings({ pmsProvider: selectedPms });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setStatusMessage(null); setIsValidating(false);
-      // Auto-start 12-month history import + AI training in background
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setStatusMessage(null); setIsValidating(false); setConnectionStep(0);
       startAutoImportAfterConnect(accountId.trim(), apiKey.trim());
       onComplete();
     } catch (err) {
-      console.error('[Onboarding]', err); setError('Failed to connect to Hostaway. Please try again.'); setStatusMessage(null); setIsValidating(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error('[Onboarding]', err); setError('Failed to connect to Hostaway. Please try again.'); setStatusMessage(null); setIsValidating(false); setConnectionStep(0); connectionProgress.value = withSpring(0, { damping: 15 }); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
 
   const nextStep = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setStep((s) => Math.min(s + 1, 2)); };
   const progressStyle = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
+  const connectionBarStyle = useAnimatedStyle(() => ({ width: `${connectionProgress.value * 100}%` }));
   const hasInput = accountId.trim() && apiKey.trim();
 
   const features = [
@@ -146,7 +191,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             </View>
             <View style={ob.ctaWrap}>
               <Animated.View entering={FadeInUp.delay(800).duration(500)}>
-                <Pressable onPress={nextStep} style={({ pressed }) => [ob.ctaBtn, { opacity: pressed ? 0.9 : 1 }]}>
+                <Pressable onPress={nextStep} style={({ pressed }) => [ob.ctaBtn, { opacity: pressed ? 0.9 : 1 }]} testID="onboarding-get-started">
                   <Text style={ob.ctaText}>Get Started</Text><ArrowRight size={20} color="#FFF" />
                 </Pressable>
               </Animated.View>
@@ -182,18 +227,39 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                     </Pressable>
                   ))}
                 </View>
-                <View style={ob.inputCard}><Text style={ob.inputLabel}>{pmsConfig.fieldId}</Text><View style={ob.inputRow}><User size={18} color={colors.text.disabled} /><TextInput value={accountId} onChangeText={setAccountId} placeholder={`Enter your ${pmsConfig.fieldId}`} placeholderTextColor={colors.text.disabled} style={ob.input} autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" /></View></View>
-                <View style={ob.inputCard}><Text style={ob.inputLabel}>{pmsConfig.fieldKey}</Text><View style={ob.inputRow}><Key size={18} color={colors.text.disabled} /><TextInput value={apiKey} onChangeText={setApiKey} placeholder={`Enter your ${pmsConfig.name} ${pmsConfig.fieldKey}`} placeholderTextColor={colors.text.disabled} style={ob.input} secureTextEntry autoCapitalize="none" autoCorrect={false} /></View></View>
+                <View style={ob.inputCard}><Text style={ob.inputLabel}>{pmsConfig.fieldId}</Text><View style={ob.inputRow}><User size={18} color={colors.text.disabled} /><TextInput value={accountId} onChangeText={(t) => setAccountId(t.replace(/\D/g, ''))} placeholder={`Enter your ${pmsConfig.fieldId}`} placeholderTextColor={colors.text.disabled} style={ob.input} autoCapitalize="none" autoCorrect={false} keyboardType="number-pad" returnKeyType="next" testID="onboarding-account-id" /></View></View>
+                <View style={ob.inputCard}><Text style={ob.inputLabel}>{pmsConfig.fieldKey}</Text><View style={ob.inputRow}><Key size={18} color={colors.text.disabled} /><TextInput value={apiKey} onChangeText={setApiKey} placeholder={`Enter your ${pmsConfig.name} ${pmsConfig.fieldKey}`} placeholderTextColor={colors.text.disabled} style={ob.input} secureTextEntry={!showApiKey} autoCapitalize="none" autoCorrect={false} returnKeyType="done" testID="onboarding-api-key" /><Pressable onPress={() => setShowApiKey(!showApiKey)} hitSlop={8} style={{ padding: 4 }} testID="onboarding-eye-toggle">{showApiKey ? <EyeOff size={18} color={colors.text.muted} /> : <Eye size={18} color={colors.text.muted} />}</Pressable></View></View>
                 {error && <View style={ob.errRow}><AlertCircle size={18} color={colors.danger.DEFAULT} /><Text style={ob.errText}>{error}</Text></View>}
-                {statusMessage && <View style={ob.statusRow}><Sparkles size={18} color={colors.primary.DEFAULT} /><Text style={ob.statusText}>{statusMessage}</Text></View>}
+                {/* Connection Progress Steps */}
+                {isValidating && connectionStep > 0 && (
+                  <View style={ob.progressPanel}>
+                    <View style={ob.connectionBarBg}>
+                      <Animated.View style={[ob.connectionBar, connectionBarStyle]} />
+                    </View>
+                    <Text style={ob.progressStepLabel}>Step {connectionStep} of {connectionTotal}</Text>
+                    {completedSteps.map((label, i) => (
+                      <View key={i} style={ob.completedRow}>
+                        <Check size={14} color={colors.accent.DEFAULT} />
+                        <Text style={ob.completedText}>{label}</Text>
+                      </View>
+                    ))}
+                    {statusMessage && (
+                      <View style={ob.activeRow}>
+                        <Loader size={14} color={colors.primary.DEFAULT} />
+                        <Text style={ob.activeText}>{statusMessage}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                {!isValidating && statusMessage && <View style={ob.statusRow}><Sparkles size={18} color={colors.primary.DEFAULT} /><Text style={ob.statusText}>{statusMessage}</Text></View>}
                 <View style={ob.secRow}><Shield size={18} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} /><Text style={ob.secText}>Your credentials are stored securely on your device and never shared with third parties.</Text></View>
                 <Pressable style={ob.helpLink}><Text style={ob.helpText}>Where do I find my API credentials?</Text></Pressable>
                 <View style={{ paddingBottom: spacing['6'] }}>
-                  <Pressable onPress={handleConnectHostaway} disabled={!hasInput || isValidating || pmsConfig.comingSoon} style={({ pressed }) => [ob.ctaBtn, { backgroundColor: hasInput && !isValidating && !pmsConfig.comingSoon ? colors.accent.DEFAULT : colors.bg.hover, marginBottom: spacing['3'], opacity: pressed ? 0.9 : 1 }]}>
+                  <Pressable onPress={handleConnectHostaway} disabled={!hasInput || isValidating || pmsConfig.comingSoon} style={({ pressed }) => [ob.ctaBtn, { backgroundColor: hasInput && !isValidating && !pmsConfig.comingSoon ? colors.accent.DEFAULT : colors.bg.hover, marginBottom: spacing['3'], opacity: pressed ? 0.9 : 1 }]} testID="onboarding-connect">
                     <Text style={[ob.ctaText, { color: hasInput ? '#FFF' : colors.text.disabled }]}>{isValidating ? (statusMessage || 'Connecting...') : `Connect ${pmsConfig.name}`}</Text>
                     {!isValidating && <ArrowRight size={20} color={hasInput ? '#FFF' : colors.text.disabled} style={{ marginLeft: spacing['2'] }} />}
                   </Pressable>
-                  <Pressable onPress={handleStartDemo} disabled={isValidating} style={({ pressed }) => [ob.demoBtn, { opacity: pressed || isValidating ? 0.7 : 1 }]}>
+                  <Pressable onPress={handleStartDemo} disabled={isValidating} style={({ pressed }) => [ob.demoBtn, { opacity: pressed || isValidating ? 0.7 : 1 }]} testID="onboarding-demo-mode">
                     <Sparkles size={18} color={colors.accent.DEFAULT} /><Text style={ob.demoText}>Try Demo Mode</Text>
                   </Pressable>
                 </View>
@@ -240,4 +306,13 @@ const ob = StyleSheet.create({
   helpText: { color: colors.accent.light, fontSize: 14 },
   demoBtn: { backgroundColor: colors.bg.card, borderRadius: radius.xl, paddingVertical: spacing['4'], flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   demoText: { color: colors.accent.light, fontFamily: typography.fontFamily.semibold, fontSize: 16, marginLeft: spacing['2'] },
+  // Connection progress panel
+  progressPanel: { backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: spacing['4'], marginBottom: spacing['4'] },
+  connectionBarBg: { height: 6, backgroundColor: colors.bg.hover, borderRadius: radius.full, overflow: 'hidden' as const, marginBottom: spacing['3'] },
+  connectionBar: { height: '100%' as const, backgroundColor: colors.accent.DEFAULT, borderRadius: radius.full },
+  progressStepLabel: { color: colors.text.muted, fontSize: 12, fontFamily: typography.fontFamily.medium, marginBottom: spacing['2'], textAlign: 'center' as const },
+  completedRow: { flexDirection: 'row' as const, alignItems: 'center' as const, marginBottom: spacing['1'] },
+  completedText: { color: colors.accent.DEFAULT, fontSize: 14, fontFamily: typography.fontFamily.medium, marginLeft: spacing['2'] },
+  activeRow: { flexDirection: 'row' as const, alignItems: 'center' as const, marginTop: spacing['1'] },
+  activeText: { color: colors.primary.light, fontSize: 14, fontFamily: typography.fontFamily.regular, marginLeft: spacing['2'] },
 });

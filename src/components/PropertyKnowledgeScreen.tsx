@@ -9,6 +9,8 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { extractKnowledgeFromListing, countImportableFields } from '@/lib/listing-import';
 import { fetchListingDetail } from '@/lib/hostaway';
+import { getHostawayListingDetailViaServer } from '@/lib/api-client';
+import { isCommercial } from '@/lib/config';
 
 interface PropertyKnowledgeScreenProps { onBack: () => void; }
 type TonePreference = 'friendly' | 'professional' | 'casual';
@@ -36,6 +38,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   const setPropertyKnowledge = useAppStore((s) => s.setPropertyKnowledge);
   const accountId = useAppStore((s) => s.settings.accountId);
   const apiKey = useAppStore((s) => s.settings.apiKey);
+  const isCommercialMode = isCommercial;
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(properties[0]?.id || null);
   const [showPropertySelector, setShowPropertySelector] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ wifi: true, checkin: false, checkout: false, parking: false, rules: false, appliances: false, local: false, emergency: false, custom: false, tone: false, upsells: false });
@@ -75,7 +78,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
 
   // Auto-import from Hostaway with actual API call
   const handleAutoImport = useCallback(async () => {
-    if (!selectedProperty || !selectedPropertyId || !accountId || !apiKey) {
+    if (!selectedProperty || !selectedPropertyId || (!isCommercialMode && (!accountId || !apiKey))) {
       Alert.alert('Not Connected', 'Please connect your Hostaway account first.');
       return;
     }
@@ -86,9 +89,11 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
     try {
       // Actually fetch the listing detail from Hostaway API
       const listingId = parseInt(selectedPropertyId, 10);
-      const listingDetail = await fetchListingDetail(accountId, apiKey, listingId);
+      const listingDetail = isCommercialMode
+        ? await getHostawayListingDetailViaServer(listingId)
+        : await fetchListingDetail(accountId!, apiKey!, listingId);
 
-      const { extracted, details } = extractKnowledgeFromListing(selectedProperty, currentKnowledge, listingDetail);
+      const { extracted, details } = extractKnowledgeFromListing(selectedProperty, currentKnowledge, listingDetail as any);
 
       if (details.length === 0) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -119,7 +124,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
     } finally {
       setIsImporting(false);
     }
-  }, [selectedProperty, selectedPropertyId, accountId, apiKey, currentKnowledge, formData, setPropertyKnowledge]);
+  }, [selectedProperty, selectedPropertyId, isCommercialMode, accountId, apiKey, currentKnowledge, formData, setPropertyKnowledge]);
 
   const renderInput = (label: string, field: keyof PropertyKnowledge, placeholder: string, multiline = false) => (
     <View style={{ marginBottom: spacing['4'] }}>

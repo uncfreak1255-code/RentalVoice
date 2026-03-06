@@ -20,7 +20,9 @@ import {
   Square,
   X,
   Search,
+  MessageSquarePlus,
 } from 'lucide-react-native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import * as Haptics from 'expo-haptics';
 import {
   fetchListings,
@@ -29,6 +31,13 @@ import {
   fetchReservation,
   extractGuestName,
 } from '@/lib/hostaway';
+import { features } from '@/lib/config';
+import {
+  getHostawayConversationsViaServer,
+  getHostawayListingsViaServer,
+  getHostawayMessagesViaServer,
+  getHostawayReservationViaServer,
+} from '@/lib/api-client';
 import {
   analyzeConversationSentiment,
   SENTIMENT_PRIORITY,
@@ -117,7 +126,7 @@ function applySortPreference(conversations: Conversation[], preference: InboxSor
   }
 }
 
-type FilterTab = 'all' | 'unread' | 'check_in' | 'check_out';
+type FilterTab = 'all' | 'unread' | 'inquiry' | 'check_in' | 'check_out';
 
 interface InboxDashboardProps {
   onSelectConversation: (id: string) => void;
@@ -180,6 +189,9 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           return lastSender !== 'host'; // Host already replied = not unread
         });
         break;
+      case 'inquiry':
+        result = result.filter((c) => c.isInquiry === true);
+        break;
       case 'check_in': {
         const now = new Date();
         const tomorrow = new Date(now);
@@ -231,6 +243,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     return {
       total: active.length,
       unread: active.filter((c) => c.unreadCount > 0 && c.lastMessage?.sender !== 'host').length,
+      inquiry: active.filter((c) => c.isInquiry === true).length,
       checkIn: active.filter((c) => {
         if (!c.checkInDate) return false;
         const d = new Date(c.checkInDate);
@@ -252,7 +265,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    if (isDemoMode || !accountId || !apiKey) {
+    if (isDemoMode || (!features.serverProxiedAI && (!accountId || !apiKey))) {
       // Load demo data so Apple reviewers / first-time users see a populated inbox
       if (conversations.length === 0) {
         setConversations(getDemoConversations());
@@ -266,12 +279,16 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     try {
       console.log('[Refresh] Fetching latest data from Hostaway...');
 
-      const listings = await fetchListings(accountId, apiKey);
-      const newProperties = listings.map(convertListingToProperty);
+      const listings = features.serverProxiedAI
+        ? await getHostawayListingsViaServer(100)
+        : await fetchListings(accountId!, apiKey!);
+      const newProperties = listings.map((listing) => convertListingToProperty(listing as any));
       setProperties(newProperties);
       console.log(`[Refresh] Updated ${newProperties.length} properties`);
 
-      const hostawayConversations = await fetchConversations(accountId, apiKey);
+      const hostawayConversations = features.serverProxiedAI
+        ? await getHostawayConversationsViaServer(50)
+        : await fetchConversations(accountId!, apiKey!);
       console.log(`[Refresh] Found ${hostawayConversations.length} conversations`);
 
       // Build a lookup of existing conversations to preserve local state
@@ -329,6 +346,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             checkOutDate: conv.departureDate ? new Date(conv.departureDate) : undefined,
             platform: getChannelPlatform(conv.channelName, conv.channelId, conv.source),
             hasAiDraft: false,
+            isInquiry: !conv.reservationId,
           };
           const existing = existingMap.get(lightConv.id);
           if (existing) {
@@ -344,9 +362,15 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         try {
           // Fetch messages and reservation in parallel for each conversation
           const [messagesResult, reservationResult] = await Promise.allSettled([
-            fetchMessages(accountId!, apiKey!, conv.id),
+            features.serverProxiedAI
+              ? getHostawayMessagesViaServer(conv.id, 100)
+              : fetchMessages(accountId!, apiKey!, conv.id),
             conv.reservationId
-              ? fetchReservation(accountId!, apiKey!, conv.reservationId)
+              ? (
+                features.serverProxiedAI
+                  ? getHostawayReservationViaServer(conv.reservationId)
+                  : fetchReservation(accountId!, apiKey!, conv.reservationId)
+              )
               : Promise.resolve(null),
           ]);
 
@@ -417,6 +441,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             numberOfGuests,
             platform: getChannelPlatform(conv.channelName, conv.channelId, conv.source),
             hasAiDraft: false,
+            isInquiry: !conv.reservationId || (reservation?.status ? ['inquiry', 'enquiry', 'new'].includes(reservation.status.toLowerCase()) : false),
           };
 
           // Preserve local state from existing conversation
@@ -477,7 +502,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       setBadgeCount(totalUnread).catch(console.error);
 
       // Run automation engine
-      if (scheduledMessages.length > 0) {
+      if (scheduledMessages.length > 0 && !features.serverProxiedAI) {
         try {
           const allKnowledge = useAppStore.getState().propertyKnowledge;
           const propertyKnowledge: Record<string, import('@/lib/store').PropertyKnowledge> = {};
@@ -488,8 +513,8 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             conversations: newConversations,
             properties: newProperties,
             scheduledMessages,
-            accountId,
-            apiKey,
+            accountId: accountId!,
+            apiKey: apiKey!,
             hostName: settings.hostName,
             propertyKnowledge,
           });
@@ -525,13 +550,13 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   useEffect(() => {
     if (!hasInitialLoaded.current) {
       hasInitialLoaded.current = true;
-      if (!isDemoMode && accountId && apiKey) {
+      if (!isDemoMode && (features.serverProxiedAI || (accountId && apiKey))) {
         console.log('[Inbox] Auto-refreshing on mount...');
         handleRefresh();
 
         // Silently check if AI response index needs rebuilding
         checkAndRetrainIfNeeded().catch(console.error);
-      } else if (isDemoMode || (!accountId && !apiKey)) {
+      } else if (isDemoMode || (!features.serverProxiedAI && !accountId && !apiKey)) {
         // Load demo conversations for reviewers / first-time users
         if (conversations.length === 0) {
           console.log('[Inbox] Loading demo data...');
@@ -543,7 +568,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
   // Auto-refresh every 30 seconds while inbox is open
   useEffect(() => {
-    if (isDemoMode || !accountId || !apiKey) return;
+    if (isDemoMode || (!features.serverProxiedAI && (!accountId || !apiKey))) return;
 
     const intervalId = setInterval(() => {
       const now = Date.now();
@@ -560,7 +585,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   // Auto-refresh when app comes back to foreground
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active' && !isDemoMode && accountId && apiKey) {
+      if (nextAppState === 'active' && !isDemoMode && (features.serverProxiedAI || (accountId && apiKey))) {
         const now = Date.now();
         // Only refresh if more than 30 seconds since last refresh
         if (now - lastRefreshTime.current > 30000) {
@@ -591,6 +616,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const tabs: { id: FilterTab; label: string; icon: React.ComponentType<{ size: number; color: string }>; count?: number }[] = [
     { id: 'all', label: 'All', icon: Inbox, count: stats.total },
     { id: 'unread', label: 'Unread', icon: ListTodo, count: stats.unread },
+    { id: 'inquiry', label: 'Inquiry', icon: MessageSquarePlus, count: stats.inquiry },
     { id: 'check_in', label: 'Check-in', icon: Clock, count: stats.checkIn },
     { id: 'check_out', label: 'Check-out', icon: Clock, count: stats.checkOut },
   ];
@@ -600,7 +626,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* ── Rork-style Header ── */}
         <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, backgroundColor: '#FFFFFF' }}>
-          <Text style={{ fontSize: 32, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }} accessibilityRole="header">
+          <Text style={{ fontSize: 34, fontFamily: typography.fontFamily.bold, color: '#000000', letterSpacing: -0.5 }} accessibilityRole="header">
             Inbox
           </Text>
         </View>
@@ -619,6 +645,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               autoCorrect={false}
               returnKeyType="search"
               accessibilityLabel="Search guests and properties"
+              testID="inbox-search"
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')} hitSlop={12} accessible accessibilityRole="button" accessibilityLabel="Clear search">
@@ -628,7 +655,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           </View>
         </View>
 
-        {/* ── Rork-style Filter Pills (horizontal scroll) ── */}
+        {/* ── Filter Chips (mockup style) ── */}
         <View style={{ paddingVertical: 8, backgroundColor: '#FFFFFF' }}>
           <ScrollView
             horizontal
@@ -638,7 +665,6 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           >
             {tabs.map((tab) => {
               const isActive = activeFilter === tab.id;
-              const TabIcon = tab.icon;
               return (
                 <Pressable
                   key={tab.id}
@@ -647,41 +673,24 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                   accessibilityLabel={`${tab.label} filter${tab.count ? `, ${tab.count} conversations` : ''}`}
                   accessibilityState={{ selected: isActive }}
                   style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: 8,
-                    paddingHorizontal: 14,
-                    borderRadius: 20,
-                    backgroundColor: isActive ? colors.primary.DEFAULT : '#FFFFFF',
+                    paddingVertical: 10,
+                    paddingHorizontal: 16,
+                    borderRadius: 18,
+                    backgroundColor: isActive ? '#1C1C1E' : '#F2F2F7',
+                    minHeight: 36,
+                    justifyContent: 'center',
                   }}
+                  testID={`inbox-filter-${tab.id}`}
                 >
-                  <TabIcon size={14} color={isActive ? '#FFFFFF' : '#6B7280'} />
                   <Text
                     style={{
-                      fontFamily: typography.fontFamily.medium,
-                      fontSize: 14,
-                      color: isActive ? '#FFFFFF' : '#1F2937',
-                      marginLeft: 6,
+                      fontFamily: isActive ? typography.fontFamily.semibold : typography.fontFamily.medium,
+                      fontSize: 13,
+                      color: isActive ? '#FFFFFF' : '#3C3C43',
                     }}
                   >
-                    {tab.label}
+                    {tab.label}{tab.count !== undefined && tab.count > 0 ? ` (${tab.count})` : ''}
                   </Text>
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <View style={{
-                      marginLeft: 6,
-                      backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : colors.primary.DEFAULT,
-                      borderRadius: 10,
-                      minWidth: 20,
-                      height: 20,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingHorizontal: 5,
-                    }}>
-                      <Text style={{ fontSize: 11, fontFamily: typography.fontFamily.semibold, color: '#FFFFFF' }}>
-                        {tab.count}
-                      </Text>
-                    </View>
-                  )}
                 </Pressable>
               );
             })}
@@ -689,7 +698,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         </View>
 
         {/* Demo Mode Banner */}
-        {(isDemoMode || (!accountId && !apiKey)) && (
+        {(isDemoMode || (!features.serverProxiedAI && !accountId && !apiKey)) && (
           <DemoModeBanner
             onConnectPMS={() => {
               // Navigate to settings to connect PMS — use dynamic import to avoid circular deps
@@ -704,64 +713,96 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             <FlatList
               ref={flatListRef}
               data={filteredConversations}
+              testID="inbox-conversation-list"
               windowSize={5}
               maxToRenderPerBatch={8}
               initialNumToRender={10}
               removeClippedSubviews={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => {
-                    if (isSelectMode) {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(item.id)) next.delete(item.id);
-                        else next.add(item.id);
-                        return next;
-                      });
-                    } else {
-                      onSelectConversation(item.id);
-                    }
-                  }}
-                  onLongPress={() => {
-                    if (!isSelectMode) {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      setIsSelectMode(true);
-                      setSelectedIds(new Set([item.id]));
-                    }
-                  }}
-                  delayLongPress={400}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {isSelectMode && (
-                      <View style={{ paddingLeft: spacing['3'], justifyContent: 'center' }}>
-                        {selectedIds.has(item.id) ? (
-                          <CheckSquare size={22} color={colors.primary.DEFAULT} />
-                        ) : (
-                          <Square size={22} color={colors.text.muted} />
+              renderItem={({ item }) => {
+                const renderRightActions = () => {
+                  return (
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        archiveConversation(item.id);
+                      }}
+                      style={{
+                        backgroundColor: '#FF3B30',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        width: 80,
+                      }}
+                    >
+                      <Archive size={22} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontSize: 12, fontFamily: typography.fontFamily.medium, marginTop: 4 }}>Archive</Text>
+                    </Pressable>
+                  );
+                };
+
+                return (
+                  <ReanimatedSwipeable
+                    renderRightActions={renderRightActions}
+                    overshootRight={false}
+                    rightThreshold={40}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        if (isSelectMode) {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(item.id)) next.delete(item.id);
+                            else next.add(item.id);
+                            return next;
+                          });
+                        } else {
+                          onSelectConversation(item.id);
+                        }
+                      }}
+                      onLongPress={() => {
+                        if (!isSelectMode) {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          setIsSelectMode(true);
+                          setSelectedIds(new Set([item.id]));
+                        }
+                      }}
+                      delayLongPress={400}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+                        {isSelectMode && (
+                          <View style={{ paddingLeft: spacing['3'], justifyContent: 'center' }}>
+                            {selectedIds.has(item.id) ? (
+                              <CheckSquare size={22} color={colors.primary.DEFAULT} />
+                            ) : (
+                              <Square size={22} color={colors.text.muted} />
+                            )}
+                          </View>
                         )}
+                        <View style={{ flex: 1 }}>
+                          <ConversationItem
+                            conversation={item}
+                            onPress={() => {
+                              if (isSelectMode) {
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(item.id)) next.delete(item.id);
+                                  else next.add(item.id);
+                                  return next;
+                                });
+                              } else {
+                                onSelectConversation(item.id);
+                              }
+                            }}
+                          />
+                        </View>
                       </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <ConversationItem
-                        conversation={item}
-                        onPress={() => {
-                          if (isSelectMode) {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(item.id)) next.delete(item.id);
-                              else next.add(item.id);
-                              return next;
-                            });
-                          } else {
-                            onSelectConversation(item.id);
-                          }
-                        }}
-                      />
-                    </View>
-                  </View>
-                </Pressable>
-              )}
+                    </Pressable>
+                  </ReanimatedSwipeable>
+                );
+              }}
               keyExtractor={(item) => item.id}
+              ItemSeparatorComponent={() => (
+                <View style={{ marginLeft: 66, height: 0.5, backgroundColor: '#E5E5EA' }} />
+              )}
               contentContainerStyle={{ paddingTop: 4, paddingBottom: 24 }}
               refreshControl={
                 <RefreshControl

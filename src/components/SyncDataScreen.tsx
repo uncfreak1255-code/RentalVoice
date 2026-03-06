@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore } from '@/lib/store';
@@ -33,6 +33,14 @@ import {
 } from '@/lib/hostaway';
 import { convertListingToProperty, getChannelPlatform, convertHostawayMessage } from '@/lib/hostaway-utils';
 import type { Conversation, Guest } from '@/lib/store';
+import {
+  getHostawayConversationsViaServer,
+  getHostawayListingsViaServer,
+  getHostawayMessagesViaServer,
+  getHostawayReservationViaServer,
+  getHostawayStatus,
+} from '@/lib/api-client';
+import { isCommercial } from '@/lib/config';
 
 interface SyncDataScreenProps {
   onBack: () => void;
@@ -63,19 +71,28 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
   const setConversations = useAppStore((s) => s.setConversations);
   const historySyncStatus = useAppStore((s) => s.historySyncStatus);
   const updateHistorySyncStatus = useAppStore((s) => s.updateHistorySyncStatus);
+  const isCommercialMode = isCommercial;
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [syncProgress, setSyncProgress] = useState('');
+  const [isServerConnected, setIsServerConnected] = useState(!isCommercialMode);
 
   const rotation = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
 
-  const isConnected = !!(accountId && apiKey);
+  const isConnected = isCommercialMode ? isServerConnected : !!(accountId && apiKey);
   const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0);
   const totalGuests = new Set(conversations.map((c) => c.guest.id)).size;
+
+  useEffect(() => {
+    if (!isCommercialMode) return;
+    getHostawayStatus()
+      .then((status) => setIsServerConnected(status.connected))
+      .catch(() => setIsServerConnected(false));
+  }, [isCommercialMode]);
 
   const syncItems = [
     {
@@ -113,7 +130,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
   ];
 
   const handleSync = useCallback(async () => {
-    if (!accountId || !apiKey) {
+    if (!isCommercialMode && (!accountId || !apiKey)) {
       Alert.alert('Not Connected', 'Please connect your Hostaway account in Settings first.');
       return;
     }
@@ -133,13 +150,17 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
     try {
       // Fetch properties
       setSyncProgress('Fetching properties...');
-      const listings = await fetchListings(accountId, apiKey);
-      const newProperties = listings.map(convertListingToProperty);
+      const listings = isCommercialMode
+        ? await getHostawayListingsViaServer()
+        : await fetchListings(accountId!, apiKey!);
+      const newProperties = listings.map((listing) => convertListingToProperty(listing as any));
       setProperties(newProperties);
 
       // Fetch conversations
       setSyncProgress(`Fetching conversations...`);
-      const hostawayConversations = await fetchConversations(accountId, apiKey);
+      const hostawayConversations = isCommercialMode
+        ? await getHostawayConversationsViaServer()
+        : await fetchConversations(accountId!, apiKey!);
 
       updateHistorySyncStatus({ syncPhase: 'messages' });
 
@@ -152,7 +173,9 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
         setSyncProgress(`Loading messages ${i + 1}/${total}...`);
 
         try {
-          const messages = await fetchMessages(accountId, apiKey, conv.id);
+          const messages = isCommercialMode
+            ? await getHostawayMessagesViaServer(conv.id)
+            : await fetchMessages(accountId!, apiKey!, conv.id);
           totalMsgCount += messages.length;
 
           const property = newProperties.find((p) => p.id === String(conv.listingMapId)) || {
@@ -161,13 +184,15 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
             address: '',
           };
 
-          let guestName = extractGuestName(conv);
+          let guestName = extractGuestName(conv as any);
           let numberOfGuests: number | undefined;
           let checkInDate = conv.arrivalDate ? new Date(conv.arrivalDate) : undefined;
           let checkOutDate = conv.departureDate ? new Date(conv.departureDate) : undefined;
 
           if (conv.reservationId) {
-            const reservation = await fetchReservation(accountId, apiKey, conv.reservationId);
+            const reservation = isCommercialMode
+              ? await getHostawayReservationViaServer(conv.reservationId)
+              : await fetchReservation(accountId!, apiKey!, conv.reservationId);
             if (reservation) {
               if (guestName === 'Unknown Guest') {
                 const resName =
@@ -192,7 +217,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
           };
 
           const convertedMessages = messages
-            .map((m) => convertHostawayMessage(m, String(conv.id)))
+            .map((m) => convertHostawayMessage(m as any, String(conv.id)))
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
           newConversations.push({
@@ -240,6 +265,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
     rotation.value = 0;
     setIsSyncing(false);
   }, [
+    isCommercialMode,
     accountId,
     apiKey,
     rotation,
@@ -323,7 +349,9 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
             </View>
             <Text style={{ fontSize: 14, color: '#6B7280', lineHeight: 20 }}>
               {isConnected
-                ? `Account ${accountId} · Auto-sync every 30s in Inbox`
+                ? isCommercialMode
+                  ? 'Server-managed Hostaway connection · Auto-sync every 30s in Inbox'
+                  : `Account ${accountId} · Auto-sync every 30s in Inbox`
                 : 'Connect your Hostaway account in Settings to sync data.'}
             </Text>
             {historySyncStatus.lastFullSync && (
