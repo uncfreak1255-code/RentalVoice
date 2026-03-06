@@ -9,6 +9,13 @@ source "$ROOT_DIR/ops/lib/common.sh"
 require_cmd bun
 ensure_dirs
 
+if [[ -f "$ROOT_DIR/server/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/server/.env"
+  set +a
+fi
+
 founder_email="sawyerbeck25@gmail.com"
 founder_name="Sawyer Beck"
 org_name="Rental Voice Founder"

@@ -12,6 +12,9 @@ const settingsRoutes: Record<string, string> = {
   automations: '/settings/automations',
   analytics: '/settings/analytics',
   upsells: '/settings/upsells',
+  billing: '/settings/billing?source=settings',
+  billingMemory: '/settings/billing?source=memory_limit',
+  founderDiagnostics: '/settings/founder-diagnostics',
   apiSettings: '/settings/api',
   syncData: '/settings/sync-data',
   languageSettings: '/settings/language',
@@ -24,6 +27,8 @@ const settingsRoutes: Record<string, string> = {
   autoPilotSettings: '/settings/auto-pilot',
   autoPilotAuditLog: '/settings/auto-pilot-audit',
   sentimentTrends: '/settings/sentiment-trends',
+  // Legacy compatibility route only. Keep this mapped so old links fail safely,
+  // but do not reintroduce provider-management UI into the active settings flow.
   aiProviders: '/settings/ai-providers',
   reviewResponse: '/settings/review-response',
 };

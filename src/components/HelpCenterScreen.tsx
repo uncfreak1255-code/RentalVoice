@@ -17,8 +17,9 @@ const faqCategories: FAQCategory[] = [
     title: 'Getting Started',
     icon: Zap,
     faqs: [
-      { question: 'How do I connect my Hostaway account?', answer: 'Go to Settings → Hostaway API and enter your Account ID and API key. You can find these in your Hostaway dashboard under Settings → API Keys.' },
+      { question: 'How do I connect my Hostaway account?', answer: 'Go to Settings → Manage PMS Connection and enter your Hostaway Account ID and API Secret Key. You can find both in your Hostaway dashboard under Settings → API.' },
       { question: 'What is Demo Mode?', answer: 'Demo Mode lets you explore the app with sample data without connecting your Hostaway account. Great for testing features before going live.' },
+      { question: 'Do I need to manage AI provider keys?', answer: 'No in the current product flow. Rental Voice is moving toward managed AI routing for commercial workspaces, while personal mode keeps your existing draft workflow without exposing the old provider-management screen.' },
       { question: 'How does CoPilot mode work?', answer: 'In CoPilot mode, the AI generates draft responses for each guest message. You review, edit if needed, and send. Your edits help the AI learn your style.' },
       { question: 'How does AutoPilot work?', answer: 'When enabled, AutoPilot automatically sends AI-generated responses that meet your confidence threshold. Configure it in Settings → AI Automation.' },
     ],
@@ -46,7 +47,7 @@ const faqCategories: FAQCategory[] = [
     title: 'Privacy & Security',
     icon: Shield,
     faqs: [
-      { question: 'Is my data secure?', answer: 'Yes! All data is encrypted end-to-end. API keys are stored in your device\'s secure keychain. We never share your information with third parties.' },
+      { question: 'Is my data secure?', answer: 'Yes. Rental Voice encrypts your data in transit and at rest. Hostaway connection credentials are stored in secure device storage in personal mode and encrypted workspace storage in managed commercial mode.' },
       { question: 'Can I export or delete my data?', answer: 'Go to Settings → Privacy & Security → Data Management. You can export all your data as JSON or permanently delete everything from the app.' },
       { question: 'What does Privacy Compliance scanning do?', answer: 'The privacy scanner checks your AI drafts and conversation history for sensitive data like credit card numbers, SSNs, and personal information — helping you stay compliant with GDPR and CCPA.' },
     ],

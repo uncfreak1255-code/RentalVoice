@@ -1,5 +1,6 @@
-// AI Service for generating guest responses
-// Uses Google Gemini 2.5 Flash for best cost/performance on guest messages
+// Personal-mode local AI service for generating guest responses.
+// This path stays available for the current Hostaway-first personal workflow
+// while managed commercial routing remains staged behind app mode.
 
 import type { Conversation, Message, Property, HostStyleProfile, QuickReplyTemplate, LearnedLanguageStyle, PropertyKnowledge } from './store';
 import { generateStyleInstructions, findMatchingTemplates, generateTemplateBasedPrompt, type TemplateMatchResult } from './ai-learning';
@@ -399,7 +400,7 @@ export async function generateAIResponse(options: AIGenerationOptions): Promise<
 
   if (!apiKey) {
     console.error('[AI Service] No Gemini API key found');
-    throw new Error('Gemini API key not configured. Please add it in Settings → API.');
+    throw new Error('Local AI is not configured for this build. Use the current connected workflow or switch to a build with managed AI enabled.');
   }
 
   const lastGuestMessage = [...conversation.messages]

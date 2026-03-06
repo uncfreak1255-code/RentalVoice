@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { PLAN_LIMITS, type PlanTier } from '../src/lib/types.js';
 
+const DRY_RUN_USER_ID = '00000000-0000-0000-0000-000000000001';
+const DRY_RUN_ORG_ID = '00000000-0000-0000-0000-000000000002';
+
 type Args = {
   email: string;
   name: string;
@@ -143,7 +146,7 @@ async function main() {
     }
   }
 
-  const founderUserId = authUser?.id || 'dry-run-founder-user';
+  const founderUserId = authUser?.id || DRY_RUN_USER_ID;
 
   const { data: existingUserRow, error: userRowError } = await supabase
     .from('users')
@@ -196,7 +199,7 @@ async function main() {
       });
       if (memberInsertError) throw memberInsertError;
     } else {
-      orgId = 'dry-run-org';
+      orgId = DRY_RUN_ORG_ID;
     }
   }
 
