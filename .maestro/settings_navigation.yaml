@@ -1,0 +1,24 @@
+appId: com.rentalvoice.app
+---
+# Flow 6: Navigate to settings and open AI Learning sub-screen
+# SAFE: read-only — no data changes or message sending
+
+- launchApp
+- assertVisible: "Inbox"
+
+# Go to Settings tab
+- tapOn:
+    point: "83%,95%"
+- waitForAnimationToEnd
+
+# Find and open AI Learning
+- scrollUntilVisible:
+    element: "AI Learning"
+    direction: DOWN
+    timeout: 10000
+- tapOn: "AI Learning"
+- waitForAnimationToEnd
+
+# Go back to settings
+- back
+- waitForAnimationToEnd

@@ -1,0 +1,33 @@
+appId: com.rentalvoice.app
+---
+# Flow 1: Launch → Welcome → Get Started → Demo Mode → Inbox loads
+# Tests the complete onboarding flow using demo mode (no API creds needed)
+
+- launchApp:
+    clearState: true
+
+# Step 0: Welcome screen
+- assertVisible: "Rental Voice"
+- assertVisible: "Smart guest communication"
+
+# Tap "Get Started"
+- tapOn:
+    id: "onboarding-get-started"
+
+# Step 1: PMS connection screen
+- assertVisible: "Connect Your PMS"
+- assertVisible: "Hostaway"
+
+# Enter Demo Mode
+- tapOn:
+    id: "onboarding-demo-mode"
+
+# Wait for animations and data load
+- waitForAnimationToEnd
+
+# Verify inbox loaded (search bar is visible)
+- assertVisible:
+    id: "inbox-search"
+
+# Verify we see the "Inbox" header
+- assertVisible: "Inbox"

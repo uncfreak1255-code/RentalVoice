@@ -1,0 +1,31 @@
+appId: com.rentalvoice.app
+---
+# Flow 3: Test inbox filter tabs and search
+# SAFE: read-only — no messages sent, no data changed
+
+- launchApp
+- assertVisible:
+    id: "inbox-search"
+
+# Test visible filter tabs
+- tapOn:
+    id: "inbox-filter-unread"
+- waitForAnimationToEnd
+- tapOn:
+    id: "inbox-filter-inquiry"
+- waitForAnimationToEnd
+- tapOn:
+    id: "inbox-filter-check_in"
+- waitForAnimationToEnd
+
+# Return to All
+- tapOn:
+    id: "inbox-filter-all"
+- waitForAnimationToEnd
+
+# Test search input
+- tapOn:
+    id: "inbox-search"
+- inputText: "Sarah"
+- waitForAnimationToEnd
+- eraseText: 5

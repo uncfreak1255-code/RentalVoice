@@ -1,0 +1,31 @@
+appId: com.rentalvoice.app
+---
+# Flow 5: Type a message in chat and navigate back
+# SAFE: read-only — types text but NEVER taps send button
+# No messages will be sent to any guest
+
+- launchApp
+- assertVisible:
+    id: "inbox-conversation-list"
+
+# Open first conversation
+- tapOn:
+    id: "inbox-conversation-list"
+    index: 0
+- waitForAnimationToEnd
+
+# Tap the message input and type
+- tapOn:
+    id: "chat-input"
+- inputText: "Thanks for reaching out!"
+
+# Tap on message list area to dismiss keyboard
+- tapOn:
+    id: "chat-message-list"
+
+# Navigate back (WITHOUT sending)
+- tapOn:
+    id: "chat-back"
+- waitForAnimationToEnd
+- assertVisible:
+    id: "inbox-search"

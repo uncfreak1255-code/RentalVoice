@@ -1,0 +1,30 @@
+appId: com.rentalvoice.app
+---
+# Flow 7: Navigate to calendar, swipe through dates, return to inbox
+# SAFE: read-only — no data changes
+
+- launchApp
+
+# Navigate to Calendar tab (center of tab bar)
+- tapOn:
+    point: "50%,95%"
+- waitForAnimationToEnd
+
+# Swipe through the calendar content
+- swipe:
+    start: "50%,50%"
+    end: "50%,20%"
+    duration: 500
+
+- swipe:
+    start: "50%,30%"
+    end: "50%,70%"
+    duration: 500
+
+# Navigate back to Inbox (left side of tab bar)
+- tapOn:
+    point: "17%,95%"
+- extendedWaitUntil:
+    visible:
+      id: "inbox-search"
+    timeout: 5000

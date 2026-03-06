@@ -1,0 +1,31 @@
+appId: com.rentalvoice.app
+---
+# Flow 2: Navigate between all 3 tabs and verify content loads
+# Uses percentage-based taps on the bottom tab bar
+
+- launchApp
+
+# Start on Inbox tab — verify Inbox header is visible
+- assertVisible: "Inbox"
+
+# Tap Calendar tab (center of tab bar)
+- tapOn:
+    point: "50%,97%"
+- extendedWaitUntil:
+    visible: "Calendar"
+    timeout: 5000
+
+# Tap Settings tab (right side of tab bar)
+- tapOn:
+    point: "83%,97%"
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 5000
+
+# Tap Inbox tab (left side of tab bar)
+- tapOn:
+    point: "17%,97%"
+- extendedWaitUntil:
+    visible:
+      id: "inbox-search"
+    timeout: 5000

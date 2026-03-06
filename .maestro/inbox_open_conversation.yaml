@@ -1,0 +1,29 @@
+appId: com.rentalvoice.app
+---
+# Flow 4: Tap a conversation in the inbox to open chat screen
+# Prerequisite: App onboarded in demo mode with demo conversations
+
+- launchApp
+- assertVisible:
+    id: "inbox-conversation-list"
+
+# Tap the first conversation in the list
+- tapOn:
+    id: "inbox-conversation-list"
+    index: 0
+- waitForAnimationToEnd
+
+# Verify chat screen loaded
+- assertVisible:
+    id: "chat-message-list"
+- assertVisible:
+    id: "chat-input"
+
+# Go back to inbox
+- tapOn:
+    id: "chat-back"
+- waitForAnimationToEnd
+
+# Verify we're back in inbox
+- assertVisible:
+    id: "inbox-search"

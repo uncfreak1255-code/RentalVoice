@@ -69,3 +69,7 @@ ops/manifests/*.json
 # Local audit scratch files
 Ai Learning Audit
 Current State Audit
+
+# Legacy/local agent tooling artifacts
+.agent/
+skills-lock.json
