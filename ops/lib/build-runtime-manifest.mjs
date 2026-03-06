@@ -67,7 +67,10 @@ function parseSupabaseProjectRef(url) {
   return match ? match[1] : null;
 }
 
-function classifySupabaseProject(projectRef) {
+function classifySupabaseProject(projectRef, envClassOverride) {
+  if (envClassOverride) {
+    return envClassOverride;
+  }
   if (projectRef === 'gqnocsoouudbogwislsl') {
     return 'linked_rental_voice_test_smoke_project';
   }
@@ -140,8 +143,11 @@ const easJson = readJson('eas.json');
 const configText = readText('src/lib/config.ts') || '';
 const serverSupabase = resolveEnvValue('SUPABASE_URL');
 const clientSupabase = resolveEnvValue('EXPO_PUBLIC_SUPABASE_URL');
+const configuredSupabaseEnvClass = resolveEnvValue('SUPABASE_ENV_CLASS');
+const configuredSupabaseProjectRef = resolveEnvValue('SUPABASE_PROJECT_REF');
+const configuredSupabaseProjectLabel = resolveEnvValue('SUPABASE_PROJECT_LABEL');
 const supabaseUrl = serverSupabase.value || clientSupabase.value || null;
-const supabaseProjectRef = parseSupabaseProjectRef(supabaseUrl);
+const supabaseProjectRef = configuredSupabaseProjectRef.value || parseSupabaseProjectRef(supabaseUrl);
 const expoConfig = appJson?.expo || {};
 const easProjectId = expoConfig?.extra?.eas?.projectId || null;
 
@@ -161,18 +167,23 @@ const manifest = {
   git: detectGitState(),
   supabase: {
     urlSource: serverSupabase.source || clientSupabase.source,
+    envClassSource: configuredSupabaseEnvClass.source,
+    projectLabelSource: configuredSupabaseProjectLabel.source,
     projectRef: supabaseProjectRef,
-    classification: classifySupabaseProject(supabaseProjectRef),
+    projectLabel: configuredSupabaseProjectLabel.value || null,
+    classification: classifySupabaseProject(supabaseProjectRef, configuredSupabaseEnvClass.value),
     realFounderEnvironmentResolved: false,
     knownProjects: [
       {
         projectRef: 'gqnocsoouudbogwislsl',
         label: 'Rental Voice',
+        envClass: 'test',
         status: 'linked_project_with_test_smoke_app_users_only',
       },
       {
         projectRef: 'cqbzsntmlwpsaxwnoath',
         label: "uncfreak1255-code's Project",
+        envClass: 'unclassified',
         status: 'separate_project_with_no_app_auth_users',
       },
     ],

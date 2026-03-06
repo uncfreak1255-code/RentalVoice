@@ -12,6 +12,10 @@ This runbook defines the current source of truth for Rental Voice while commerci
   - `gqnocsoouudbogwislsl`: linked project with test/smoke app users
   - `cqbzsntmlwpsaxwnoath`: separate project with no app auth users
 - Real founder/live app-auth environment: not chosen yet
+- Current local server env should explicitly declare:
+  - `SUPABASE_ENV_CLASS=test`
+  - `SUPABASE_PROJECT_REF=gqnocsoouudbogwislsl`
+  - `SUPABASE_PROJECT_LABEL=Rental Voice`
 
 ## Create the protected baseline
 
@@ -46,3 +50,4 @@ Artifacts created:
 2. verify the manifest and checkpoint
 3. confirm `currentAppMode` remains `personal`
 4. confirm no visible email/password auth was introduced into the current app path
+5. confirm the baseline manifest still labels the linked project as non-live/test

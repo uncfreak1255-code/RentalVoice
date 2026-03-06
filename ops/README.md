@@ -13,6 +13,9 @@ This folder contains the first production safety layer for RentalVoice:
 ## Required environment variables
 
 - `DATABASE_URL`: Postgres URL for backup/restore
+- `SUPABASE_ENV_CLASS`: Environment classification (`test`, `staging`, `live`, etc.)
+- `SUPABASE_PROJECT_REF`: Supabase project ref used by the current server environment
+- `SUPABASE_PROJECT_LABEL`: Human-readable Supabase project label
 - `BACKUP_BUCKET`: Optional S3 destination (example: `s3://my-bucket/rentalvoice/checkpoints`)
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: Needed when `BACKUP_BUCKET` is set
 - `BACKUP_ENCRYPTION_KEY`: Optional AES key for encrypted dumps
