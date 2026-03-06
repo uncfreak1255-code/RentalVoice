@@ -8,10 +8,12 @@ import {
   getAccessToken as getStoredAccessToken,
   clearAccessToken,
   clearAllCredentials,
+  clearStableAccountCache,
   hasStoredCredentials,
   tokenNeedsRefresh,
 } from './secure-storage';
 import { parseHostawayTimestamp } from './hostaway-utils';
+import { resolveStableAccountId } from './stable-account-id';
 
 const HOSTAWAY_API_BASE = 'https://api.hostaway.com/v1';
 
@@ -247,11 +249,25 @@ export async function initializeConnection(
   apiKey: string
 ): Promise<boolean> {
   try {
+    const previousCredentials = await getCredentials();
+
     // Validate credentials by getting a token
     await getAccessToken(accountId, apiKey);
 
+    // If the user switched to a different Hostaway account, clear stable-ID cache first.
+    if (previousCredentials?.accountId && previousCredentials.accountId !== accountId) {
+      await clearStableAccountCache();
+      console.log('[Hostaway] Cleared stable account cache due to account switch');
+    }
+
     // Store credentials securely
     await storeCredentials(accountId, apiKey);
+
+    // Resolve the stable (permanent) account ID in the background.
+    // This caches the ID for future use but does not block the connection.
+    resolveStableAccountId(accountId, apiKey).catch((err) => {
+      console.warn('[Hostaway] Non-blocking: failed to resolve stable account ID:', err);
+    });
 
     console.log('[Hostaway] Connection initialized and credentials stored');
     return true;
@@ -289,6 +305,12 @@ export async function restoreConnection(): Promise<{
     if (storedToken) {
       // We have valid credentials and token
       console.log('[Hostaway] Connection restored from secure storage');
+
+      // Resolve stable account ID in the background
+      resolveStableAccountId(credentials.accountId, credentials.apiKey).catch((err) => {
+        console.warn('[Hostaway] Non-blocking: failed to resolve stable account ID on restore:', err);
+      });
+
       return {
         connected: true,
         accountId: credentials.accountId,
@@ -302,6 +324,12 @@ export async function restoreConnection(): Promise<{
       try {
         await getAccessToken(credentials.accountId, credentials.apiKey);
         console.log('[Hostaway] Token refreshed successfully');
+
+        // Resolve stable account ID in the background
+        resolveStableAccountId(credentials.accountId, credentials.apiKey).catch((err) => {
+          console.warn('[Hostaway] Non-blocking: failed to resolve stable account ID after refresh:', err);
+        });
+
         return {
           connected: true,
           accountId: credentials.accountId,

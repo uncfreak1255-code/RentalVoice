@@ -29,7 +29,12 @@ import {
 } from '@/lib/ai-enhanced';
 import { sendMessage as sendHostawayMessage } from '@/lib/hostaway';
 import { features } from '@/lib/config';
-import { generateAIDraftViaServer } from '@/lib/api-client';
+import {
+  generateAIDraftViaServer,
+  getCurrentEntitlements,
+  recordDraftOutcomeViaServer,
+  sendHostawayMessageViaServer,
+} from '@/lib/api-client';
 import { aiTrainingService } from '@/lib/ai-training-service';
 import { detectIntent } from '@/lib/intent-detection';
 import { generateSmartReplies, type SmartReply } from '@/lib/smart-replies';
@@ -70,6 +75,7 @@ import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 interface ChatScreenProps {
   conversationId: string;
   onBack: () => void;
+  onOpenUpsells?: () => void;
 }
 
 // Enhanced AI draft with all new features
@@ -130,13 +136,14 @@ function SmartReplyBar({ guestMessage, propertyKnowledge, onSelect }: {
   );
 }
 
-export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
+export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreenProps) {
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const hasScrolledToBottom = useRef(false);
   const lastGeneratedForMessageId = useRef<string | null>(null);
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  const [rateLimitActionLabel, setRateLimitActionLabel] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [showGuestInfo, setShowGuestInfo] = useState(false);
   const [currentEnhancedDraft, setCurrentEnhancedDraft] = useState<EnhancedAiDraft | null>(null);
@@ -174,6 +181,25 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
   const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
   const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
   const addReplyDelta = useAppStore((s) => s.addReplyDelta);
+
+  const dismissComposerNotice = useCallback(() => {
+    setRateLimitError(null);
+    setRateLimitActionLabel(null);
+  }, []);
+
+  const showComposerNotice = useCallback((message: string, actionLabel: string | null = null) => {
+    setRateLimitError(message);
+    setRateLimitActionLabel(actionLabel);
+    setTimeout(() => {
+      setRateLimitError((current) => {
+        if (current === message) {
+          setRateLimitActionLabel(null);
+          return null;
+        }
+        return current;
+      });
+    }, 8000);
+  }, []);
 
   // Track keyboard visibility to hide SmartReplyBar when typing
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -239,6 +265,20 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
       );
       addReplyDelta(delta);
       console.log(`[ChatScreen] ${outcomeType} delta:`, delta.learningSummary);
+    }
+
+    if (features.serverProxiedAI) {
+      recordDraftOutcomeViaServer({
+        outcomeType,
+        propertyId: opts.propertyId,
+        guestIntent: opts.guestIntent,
+        confidence: opts.confidence,
+        aiDraft: opts.aiDraft,
+        hostReply: opts.hostReply,
+        guestMessage: opts.guestMessage,
+      }).catch((error) => {
+        console.error('[ChatScreen] Failed to record server draft outcome:', error);
+      });
     }
   }, [addDraftOutcome, addCalibrationEntry, addReplyDelta]);
 
@@ -422,6 +462,26 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
         };
       } else if (features.serverProxiedAI) {
         // Commercial mode: call server proxy
+        let supermemoryMode: 'off' | 'full' | 'degraded' = 'full';
+        try {
+          const entitlementState = await getCurrentEntitlements();
+          supermemoryMode = entitlementState.entitlements.supermemoryMode;
+        } catch (entitlementsError) {
+          console.warn('[ChatScreen] Failed to fetch entitlements before draft generation:', entitlementsError);
+        }
+
+        if (supermemoryMode === 'degraded') {
+          showComposerNotice(
+            'Memory limit reached for this month. Drafting continues with reduced personalization.',
+            onOpenUpsells ? 'Upgrade' : null
+          );
+        } else if (supermemoryMode === 'off') {
+          showComposerNotice(
+            'Advanced memory is unavailable on your current plan. Drafting continues without memory context.',
+            onOpenUpsells ? 'Upgrade' : null
+          );
+        }
+
         const lastGuest = [...conversation.messages].reverse().find((m) => m.sender === 'guest');
         const serverResponse = await generateAIDraftViaServer({
           message: lastGuest?.content || '',
@@ -523,23 +583,27 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
       const errMsg = error instanceof Error ? error.message : String(error);
       if (errMsg.startsWith('RATE_LIMIT:')) {
         const reason = errMsg.replace('RATE_LIMIT: ', '');
-        setRateLimitError(reason);
+        showComposerNotice(reason, null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setTimeout(() => setRateLimitError(null), 8000);
       }
       console.error('[ChatScreen] Error generating AI draft:', error);
     } finally {
       setIsGeneratingDraft(false);
       setCurrentModifier(undefined);
     }
-  }, [conversation, isGeneratingDraft, isDemoMode, currentPropertyKnowledge, hostName, autoPilotEnabled, autoPilotThreshold, currentHostStyleProfile, handleActionItems]);
+  }, [conversation, isGeneratingDraft, isDemoMode, currentPropertyKnowledge, hostName, autoPilotEnabled, autoPilotThreshold, currentHostStyleProfile, handleActionItems, showComposerNotice, onOpenUpsells]);
 
   const handleAutoSend = async (content: string) => {
-    if (!conversation || !accountId || !apiKey) return;
+    if (!conversation) return;
+    if (!isDemoMode && !features.serverProxiedAI && (!accountId || !apiKey)) return;
 
     try {
       if (!isDemoMode) {
-        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), content);
+        if (features.serverProxiedAI) {
+          await sendHostawayMessageViaServer(parseInt(conversationId), content);
+        } else {
+          await sendHostawayMessage(accountId!, apiKey!, parseInt(conversationId), content);
+        }
       }
 
       const messagesWithoutDraft = messages.filter((m) => m.sender !== 'ai_draft');
@@ -626,8 +690,12 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
 
     // ── ASYNC: Send to Hostaway + learning in background ──
     try {
-      if (!isDemoMode && accountId && apiKey) {
-        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), content);
+      if (!isDemoMode) {
+        if (features.serverProxiedAI) {
+          await sendHostawayMessageViaServer(parseInt(conversationId), content);
+        } else if (accountId && apiKey) {
+          await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), content);
+        }
       }
     } catch (error) {
       console.error('[ChatScreen] Error sending message:', error);
@@ -721,8 +789,12 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
 
     // ── ASYNC: Send to Hostaway in background ──
     try {
-      if (!isDemoMode && accountId && apiKey) {
-        await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), contentToSend);
+      if (!isDemoMode) {
+        if (features.serverProxiedAI) {
+          await sendHostawayMessageViaServer(parseInt(conversationId), contentToSend);
+        } else if (accountId && apiKey) {
+          await sendHostawayMessage(accountId, apiKey, parseInt(conversationId), contentToSend);
+        }
       }
     } catch (error) {
       console.error('[ChatScreen] Error sending approved draft:', error);
@@ -1007,6 +1079,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
               accessibilityRole="button"
               accessibilityLabel="Go back to inbox"
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, minWidth: 44 })}
+              testID="chat-back"
             >
               <Text style={chatStyles.doneButton}>Done</Text>
             </Pressable>
@@ -1129,6 +1202,7 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             <FlatList
               ref={listRef}
               data={[...displayMessages].reverse()}
+              testID="chat-message-list"
               renderItem={({ item, index }) => {
                 const reversedMessages = [...displayMessages].reverse();
                 const prevMessage = index > 0 ? reversedMessages[index - 1] : null;
@@ -1220,7 +1294,9 @@ export function ChatScreen({ conversationId, onBack }: ChatScreenProps) {
             onFixConflict={handleFixConflict}
             onOpenActionsSheet={() => bottomSheetRef.current?.snapToIndex(0)}
             rateLimitError={rateLimitError}
-            onDismissRateLimitError={() => setRateLimitError(null)}
+            onDismissRateLimitError={dismissComposerNotice}
+            rateLimitActionLabel={rateLimitActionLabel}
+            onRateLimitAction={rateLimitActionLabel && onOpenUpsells ? onOpenUpsells : undefined}
           />
         </KeyboardAvoidingView>
 

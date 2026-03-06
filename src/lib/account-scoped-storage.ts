@@ -15,10 +15,13 @@ import { useAppStore } from './store';
 
 /**
  * Get the current Hostaway account ID from the app store.
+ * Prefers the stable (permanent) account ID fetched from the Hostaway API.
+ * Falls back to the user-entered accountId if the stable ID is not yet resolved.
  * Returns null if no account is connected.
  */
 export function getCurrentAccountId(): string | null {
-  return useAppStore.getState().settings.accountId;
+  const settings = useAppStore.getState().settings;
+  return settings.stableAccountId || settings.accountId;
 }
 
 /**

@@ -19,6 +19,7 @@ import { getAdapter } from '../adapters/pms-adapter.js';
 import { decrypt } from '../lib/encryption.js';
 import { PLAN_LIMITS } from '../lib/types.js';
 import type { PlanTier } from '../lib/types.js';
+import { getEffectivePlan } from '../lib/founder-access.js';
 
 const aiRouter = new Hono();
 
@@ -120,7 +121,8 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
       .eq('id', auth.userId)
       .single();
 
-    const plan = (user?.plan || 'starter') as PlanTier;
+    const basePlan = (user?.plan || 'starter') as PlanTier;
+    const plan = getEffectivePlan(basePlan, auth.userId, auth.email);
     const limits = PLAN_LIMITS[plan];
 
     if (!limits.autopilot) {
@@ -157,7 +159,7 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
       request: parsed.data,
     });
 
-    const confidencePercent = Math.round(result.confidence * 100);
+    const confidencePercent = Math.round(result.confidence);
     const meetsThreshold = confidencePercent >= threshold;
 
     // 4. If confidence meets threshold, attempt to auto-send via PMS
@@ -166,7 +168,10 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
     let sentVia: string | null = null;
     let pmsError: string | null = null;
 
-    if (meetsThreshold) {
+    if (result.usedFallback) {
+      action = 'routed_to_copilot';
+      reason = 'Fallback model used - manual review required';
+    } else if (meetsThreshold) {
       try {
         // Look up PMS connection for this org
         const { data: pmsConn } = await supabase
@@ -178,9 +183,17 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
 
         if (pmsConn) {
           const adapter = getAdapter(pmsConn.provider);
+          const decryptedCredentials = decrypt(pmsConn.encrypted_credentials);
+          let parsedCredentials: Record<string, unknown> = {};
+          try {
+            parsedCredentials = JSON.parse(decryptedCredentials) as Record<string, unknown>;
+          } catch {
+            // Backward compatibility for older Hostaway records that stored raw apiKey.
+            parsedCredentials = { apiKey: decryptedCredentials };
+          }
           const credentials = {
             accountId: pmsConn.account_id,
-            ...JSON.parse(decrypt(pmsConn.encrypted_credentials)),
+            ...parsedCredentials,
           };
 
           await adapter.sendMessage(credentials, parsed.data.conversationId, result.draft);
@@ -225,6 +238,7 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
       pmsError,
       provider: result.provider,
       model: result.model,
+      usedFallback: result.usedFallback,
       tokensUsed: result.tokensUsed,
     });
   } catch (err) {
@@ -246,6 +260,16 @@ const learnSchema = z.object({
   propertyId: z.string().optional(),
 });
 
+const outcomeSchema = z.object({
+  outcomeType: z.enum(['approved', 'edited', 'rejected', 'independent']),
+  propertyId: z.string().optional(),
+  guestIntent: z.string().max(100).optional(),
+  confidence: z.number().min(0).max(100).optional(),
+  aiDraft: z.string().max(10000).optional(),
+  hostReply: z.string().max(10000).optional(),
+  guestMessage: z.string().max(10000).optional(),
+});
+
 aiRouter.post('/learn', requireAuth, learnRateLimit, async (c) => {
   try {
     const body = await c.req.json();
@@ -258,18 +282,7 @@ aiRouter.post('/learn', requireAuth, learnRateLimit, async (c) => {
     const auth = getAuthContext(c);
     const supabase = getSupabaseAdmin();
 
-    // Validate propertyId belongs to the org
-    if (parsed.data.propertyId) {
-      const { data: prop } = await supabase
-        .from('properties')
-        .select('id')
-        .eq('id', parsed.data.propertyId)
-        .eq('org_id', auth.orgId)
-        .single();
-      if (!prop) {
-        return c.json({ message: 'Property not found', code: 'NOT_FOUND', status: 404 }, 404);
-      }
-    }
+    const scopedPropertyId = await resolveScopedPropertyId(supabase, auth.orgId, parsed.data.propertyId);
 
     // 1. Store the edit pattern
     await supabase.from('edit_patterns').insert({
@@ -277,7 +290,7 @@ aiRouter.post('/learn', requireAuth, learnRateLimit, async (c) => {
       original: parsed.data.original,
       edited: parsed.data.edited,
       category: parsed.data.category || null,
-      property_id: parsed.data.propertyId || null,
+      property_id: scopedPropertyId,
     });
 
     // 2. Fetch recent edit patterns to build/update style profile
@@ -292,30 +305,7 @@ aiRouter.post('/learn', requireAuth, learnRateLimit, async (c) => {
     const styleProfile = buildStyleProfile(patterns || []);
 
     // 4. Upsert the style profile
-    const { data: existing } = await supabase
-      .from('host_style_profiles')
-      .select('id')
-      .eq('org_id', auth.orgId)
-      .eq('property_id', parsed.data.propertyId || '')
-      .single();
-
-    if (existing) {
-      await supabase
-        .from('host_style_profiles')
-        .update({
-          profile_json: styleProfile,
-          samples_analyzed: patterns?.length || 0,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
-    } else {
-      await supabase.from('host_style_profiles').insert({
-        org_id: auth.orgId,
-        property_id: parsed.data.propertyId || null,
-        profile_json: styleProfile,
-        samples_analyzed: patterns?.length || 0,
-      });
-    }
+    await upsertStyleProfile(supabase, auth.orgId, scopedPropertyId, styleProfile, patterns?.length || 0);
 
     console.log(`[StyleLearn] Stored edit + updated profile for org ${auth.orgId} (${patterns?.length} patterns)`);
 
@@ -324,6 +314,85 @@ aiRouter.post('/learn', requireAuth, learnRateLimit, async (c) => {
     console.error('[StyleLearn] Error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
     return c.json({ message, code: 'LEARN_ERROR', status: 500 }, 500);
+  }
+});
+
+aiRouter.post('/outcome', requireAuth, learnRateLimit, async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = outcomeSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json({ message: 'Invalid request body', code: 'VALIDATION_ERROR', status: 400 }, 400);
+    }
+
+    const auth = getAuthContext(c);
+    const supabase = getSupabaseAdmin();
+    const propertyId = await resolveScopedPropertyId(supabase, auth.orgId, parsed.data.propertyId);
+
+    const inserts: EditPattern[] = [];
+    if (parsed.data.outcomeType === 'edited' && parsed.data.aiDraft && parsed.data.hostReply) {
+      inserts.push({
+        original: parsed.data.aiDraft,
+        edited: parsed.data.hostReply,
+        category: parsed.data.guestIntent || 'edited_outcome',
+      });
+    } else if (parsed.data.outcomeType === 'approved' && parsed.data.aiDraft) {
+      inserts.push({
+        original: parsed.data.aiDraft,
+        edited: parsed.data.aiDraft,
+        category: parsed.data.guestIntent || 'approved_outcome',
+      });
+    }
+
+    if (inserts.length > 0) {
+      await supabase.from('edit_patterns').insert(
+        inserts.map((entry) => ({
+          org_id: auth.orgId,
+          original: entry.original,
+          edited: entry.edited,
+          category: entry.category,
+          property_id: propertyId,
+        }))
+      );
+    }
+
+    const { data: patterns } = await supabase
+      .from('edit_patterns')
+      .select('original, edited, category')
+      .eq('org_id', auth.orgId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const existingProfileRow = await getExistingStyleProfileRow(supabase, auth.orgId, propertyId);
+    const metrics = mergeLearningMetrics(
+      (existingProfileRow?.profile_json as Record<string, unknown> | null) || null,
+      parsed.data.outcomeType,
+      parsed.data.confidence
+    );
+    const styleProfile = {
+      ...buildStyleProfile(patterns || []),
+      learningMetrics: metrics,
+    };
+
+    await upsertStyleProfile(
+      supabase,
+      auth.orgId,
+      propertyId,
+      styleProfile,
+      patterns?.length || 0
+    );
+
+    return c.json({
+      success: true,
+      outcomeType: parsed.data.outcomeType,
+      patternsAnalyzed: patterns?.length || 0,
+      learningMetrics: metrics,
+    });
+  } catch (err) {
+    console.error('[DraftOutcome] Error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ message, code: 'OUTCOME_ERROR', status: 500 }, 500);
   }
 });
 
@@ -431,6 +500,101 @@ interface EditPattern {
   category: string | null;
 }
 
+interface StyleProfileRow {
+  id: string;
+  profile_json: Record<string, unknown> | null;
+}
+
+async function getExistingStyleProfileRow(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  orgId: string,
+  propertyId: string | null
+): Promise<StyleProfileRow | null> {
+  let query = supabase
+    .from('host_style_profiles')
+    .select('id, profile_json')
+    .eq('org_id', orgId)
+    .limit(1);
+
+  query = propertyId ? query.eq('property_id', propertyId) : query.is('property_id', null);
+
+  const { data } = await query.maybeSingle();
+  return (data as StyleProfileRow | null) || null;
+}
+
+async function resolveScopedPropertyId(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  orgId: string,
+  propertyId?: string
+): Promise<string | null> {
+  if (!propertyId) {
+    return null;
+  }
+
+  const { data: prop } = await supabase
+    .from('properties')
+    .select('id')
+    .eq('id', propertyId)
+    .eq('org_id', orgId)
+    .maybeSingle();
+
+  return prop?.id || null;
+}
+
+async function upsertStyleProfile(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  orgId: string,
+  propertyId: string | null,
+  styleProfile: Record<string, unknown>,
+  samplesAnalyzed: number
+): Promise<void> {
+  const existing = await getExistingStyleProfileRow(supabase, orgId, propertyId);
+
+  if (existing) {
+    await supabase
+      .from('host_style_profiles')
+      .update({
+        profile_json: styleProfile,
+        samples_analyzed: samplesAnalyzed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+    return;
+  }
+
+  await supabase.from('host_style_profiles').insert({
+    org_id: orgId,
+    property_id: propertyId,
+    profile_json: styleProfile,
+    samples_analyzed: samplesAnalyzed,
+  });
+}
+
+function mergeLearningMetrics(
+  existingProfile: Record<string, unknown> | null,
+  outcomeType: 'approved' | 'edited' | 'rejected' | 'independent',
+  confidence?: number
+): Record<string, unknown> {
+  const prior = (existingProfile?.learningMetrics as Record<string, unknown> | undefined) || {};
+  const approvals = Number(prior.approvals || 0);
+  const edits = Number(prior.edits || 0);
+  const rejections = Number(prior.rejections || 0);
+  const independentReplies = Number(prior.independentReplies || 0);
+  const totalConfidence = Number(prior.totalConfidence || 0);
+  const confidenceSamples = Number(prior.confidenceSamples || 0);
+
+  return {
+    approvals: approvals + (outcomeType === 'approved' ? 1 : 0),
+    edits: edits + (outcomeType === 'edited' ? 1 : 0),
+    rejections: rejections + (outcomeType === 'rejected' ? 1 : 0),
+    independentReplies: independentReplies + (outcomeType === 'independent' ? 1 : 0),
+    totalConfidence: totalConfidence + (typeof confidence === 'number' ? confidence : 0),
+    confidenceSamples: confidenceSamples + (typeof confidence === 'number' ? 1 : 0),
+    lastOutcomeType: outcomeType,
+    lastUpdatedAt: new Date().toISOString(),
+  };
+}
+
 function buildStyleProfile(patterns: EditPattern[]): Record<string, unknown> {
   if (patterns.length === 0) return { trained: false };
 
@@ -523,4 +687,3 @@ async function logAutopilotAction(
 }
 
 export { aiRouter };
-

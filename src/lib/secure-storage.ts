@@ -12,6 +12,10 @@ const STORAGE_KEYS = {
   API_KEY: 'hostaway_api_key',
   ACCESS_TOKEN: 'hostaway_access_token',
   TOKEN_EXPIRES_AT: 'hostaway_token_expires_at',
+  STABLE_ACCOUNT_ID: 'hostaway_stable_account_id',
+  STABLE_ACCOUNT_SOURCE_ACCOUNT_ID: 'hostaway_stable_account_source_account_id',
+  MIGRATION_DONE: 'hostaway_migration_done',
+  COMMERCIAL_LEARNING_IMPORT_DONE: 'hostaway_commercial_learning_import_done',
 } as const;
 
 export interface StoredCredentials {
@@ -215,6 +219,10 @@ export async function clearAllCredentials(): Promise<void> {
       deleteItem(STORAGE_KEYS.API_KEY),
       deleteItem(STORAGE_KEYS.ACCESS_TOKEN),
       deleteItem(STORAGE_KEYS.TOKEN_EXPIRES_AT),
+      deleteItem(STORAGE_KEYS.STABLE_ACCOUNT_ID),
+      deleteItem(STORAGE_KEYS.STABLE_ACCOUNT_SOURCE_ACCOUNT_ID),
+      deleteItem(STORAGE_KEYS.MIGRATION_DONE),
+      deleteItem(STORAGE_KEYS.COMMERCIAL_LEARNING_IMPORT_DONE),
     ]);
     console.log('[SecureStorage] All credentials cleared');
   } catch (error) {
@@ -241,4 +249,139 @@ export async function tokenNeedsRefresh(): Promise<boolean> {
   const remaining = await getTokenTimeRemaining();
   const tenMinutes = 10 * 60 * 1000;
   return remaining < tenMinutes;
+}
+
+// ── Stable Account ID ──
+
+/**
+ * Store the stable (permanent) Hostaway account ID.
+ * This ID is fetched from /v1/users and survives API key rotation.
+ */
+export async function storeStableAccountId(id: string): Promise<void> {
+  try {
+    await setItem(STORAGE_KEYS.STABLE_ACCOUNT_ID, id);
+    console.log('[SecureStorage] Stable account ID stored');
+  } catch (error) {
+    console.error('[SecureStorage] Failed to store stable account ID:', error);
+  }
+}
+
+/**
+ * Store the stable account ID with the source Hostaway account ID that produced it.
+ * Binding the cache to source account prevents stale stable IDs when users reconnect
+ * with a different Hostaway account.
+ */
+export async function storeStableAccountIdForAccount(
+  stableAccountId: string,
+  sourceAccountId: string
+): Promise<void> {
+  try {
+    await Promise.all([
+      setItem(STORAGE_KEYS.STABLE_ACCOUNT_ID, stableAccountId),
+      setItem(STORAGE_KEYS.STABLE_ACCOUNT_SOURCE_ACCOUNT_ID, sourceAccountId),
+    ]);
+    console.log('[SecureStorage] Stable account ID stored with source account binding');
+  } catch (error) {
+    console.error('[SecureStorage] Failed to store stable account source binding:', error);
+  }
+}
+
+/**
+ * Retrieve the stored stable account ID.
+ * Returns null if not yet resolved.
+ */
+export async function getStableAccountId(sourceAccountId?: string): Promise<string | null> {
+  try {
+    const [stableAccountId, stableSourceAccountId] = await Promise.all([
+      getItem(STORAGE_KEYS.STABLE_ACCOUNT_ID),
+      getItem(STORAGE_KEYS.STABLE_ACCOUNT_SOURCE_ACCOUNT_ID),
+    ]);
+
+    if (!stableAccountId) return null;
+    if (!sourceAccountId) return stableAccountId;
+
+    // Legacy cache entry with no source binding is treated as untrusted for account-specific lookup.
+    if (!stableSourceAccountId) {
+      console.log('[SecureStorage] Ignoring legacy stable account cache without source binding');
+      return null;
+    }
+
+    if (stableSourceAccountId !== sourceAccountId) {
+      console.log('[SecureStorage] Stable account cache belongs to a different source account');
+      return null;
+    }
+
+    return stableAccountId;
+  } catch (error) {
+    console.error('[SecureStorage] Failed to retrieve stable account ID:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear stable account cache and migration markers.
+ * Use this when credentials switch to a different Hostaway account.
+ */
+export async function clearStableAccountCache(): Promise<void> {
+  try {
+    await Promise.all([
+      deleteItem(STORAGE_KEYS.STABLE_ACCOUNT_ID),
+      deleteItem(STORAGE_KEYS.STABLE_ACCOUNT_SOURCE_ACCOUNT_ID),
+      deleteItem(STORAGE_KEYS.MIGRATION_DONE),
+      deleteItem(STORAGE_KEYS.COMMERCIAL_LEARNING_IMPORT_DONE),
+    ]);
+    console.log('[SecureStorage] Stable account cache cleared');
+  } catch (error) {
+    console.error('[SecureStorage] Failed to clear stable account cache:', error);
+  }
+}
+
+// ── Migration Status ──
+
+/**
+ * Check if data migration has already been completed for a given stable ID.
+ */
+export async function isMigrationDone(stableId: string): Promise<boolean> {
+  try {
+    const value = await getItem(STORAGE_KEYS.MIGRATION_DONE);
+    return value === stableId;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark data migration as complete for a given stable ID.
+ */
+export async function setMigrationDone(stableId: string): Promise<void> {
+  try {
+    await setItem(STORAGE_KEYS.MIGRATION_DONE, stableId);
+    console.log('[SecureStorage] Migration marked complete for', stableId);
+  } catch (error) {
+    console.error('[SecureStorage] Failed to mark migration done:', error);
+  }
+}
+
+/**
+ * Check if commercial learning import has already completed for this stable account.
+ */
+export async function isCommercialLearningImportDone(stableId: string): Promise<boolean> {
+  try {
+    const value = await getItem(STORAGE_KEYS.COMMERCIAL_LEARNING_IMPORT_DONE);
+    return value === stableId;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark commercial learning import as complete for this stable account.
+ */
+export async function setCommercialLearningImportDone(stableId: string): Promise<void> {
+  try {
+    await setItem(STORAGE_KEYS.COMMERCIAL_LEARNING_IMPORT_DONE, stableId);
+    console.log('[SecureStorage] Commercial learning import marked complete for', stableId);
+  } catch (error) {
+    console.error('[SecureStorage] Failed to mark commercial learning import done:', error);
+  }
 }

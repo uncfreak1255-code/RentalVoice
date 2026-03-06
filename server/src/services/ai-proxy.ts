@@ -8,12 +8,14 @@
  */
 
 import { getSupabaseAdmin } from '../db/supabase.js';
-import { decrypt } from '../lib/encryption.js';
 import type {
   AIGenerateRequest,
   AIGenerateResponse,
   AIProvider,
+  ManagedModelTarget,
+  PlanTier,
 } from '../lib/types.js';
+import { MANAGED_MODEL_POLICY } from '../lib/types.js';
 import { reportOverageIfNeeded } from './stripe-billing.js';
 
 interface AICallOptions {
@@ -24,38 +26,24 @@ interface AICallOptions {
 
 /**
  * Generate an AI draft for a guest message.
- * Determines managed vs BYOK, selects provider, calls the API, and tracks usage.
+ * Uses managed provider config, calls the API, and tracks usage.
  */
 export async function generateDraft(options: AICallOptions): Promise<AIGenerateResponse> {
   const { orgId, userId, request } = options;
   const supabase = getSupabaseAdmin();
 
-  // 1. Get org's AI config
-  const { data: aiConfig } = await supabase
-    .from('ai_configs')
-    .select('*')
-    .eq('org_id', orgId)
+  // 1. Get org user's plan for managed model policy
+  const { data: user } = await supabase
+    .from('users')
+    .select('plan')
+    .eq('id', userId)
     .single();
 
-  // 2. Determine provider and API key
-  const mode = aiConfig?.mode || 'managed';
-  let apiKey: string;
-  let provider: AIProvider;
-  let model: string;
+  const plan = (user?.plan || 'starter') as PlanTier;
+  const modelPolicy = MANAGED_MODEL_POLICY[plan];
+  const modelCandidates: ManagedModelTarget[] = [modelPolicy.primary, ...modelPolicy.fallbacks];
 
-  if (mode === 'byok' && aiConfig?.encrypted_api_key) {
-    // BYOK: decrypt user's key
-    apiKey = decrypt(aiConfig.encrypted_api_key);
-    provider = aiConfig.provider || 'openai';
-    model = aiConfig.model || getDefaultModel(provider);
-  } else {
-    // Managed: use platform keys with fallback chain
-    provider = getManagedProvider();
-    model = getDefaultModel(provider);
-    apiKey = getManagedApiKey(provider);
-  }
-
-  // 3. Fetch style profile for prompt injection (non-blocking on failure)
+  // 2. Fetch style profile for prompt injection (non-blocking on failure)
   let styleProfile: Record<string, unknown> | null = null;
   try {
     const { data: profile } = await supabase
@@ -72,16 +60,58 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
     // Style profile is optional — continue without it
   }
 
-  // 4. Build the prompt
+  // 3. Build the prompt
   const systemPrompt = buildSystemPrompt(request, styleProfile);
   const userMessage = request.message;
 
-  // 4. Call the AI provider
-  const startTime = Date.now();
-  const result = await callProvider(provider, model, apiKey, systemPrompt, userMessage, request.conversationHistory);
-  const duration = Date.now() - startTime;
+  // 4. Call managed provider chain (primary + fallback)
+  let provider: AIProvider | null = null;
+  let model: string | null = null;
+  let result: ProviderResult | null = null;
+  let lastError: unknown = null;
+  let attempted = 0;
+  let usedFallback = false;
 
-  console.log(`[AI Proxy] ${provider}/${model} responded in ${duration}ms, ${result.tokensUsed.input + result.tokensUsed.output} tokens`);
+  for (const [index, candidate] of modelCandidates.entries()) {
+    const apiKey = getManagedApiKey(candidate.provider);
+    if (!apiKey) {
+      console.warn(`[AI Proxy] Missing managed key for ${candidate.provider}; skipping candidate ${candidate.model}`);
+      continue;
+    }
+
+    attempted += 1;
+    try {
+      const startTime = Date.now();
+      const candidateResult = await callProvider(
+        candidate.provider,
+        candidate.model,
+        apiKey,
+        systemPrompt,
+        userMessage,
+        request.conversationHistory,
+        modelPolicy.maxOutputTokensPerDraft,
+      );
+      const duration = Date.now() - startTime;
+
+      provider = candidate.provider;
+      model = candidate.model;
+      result = candidateResult;
+      usedFallback = index > 0;
+      console.log(`[AI Proxy] ${provider}/${model} responded in ${duration}ms, ${result.tokensUsed.input + result.tokensUsed.output} tokens`);
+      break;
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[AI Proxy] Provider attempt failed (${candidate.provider}/${candidate.model}): ${message}`);
+    }
+  }
+
+  if (!provider || !model || !result) {
+    if (attempted === 0) {
+      throw new Error('[AI Proxy] No managed provider API keys configured on server');
+    }
+    throw new Error(`[AI Proxy] All managed provider attempts failed for plan ${plan}: ${lastError instanceof Error ? lastError.message : 'Unknown provider error'}`);
+  }
 
   // 5. Track usage (async, non-blocking)
   trackUsage(orgId, provider, result.tokensUsed).catch(err =>
@@ -99,6 +129,7 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
     detectedLanguage: result.detectedLanguage,
     provider,
     model,
+    usedFallback,
     tokensUsed: result.tokensUsed,
   };
 }
@@ -107,32 +138,14 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
 // Internal Helpers
 // ============================================================
 
-function getManagedProvider(): AIProvider {
-  // Priority: Google (cheapest) → OpenAI → Anthropic
-  const providers: AIProvider[] = ['google', 'openai', 'anthropic'];
-  return providers[0];
-}
-
-function getDefaultModel(provider: AIProvider): string {
-  switch (provider) {
-    case 'google': return 'gemini-2.0-flash';
-    case 'openai': return 'gpt-4o-mini';
-    case 'anthropic': return 'claude-3-5-haiku-latest';
-  }
-}
-
-function getManagedApiKey(provider: AIProvider): string {
+function getManagedApiKey(provider: AIProvider): string | null {
   const envMap: Record<AIProvider, string> = {
     google: 'GOOGLE_API_KEY',
     openai: 'OPENAI_API_KEY',
     anthropic: 'ANTHROPIC_API_KEY',
   };
 
-  const key = process.env[envMap[provider]];
-  if (!key) {
-    throw new Error(`[AI Proxy] Missing ${envMap[provider]} env var for managed ${provider}`);
-  }
-  return key;
+  return process.env[envMap[provider]] || null;
 }
 
 function buildSystemPrompt(request: AIGenerateRequest, styleProfile?: Record<string, unknown> | null): string {
@@ -181,14 +194,15 @@ async function callProvider(
   systemPrompt: string,
   userMessage: string,
   history?: { role: string; content: string }[],
+  maxOutputTokens = 1000,
 ): Promise<ProviderResult> {
   switch (provider) {
     case 'openai':
-      return callOpenAI(model, apiKey, systemPrompt, userMessage, history);
+      return callOpenAI(model, apiKey, systemPrompt, userMessage, history, maxOutputTokens);
     case 'anthropic':
-      return callAnthropic(model, apiKey, systemPrompt, userMessage, history);
+      return callAnthropic(model, apiKey, systemPrompt, userMessage, history, maxOutputTokens);
     case 'google':
-      return callGoogle(model, apiKey, systemPrompt, userMessage, history);
+      return callGoogle(model, apiKey, systemPrompt, userMessage, history, maxOutputTokens);
     default:
       throw new Error(`[AI Proxy] Unknown provider: ${provider}`);
   }
@@ -200,6 +214,7 @@ async function callOpenAI(
   systemPrompt: string,
   userMessage: string,
   history?: { role: string; content: string }[],
+  maxOutputTokens = 1000,
 ): Promise<ProviderResult> {
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -213,7 +228,7 @@ async function callOpenAI(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 1000 }),
+    body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: maxOutputTokens }),
   });
 
   if (!response.ok) {
@@ -240,6 +255,7 @@ async function callAnthropic(
   systemPrompt: string,
   userMessage: string,
   history?: { role: string; content: string }[],
+  maxOutputTokens = 1000,
 ): Promise<ProviderResult> {
   const messages = [
     ...(history || []).map(m => ({ role: m.role === 'assistant' ? 'assistant' as const : 'user' as const, content: m.content })),
@@ -253,7 +269,7 @@ async function callAnthropic(
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({ model, system: systemPrompt, messages, max_tokens: 1000 }),
+    body: JSON.stringify({ model, system: systemPrompt, messages, max_tokens: maxOutputTokens }),
   });
 
   if (!response.ok) {
@@ -280,6 +296,7 @@ async function callGoogle(
   systemPrompt: string,
   userMessage: string,
   history?: { role: string; content: string }[],
+  maxOutputTokens = 1000,
 ): Promise<ProviderResult> {
   const contents = [
     ...(history || []).map(m => ({
@@ -297,7 +314,7 @@ async function callGoogle(
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1000 },
+        generationConfig: { temperature: 0.7, maxOutputTokens },
       }),
     }
   );

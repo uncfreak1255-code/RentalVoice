@@ -5,6 +5,17 @@ import { useAppStore } from '@/lib/store';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { InboxDashboard } from '@/components/InboxDashboard';
 import { restoreConnection } from '@/lib/hostaway';
+import { resolveStableAccountId } from '@/lib/stable-account-id';
+import { migrateAccountData, migrateLegacyUnscopedData } from '@/lib/account-data-migration';
+import { isCommercial } from '@/lib/config';
+import {
+  getCommercialLearningMigrationVerification,
+  migrateLocalLearningToCommercial,
+} from '@/lib/commercial-migration';
+import {
+  isCommercialLearningImportDone,
+  setCommercialLearningImportDone,
+} from '@/lib/secure-storage';
 import { useNotifications } from '@/lib/NotificationProvider';
 import { useNetworkStatus } from '@/lib/useNetworkStatus';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -50,6 +61,13 @@ export default function InboxTab() {
         if (result.connected && result.accountId && result.apiKey) {
           setCredentials(result.accountId, result.apiKey);
           console.log('[InboxTab] Connection restored successfully');
+
+          // Run data migration in the background (non-blocking).
+          // resolveStableAccountId will use the cached value from restoreConnection
+          // if it's already been fetched, or fetch it now if not.
+          runDataMigration(result.accountId, result.apiKey).catch((err) => {
+            console.warn('[InboxTab] Background migration error (non-fatal):', err);
+          });
         } else if (result.needsReauth) {
           console.log('[InboxTab] Credentials invalid, need re-authentication');
           setNeedsReauth(true);
@@ -64,6 +82,56 @@ export default function InboxTab() {
 
     tryRestoreConnection();
   }, [isOnboarded, isDemoMode, setCredentials]);
+
+  /**
+   * Resolve the stable account ID and migrate data if needed.
+   * Runs in the background — never blocks the UI.
+   */
+  async function runDataMigration(enteredAccountId: string, apiKey: string): Promise<void> {
+    const stableId = await resolveStableAccountId(enteredAccountId, apiKey);
+    if (!stableId) {
+      console.log('[InboxTab] Could not resolve stable ID — skipping migration');
+      return;
+    }
+
+    // Migrate from old prefix (entered accountId / API key ID) to stable ID
+    if (stableId !== enteredAccountId) {
+      console.log(`[InboxTab] Stable ID (${stableId}) differs from entered ID (${enteredAccountId}) — running migration`);
+      const result = await migrateAccountData(enteredAccountId, stableId);
+      if (result.success) {
+        console.log(`[InboxTab] Migration complete: ${result.migrated.length} keys migrated`);
+      }
+    }
+
+    // Also pick up any legacy unscoped data
+    await migrateLegacyUnscopedData(stableId);
+
+    // Commercial mode: one-time import of local learning/profile snapshot to backend.
+    if (isCommercial) {
+      const importAlreadyDone = await isCommercialLearningImportDone(stableId);
+      if (importAlreadyDone) return;
+
+      try {
+        const status = await getCommercialLearningMigrationVerification();
+        if (status.hasSnapshot && status.latestSnapshot?.stableAccountId === stableId) {
+          await setCommercialLearningImportDone(stableId);
+          console.log('[InboxTab] Commercial learning snapshot already present on backend');
+          return;
+        }
+
+        const snapshotId = `cutover-${stableId}-${Date.now()}`;
+        const importResult = await migrateLocalLearningToCommercial(snapshotId);
+        await setCommercialLearningImportDone(stableId);
+        console.log(
+          `[InboxTab] Commercial learning import complete: ` +
+          `${importResult.imported.hostStyleProfiles} style profiles, ` +
+          `${importResult.imported.editPatterns} edit patterns`
+        );
+      } catch (error) {
+        console.warn('[InboxTab] Commercial learning import skipped (non-fatal):', error);
+      }
+    }
+  }
 
   const handleSelectConversation = useCallback((id: string) => {
     router.push(`/chat/${id}`);
