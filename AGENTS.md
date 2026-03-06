@@ -5,9 +5,12 @@ Read `/Users/sawbeck/Projects/RentalVoice/CLAUDE.md` first.
 Then use this order:
 
 1. `/Users/sawbeck/Projects/RentalVoice/.agents/README.md`
-2. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
-3. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
-4. task-specific runbooks or code
+2. `/Users/sawbeck/Projects/RentalVoice/docs/status/current-state.md`
+3. `/Users/sawbeck/Projects/RentalVoice/docs/status/next-batch.md`
+4. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
+5. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
+6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
+7. task-specific runbooks or code
 
 ## Non-negotiable repo truths
 
@@ -24,6 +27,7 @@ Then use this order:
 - `ops/`: checkpoint, rollback, baseline, migration tooling
 - `docs/runbooks/`: operational procedures
 - `.agents/workflows/`: agent workflow shortcuts
+- `docs/status/`: session-state truth for future work
 
 ## When working in this repo
 
@@ -40,3 +44,5 @@ Then use this order:
   - `/Users/sawbeck/Projects/RentalVoice/.agents/workflows/foundation.md`
 - release / GitHub promotion workflow:
   - `/Users/sawbeck/Projects/RentalVoice/.agents/workflows/release.md`
+- session recovery / continuation workflow:
+  - `/Users/sawbeck/Projects/RentalVoice/.agents/workflows/session-handoff.md`

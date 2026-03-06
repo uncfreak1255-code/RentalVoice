@@ -10,6 +10,7 @@ Primary folders:
 - `/Users/sawbeck/Projects/RentalVoice/server/src`: backend API
 - `/Users/sawbeck/Projects/RentalVoice/ops`: checkpoint, rollback, migration, and baseline tooling
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks`: operational runbooks
+- `/Users/sawbeck/Projects/RentalVoice/docs/status`: session-state and approved next work
 - `/Users/sawbeck/Projects/RentalVoice/.agents`: agent workflow entry points
 
 ## Canonical source of truth
@@ -18,10 +19,16 @@ Primary folders:
 - GitHub remote is behind local and should not be treated as canonical until a controlled promotion happens
 - Protected local baseline is now the rollback anchor
 
-Baseline artifacts:
+Protected baseline artifacts:
 
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260305.json`
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260305.baseline.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260306-head-d052d2b.baseline.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260306-head-34fb528.baseline.json`
+
+Current founder/live readiness artifact:
+
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-live-readiness-20260306T161449Z.json`
 
 ## Current product modes
 
@@ -97,6 +104,7 @@ Before risky work:
 2. keep current user-facing mode in `personal`
 3. avoid changing current onboarding/auth UX unless the task is explicitly about cutover
 4. treat GitHub promotion as a separate deliberate workflow
+5. read the `docs/status/` files before starting a new implementation batch
 
 ## Start here
 
@@ -104,6 +112,9 @@ Read these in order:
 
 1. `/Users/sawbeck/Projects/RentalVoice/AGENTS.md`
 2. `/Users/sawbeck/Projects/RentalVoice/.agents/README.md`
-3. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
-4. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
-5. task-specific files
+3. `/Users/sawbeck/Projects/RentalVoice/docs/status/current-state.md`
+4. `/Users/sawbeck/Projects/RentalVoice/docs/status/next-batch.md`
+5. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
+6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
+7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
+8. task-specific files
