@@ -25,12 +25,14 @@ Protected baseline artifacts:
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260305.baseline.json`
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260306-head-d052d2b.baseline.json`
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260306-head-34fb528.baseline.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260309-founder-live-execute.baseline.json`
 
 Current founder/live readiness artifacts:
 
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-live-readiness-20260309T230538Z.json`
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-bootstrap-packet-20260309T230538Z.json`
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-bootstrap-20260309T230555Z.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-bootstrap-20260309T233411Z.json`
 
 ## Current product modes
 
@@ -55,7 +57,7 @@ The current app is still organized around:
 Do not assume:
 
 - email/password auth is live in the current app UX
-- the founder account already exists as an app-auth user
+- the founder account is already the default app login path
 - commercial mode is ready to become the default app path
 
 ## Current backend truth
@@ -91,15 +93,17 @@ Environment rules:
 Founder bootstrap rules:
 
 - forbidden founder bootstrap targets remain `gqnocsoouudbogwislsl` and `cqbzsntmlwpsaxwnoath`
-- the live founder backend is prepared in `zsitbuwzxtsgfqzhtged`, but founder bootstrap execute has not run yet
-- `sawyerbeck25@gmail.com` is still not present as an app-auth founder user
+- the real founder backend account now exists in `zsitbuwzxtsgfqzhtged` for `sawyerbeck25@gmail.com`
+- treat that live founder account as persistent canary state, not disposable test data
+- current app UX still does not expose founder auth as the default visible login path
 
 ## AI learning and migration truth
 
 Current goal:
 
 - preserve existing personal learning data
-- later import it one-way into the future founder/commercial account
+- import it one-way into the live founder account
+- make founder-account-backed learning durable before using founder auth as the normal daily app path
 
 Existing migration base:
 
@@ -110,8 +114,8 @@ Existing migration base:
 
 Important current limitation:
 
-- durable founder-account-backed learning is not live yet
-- local/device learning can still be lost if the app container resets
+- durable founder-account-backed learning is not live in the app UX yet
+- local/device learning can still be lost if the app container resets before migration is completed
 
 ## Required operating discipline
 
@@ -119,14 +123,15 @@ Before risky work:
 
 1. create or reference a protected baseline
 2. keep current user-facing mode in `personal`
-3. use `test` for iteration and rehearsal; use `live` only for deliberate promotion or founder execution work
+3. use `test` for iteration and rehearsal; use `live` only for deliberate promotion or founder validation work
 4. if the task touches Supabase, auth, migration, or promotion, read `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
 5. treat GitHub promotion as a separate deliberate workflow
 6. read the `docs/status/` files before starting a new implementation batch
 
 Additional live-founder rule:
 
-- do not run founder bootstrap execute until `pg_dump` is installed locally, a fresh protected baseline exists, and a founder password has been chosen
+- do not recreate, rotate, or overwrite the live founder account casually
+- future founder work should focus on app-side login/recovery and durable learning migration, not redoing backend bootstrap
 
 ## Start here
 

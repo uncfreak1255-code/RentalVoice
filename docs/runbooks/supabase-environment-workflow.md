@@ -25,7 +25,7 @@ Do not run founder bootstrap execute against either ref.
 - Project ref: `zsitbuwzxtsgfqzhtged`
 - Local-only live env file: `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local`
 - Env class: `live`
-- Current state: Rental Voice schema is applied, preflight passed, founder bootstrap dry run passed, founder auth user not created yet
+- Current state: Rental Voice schema is applied, founder bootstrap execute has run, and the real founder backend account exists for `sawyerbeck25@gmail.com`
 
 ## Default rule
 
@@ -49,7 +49,7 @@ There is one product codebase and one migration history. There are two operation
 Use this only when a change is already verified on `test`.
 
 1. Ensure PostgreSQL client tooling is installed so `pg_dump` works
-2. Create a fresh protected baseline immediately before the live step
+2. Create a fresh protected baseline immediately before the live step when the task is destructive or stateful
 3. Load `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` intentionally in an isolated shell or worktree
 4. Run:
 
@@ -67,15 +67,19 @@ npm run ops:founder:preflight
 
 Only use this against `zsitbuwzxtsgfqzhtged`.
 
-### Preconditions
+### Current state
 
-- `pg_dump` is installed locally
-- a fresh protected baseline was created immediately before execution
+- founder bootstrap execute already ran successfully on `2026-03-09`
+- the founder auth user, org membership, org settings, and entitlements exist
+- future tasks should validate or extend founder behavior, not recreate the founder account
+
+### Preconditions for any future stateful founder operation
+
 - `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` is loaded intentionally
-- founder password has been chosen
-- live preflight passes
+- a fresh protected baseline exists for destructive or irreversible changes
+- the task clearly requires touching live founder state
 
-### Safe sequence
+### Historical bootstrap sequence
 
 ```bash
 npm run ops:founder:checklist
@@ -84,19 +88,20 @@ npm run ops:founder:preflight
 npm run ops:founder:bootstrap -- --execute --yes --password '<temporary-password>'
 ```
 
-### Required post-bootstrap validation
+### Required founder validation surfaces
 
 - `GET /api/auth/me`
 - `GET /api/billing/status`
 - `GET /api/entitlements/current`
 - `GET /api/analytics/founder-diagnostics`
+- direct validation that auth login and founder org records still exist
 
 ## Rules future agents must follow
 
 - never overwrite the canonical test env permanently just to touch live
 - never invent a second migration history for live
 - never run founder bootstrap execute on `gqnocsoouudbogwislsl` or `cqbzsntmlwpsaxwnoath`
-- never assume “live project prepared” means “founder account already exists”
+- never treat the live founder account as disposable test state
 - never do casual debugging on live founder data
 
 ## When a task does not need live
