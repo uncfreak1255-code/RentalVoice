@@ -59,7 +59,7 @@ const INTENT_REPLIES: Record<GuestIntent, ReplyGenerator> = {
 
     replies.push({
       id: 'custom_checkin',
-      label: 'Custom reply',
+      label: 'Custom',
       icon: '✏️',
       content: '',
       isDirect: false,
@@ -91,9 +91,9 @@ const INTENT_REPLIES: Record<GuestIntent, ReplyGenerator> = {
 
     replies.push({
       id: 'thank_stay',
-      label: 'Thank & review',
+      label: 'Thank guest',
       icon: '⭐',
-      content: 'Generate a warm thank-you message and politely ask them to leave a review',
+      content: 'Generate a warm thank-you message after check-out with no additional request',
       isDirect: false,
     });
 
@@ -177,13 +177,6 @@ const INTENT_REPLIES: Record<GuestIntent, ReplyGenerator> = {
       content: 'You\'re welcome! Let us know if you need anything else. Enjoy your stay! 🏖️',
       isDirect: true,
     },
-    {
-      id: 'ask_review',
-      label: 'Ask for review',
-      icon: '⭐',
-      content: 'Generate a natural thank-you that subtly asks them to leave a review if they enjoyed their stay',
-      isDirect: false,
-    },
   ],
 
   emergency: () => [
@@ -199,14 +192,14 @@ const INTENT_REPLIES: Record<GuestIntent, ReplyGenerator> = {
   general: () => [
     {
       id: 'friendly_reply',
-      label: 'Friendly reply',
+      label: 'Friendly',
       icon: '👋',
       content: 'Generate a warm, friendly response',
       isDirect: false,
     },
     {
       id: 'custom',
-      label: 'Custom reply',
+      label: 'Custom',
       icon: '✏️',
       content: '',
       isDirect: false,

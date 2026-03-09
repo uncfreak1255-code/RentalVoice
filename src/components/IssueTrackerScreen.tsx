@@ -20,6 +20,9 @@ const categoryIcons: Record<IssueCategory, React.ReactNode> = {
   maintenance: <Wrench size={18} color="#F97316" />,
   cleanliness: <Sparkles size={18} color="#14B8A6" />,
   amenity: <AlertTriangle size={18} color="#EAB308" />,
+  complaint: <AlertCircle size={18} color="#EF4444" />,
+  refund_risk: <DollarSign size={18} color="#DC2626" />,
+  policy_billing: <FileWarning size={18} color="#F59E0B" />,
   noise: <Volume2 size={18} color="#8B5CF6" />,
   access: <Key size={18} color="#EC4899" />,
   lease_violation: <FileWarning size={18} color="#EF4444" />,
@@ -31,6 +34,7 @@ const categoryIcons: Record<IssueCategory, React.ReactNode> = {
 
 const categoryLabels: Record<IssueCategory, string> = {
   maintenance: 'Maintenance', cleanliness: 'Cleanliness', amenity: 'Amenity',
+  complaint: 'Complaint', refund_risk: 'Refund Risk', policy_billing: 'Billing / Policy',
   noise: 'Noise', access: 'Access', lease_violation: 'Lease Violation',
   rent_delinquency: 'Late Rent', pest: 'Pest', utility: 'Utility', other: 'Other',
 };
