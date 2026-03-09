@@ -26,9 +26,11 @@ Protected baseline artifacts:
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260306-head-d052d2b.baseline.json`
 - `/Users/sawbeck/Projects/RentalVoice/ops/manifests/protected-local-baseline-20260306-head-34fb528.baseline.json`
 
-Current founder/live readiness artifact:
+Current founder/live readiness artifacts:
 
-- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-live-readiness-20260306T161449Z.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-live-readiness-20260309T230538Z.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-bootstrap-packet-20260309T230538Z.json`
+- `/Users/sawbeck/Projects/RentalVoice/ops/manifests/founder-bootstrap-20260309T230555Z.json`
 
 ## Current product modes
 
@@ -75,12 +77,22 @@ These exist, but they do not override the requirement that the current app remai
 
 Known current Supabase projects:
 
-- `gqnocsoouudbogwislsl` (`Rental Voice`): linked project with test/smoke app users
-- `cqbzsntmlwpsaxwnoath` (`uncfreak1255-code's Project`): separate project with no app auth users
+- `gqnocsoouudbogwislsl` (`Rental Voice`): linked local default project with test/smoke app users
+- `cqbzsntmlwpsaxwnoath` (`uncfreak1255-code's Project`): legacy non-live project with no app auth users
+- `zsitbuwzxtsgfqzhtged` (`Rental Voice Live`): dedicated live founder target with Rental Voice schema applied
 
-Neither current project should be treated as the real founder/live app-auth environment.
+Environment rules:
 
-The future founder app-auth account for `sawyerbeck25@gmail.com` must be created intentionally later in the chosen live environment.
+- `/Users/sawbeck/Projects/RentalVoice/server/.env` stays pointed at the linked `test` project for normal development
+- `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` is the local-only live founder environment file
+- do not relink the canonical repo away from `test` during normal development
+- do not run casual development or experiments against `Rental Voice Live`
+
+Founder bootstrap rules:
+
+- forbidden founder bootstrap targets remain `gqnocsoouudbogwislsl` and `cqbzsntmlwpsaxwnoath`
+- the live founder backend is prepared in `zsitbuwzxtsgfqzhtged`, but founder bootstrap execute has not run yet
+- `sawyerbeck25@gmail.com` is still not present as an app-auth founder user
 
 ## AI learning and migration truth
 
@@ -96,15 +108,25 @@ Existing migration base:
 - founder bootstrap script: `/Users/sawbeck/Projects/RentalVoice/ops/founder/bootstrap-founder-account.sh`
 - founder bootstrap runtime: `/Users/sawbeck/Projects/RentalVoice/server/scripts/bootstrap-founder-account.ts`
 
+Important current limitation:
+
+- durable founder-account-backed learning is not live yet
+- local/device learning can still be lost if the app container resets
+
 ## Required operating discipline
 
 Before risky work:
 
 1. create or reference a protected baseline
 2. keep current user-facing mode in `personal`
-3. avoid changing current onboarding/auth UX unless the task is explicitly about cutover
-4. treat GitHub promotion as a separate deliberate workflow
-5. read the `docs/status/` files before starting a new implementation batch
+3. use `test` for iteration and rehearsal; use `live` only for deliberate promotion or founder execution work
+4. if the task touches Supabase, auth, migration, or promotion, read `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
+5. treat GitHub promotion as a separate deliberate workflow
+6. read the `docs/status/` files before starting a new implementation batch
+
+Additional live-founder rule:
+
+- do not run founder bootstrap execute until `pg_dump` is installed locally, a fresh protected baseline exists, and a founder password has been chosen
 
 ## Start here
 
@@ -117,4 +139,5 @@ Read these in order:
 5. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
 6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
 7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
-8. task-specific files
+8. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
+9. task-specific files

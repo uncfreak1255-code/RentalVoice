@@ -104,9 +104,15 @@ If any step fails and `AUTO_ROLLBACK_ON_FAILURE` is not set to `false`, fast rol
 
 ## Future founder bootstrap (staged, not for current personal mode)
 
-The founder app-auth account does not exist yet in either current Supabase project.
+The founder app-auth account still does not exist, but the dedicated live environment now does.
 
-Use the staged bootstrap script only after a real live environment is chosen and the correct Supabase service-role credentials are configured:
+Current Supabase founder truth:
+
+- linked local default `test` project: `gqnocsoouudbogwislsl`
+- forbidden non-live founder targets: `gqnocsoouudbogwislsl`, `cqbzsntmlwpsaxwnoath`
+- dedicated live founder target: `zsitbuwzxtsgfqzhtged` (`Rental Voice Live`)
+
+Use the staged bootstrap script only after the live founder env is loaded intentionally and a fresh protected baseline exists:
 
 - generate live-readiness checklist:
   - `npm run ops:founder:checklist`

@@ -1,13 +1,13 @@
 # Rental Voice current state
 
-Last updated: 2026-03-06
+Last updated: 2026-03-09
 
 ## Canonical source of truth
 
 - Canonical workspace: `/Users/sawbeck/Projects/RentalVoice`
 - Primary branch in use: `main`
 - Current pushed HEAD should be checked directly with `git rev-parse --short HEAD`
-- GitHub is now being used as a structured backup and collaboration remote, but the local workspace remains the operational source of truth during foundation work.
+- GitHub is being used as a structured backup and collaboration remote, but the local workspace remains the operational source of truth during foundation work.
 
 ## Current product truth
 
@@ -25,13 +25,24 @@ Last updated: 2026-03-06
 - Known non-live / forbidden founder bootstrap targets:
   - `gqnocsoouudbogwislsl`
   - `cqbzsntmlwpsaxwnoath`
-- Real founder/live app-auth environment: not created or selected yet
+- Dedicated live founder project prepared:
+  - `SUPABASE_PROJECT_LABEL="Rental Voice Live"`
+  - `SUPABASE_PROJECT_REF=zsitbuwzxtsgfqzhtged`
+  - Rental Voice schema is applied there
+  - local live env file exists at `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local`
+- Normal development must continue on the linked `test` project unless the task explicitly requires controlled live validation
 
 ## Founder/auth truth
 
-- `sawyerbeck25@gmail.com` is not present as an app-auth founder user in either known current Supabase project
+- `sawyerbeck25@gmail.com` is not present yet as an app-auth founder user in the live project
 - Supabase dashboard GitHub/passkey login is unrelated to app-user identity
-- Founder app-auth account must be created intentionally later in a distinct live environment
+- Founder live-prep is complete through:
+  - live env creation
+  - schema push
+  - founder checklist/packet generation
+  - founder preflight pass
+  - founder bootstrap dry run
+- Founder bootstrap execute has not run yet
 
 ## Safety / rollback truth
 
@@ -39,23 +50,30 @@ Last updated: 2026-03-06
   - `protected-local-baseline-20260305`
   - `protected-local-baseline-20260306-head-d052d2b`
   - `protected-local-baseline-20260306-head-34fb528`
-- Founder live-readiness manifest available:
-  - `founder-live-readiness-20260306T161449Z`
+- Founder readiness artifacts currently available:
+  - `founder-live-readiness-20260309T230538Z`
+  - `founder-bootstrap-packet-20260309T230538Z`
+  - `founder-bootstrap-20260309T230555Z`
+- Fresh protected baseline creation is still blocked on this machine until `pg_dump` is installed
+- Existing baselines are sufficient for planning and rehearsal, but not the final live founder bootstrap execute step
 
 ## Implemented commercialization foundation
 
 - Billing, entitlements, analytics, and founder diagnostics routes exist server-side
-- Founder diagnostics now surface environment truth and readiness state
+- Founder diagnostics surface environment truth and readiness state
 - Server-managed Hostaway paths for staged commercial flows exist
 - Local-to-commercial / personal-to-founder migration base exists
 - Founder bootstrap, live preflight, rehearsal preflight, and live-readiness checklist tooling exist
 - Founder bootstrap packet generator exists
+- Dedicated live founder project now exists and is ready for intentional bootstrap execution
 
 ## Current engineering rule
 
 Before risky work:
 
-1. refresh the protected baseline
+1. refresh or reference the protected baseline
 2. preserve personal-mode UX
-3. do not bootstrap founder auth in the linked test project
-4. do not treat current test projects as launch targets
+3. keep `/Users/sawbeck/Projects/RentalVoice/server/.env` pointed at `test`
+4. use `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` only for deliberate live-founder work
+5. do not bootstrap founder auth until `pg_dump` is installed, a fresh baseline exists, and the founder password is chosen
+6. do not treat live as a casual development sandbox
