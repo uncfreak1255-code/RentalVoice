@@ -164,10 +164,15 @@ export function MessageComposer({
   // When we have an AI draft, populate the editing field but don't auto-enter edit mode
   // This allows the host to use either the AI suggestion OR write their own message
   useEffect(() => {
-    if (aiDraft && !editedDraft) {
+    if (aiDraft && !editedDraft && !isEditingDraft) {
       setEditedDraft(aiDraft.content);
     }
-  }, [aiDraft, editedDraft]);
+  }, [aiDraft, editedDraft, isEditingDraft]);
+
+  useEffect(() => {
+    if (!aiDraft || isEditingDraft) return;
+    setIsDraftMinimized(message.trim().length > 0);
+  }, [aiDraft, isEditingDraft, message]);
 
   // Reset when draft is dismissed
   useEffect(() => {

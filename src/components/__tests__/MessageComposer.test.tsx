@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { MessageComposer } from '../MessageComposer';
 
 // ── Mocks ──
@@ -248,6 +248,21 @@ describe('MessageComposer', () => {
       const { queryByText } = render(<MessageComposer {...defaultProps} />);
       expect(queryByText('AI Draft Ready')).toBeNull();
     });
+
+    it('should collapse the AI draft preview when typing a manual reply', async () => {
+      const { getByPlaceholderText, getByText, queryByText, getByLabelText } = render(
+        <MessageComposer {...defaultProps} aiDraft={makeDraft()} />
+      );
+
+      fireEvent.changeText(getByPlaceholderText('Type a message...'), 'I will handle this manually');
+
+      await waitFor(() => {
+        expect(getByText('Tap to view')).toBeTruthy();
+      });
+
+      expect(queryByText(/Thanks for reaching out/)).toBeNull();
+      expect(getByLabelText('Send message')).toBeTruthy();
+    });
   });
 
   // ─────────────────────────────────────────
@@ -327,6 +342,21 @@ describe('MessageComposer', () => {
       fireEvent.press(getByText('Cancel'));
       // Should show draft panel again, not edit mode
       expect(queryByText('Editing AI Draft')).toBeNull();
+    });
+
+    it('should keep the edited draft empty after pressing Clear', async () => {
+      const { getByLabelText, getByText, queryByDisplayValue, getByDisplayValue } = render(
+        <MessageComposer {...defaultProps} aiDraft={makeDraft()} />
+      );
+
+      fireEvent.press(getByLabelText('Edit AI draft'));
+      expect(getByDisplayValue('Thanks for reaching out! We look forward to hosting you.')).toBeTruthy();
+
+      fireEvent.press(getByText('Clear'));
+
+      await waitFor(() => {
+        expect(queryByDisplayValue('Thanks for reaching out! We look forward to hosting you.')).toBeNull();
+      });
     });
   });
 
