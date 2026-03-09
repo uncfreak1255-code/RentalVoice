@@ -1,7 +1,15 @@
 // AI Learning Service
 // Analyzes host messages to learn style patterns and improve AI mimicry
 
-import type { Message, LearningEntry, HostStyleProfile, Conversation, QuickReplyTemplate } from './store';
+import type {
+  Message,
+  LearningEntry,
+  HostStyleProfile,
+  Conversation,
+  QuickReplyTemplate,
+  AILearningProgress,
+  DraftOutcome,
+} from './store';
 import type { HostawayMessage, HostawayConversation } from './hostaway';
 
 // Anonymized pattern structure for privacy-compliant storage
@@ -47,6 +55,23 @@ export interface HistoricalAnalysisResult {
     commonResponses: string[];
     avgResponseLength: number;
   }[];
+}
+
+export interface LearningDashboardStatsInput {
+  learningEntries: LearningEntry[];
+  draftOutcomes: DraftOutcome[];
+  aiLearningProgress: AILearningProgress;
+  hostMessagesCount: number;
+}
+
+export interface LearningDashboardStats {
+  feedbackInteractions: number;
+  evaluatedDrafts: number;
+  approvals: number;
+  editsAndCorrections: number;
+  rejections: number;
+  approvalRate: number;
+  trainedMessageCount: number;
 }
 
 // Common greeting patterns to detect
@@ -335,6 +360,54 @@ export function calculateLearningProgress(
     totalAnalyzed: total,
     approvalRate: Math.round(approvalRate),
     editRate: Math.round(editRate),
+  };
+}
+
+export function buildLearningDashboardStats({
+  learningEntries,
+  draftOutcomes,
+  aiLearningProgress,
+  hostMessagesCount,
+}: LearningDashboardStatsInput): LearningDashboardStats {
+  const trainedMessageCount =
+    aiLearningProgress.lastTrainingResult?.hostMessagesAnalyzed ??
+    (aiLearningProgress.totalMessagesAnalyzed > 0
+      ? aiLearningProgress.totalMessagesAnalyzed
+      : hostMessagesCount);
+
+  if (draftOutcomes.length > 0) {
+    const evaluatedDrafts = draftOutcomes.filter((outcome) => outcome.outcomeType !== 'independent');
+    const approvals = evaluatedDrafts.filter((outcome) => outcome.outcomeType === 'approved').length;
+    const edits = evaluatedDrafts.filter((outcome) => outcome.outcomeType === 'edited').length;
+    const rejections = evaluatedDrafts.filter((outcome) => outcome.outcomeType === 'rejected').length;
+    const independentReplies = draftOutcomes.filter((outcome) => outcome.outcomeType === 'independent').length;
+    const approvalRate = evaluatedDrafts.length > 0
+      ? Math.round((approvals / evaluatedDrafts.length) * 100)
+      : 0;
+
+    return {
+      feedbackInteractions: draftOutcomes.length,
+      evaluatedDrafts: evaluatedDrafts.length,
+      approvals,
+      editsAndCorrections: edits + independentReplies,
+      rejections,
+      approvalRate,
+      trainedMessageCount,
+    };
+  }
+
+  const learningProgress = calculateLearningProgress(learningEntries);
+  const approvals = learningEntries.filter((entry) => entry.wasApproved && !entry.wasEdited).length;
+  const edits = learningEntries.filter((entry) => entry.wasEdited).length;
+
+  return {
+    feedbackInteractions: learningEntries.length,
+    evaluatedDrafts: learningEntries.length,
+    approvals,
+    editsAndCorrections: edits,
+    rejections: 0,
+    approvalRate: learningProgress.approvalRate,
+    trainedMessageCount,
   };
 }
 

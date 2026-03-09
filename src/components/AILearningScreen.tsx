@@ -32,7 +32,11 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { analyzeConversationsForStyle, calculateLearningProgress } from '@/lib/ai-learning';
+import {
+  analyzeConversationsForStyle,
+  buildLearningDashboardStats,
+  calculateLearningProgress,
+} from '@/lib/ai-learning';
 import { historySyncManager, formatTimeRemaining, type SyncProgress, type HostawayConversation, type HostawayMessage } from '@/lib/history-sync';
 import {
   backgroundSyncManager,
@@ -542,6 +546,18 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
     }, 0);
   }, [conversations]);
 
+  const dashboardStats = useMemo(() => buildLearningDashboardStats({
+    learningEntries,
+    draftOutcomes,
+    aiLearningProgress,
+    hostMessagesCount,
+  }), [learningEntries, draftOutcomes, aiLearningProgress, hostMessagesCount]);
+
+  const evaluatedDraftOutcomes = useMemo(
+    () => draftOutcomes.filter((outcome) => outcome.outcomeType !== 'independent'),
+    [draftOutcomes]
+  );
+
   // Format date for display
   const formatDate = useCallback((date: Date | null) => {
     if (!date) return 'Never';
@@ -970,8 +986,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.text.primary, fontWeight: '600', fontSize: 18 }}>Style Learning</Text>
                 <Text style={{ color: colors.text.muted, fontSize: 14 }}>
-                  {learningStats.totalAnalyzed > 0
-                    ? `Learning from ${learningStats.totalAnalyzed} interactions`
+                  {dashboardStats.feedbackInteractions > 0
+                    ? `Learning from ${dashboardStats.feedbackInteractions} feedback interactions`
                     : 'Ready to learn your communication style'}
                 </Text>
               </View>
@@ -983,7 +999,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <Text style={{ color: colors.text.muted, fontSize: 14 }}>Profile Strength</Text>
                 <Text style={{ color: colors.primary.DEFAULT, fontWeight: '600' }}>
                   {(() => {
-                    const count = aiLearningProgress?.totalMessagesAnalyzed || learningStats.totalAnalyzed || 0;
+                    const count = dashboardStats.trainedMessageCount;
                     if (count >= 500) return 'Expert';
                     if (count >= 200) return 'Strong';
                     if (count >= 50) return 'Learning';
@@ -994,11 +1010,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
               <View style={{ height: 8, backgroundColor: colors.bg.hover, borderRadius: 9999, overflow: 'hidden' }}>
                 <View
-                  style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${Math.min(((aiLearningProgress?.totalMessagesAnalyzed || learningStats.totalAnalyzed || 0) / 500) * 100, 100)}%` }}
+                  style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${Math.min((dashboardStats.trainedMessageCount / 500) * 100, 100)}%` }}
                 />
               </View>
               <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 4 }}>
-                {aiLearningProgress?.totalMessagesAnalyzed || learningStats.totalAnalyzed || 0} messages trained
+                {dashboardStats.trainedMessageCount} messages trained
               </Text>
             </View>
 
@@ -1049,10 +1065,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <BarChart3 size={16} color="#14B8A6" />
-                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Messages Analyzed</Text>
+                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Messages Trained</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {aiLearningProgress.totalMessagesAnalyzed || hostMessagesCount}
+                    {dashboardStats.trainedMessageCount}
                   </Text>
                 </View>
               </View>
@@ -1064,10 +1080,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Approval Rate</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {learningStats.totalAnalyzed >= 10 ? `${learningStats.approvalRate}%` : '—'}
+                    {dashboardStats.evaluatedDrafts >= 10 ? `${dashboardStats.approvalRate}%` : '—'}
                   </Text>
-                  {learningStats.totalAnalyzed < 10 && (
-                    <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>Need 10+ drafts</Text>
+                  {dashboardStats.evaluatedDrafts < 10 && (
+                    <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>Need 10+ reviewed drafts</Text>
                   )}
                 </View>
               </View>
@@ -1079,7 +1095,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Approvals</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {aiLearningProgress.realTimeApprovalsCount + learningEntries.filter((e) => e.wasApproved && !e.wasEdited).length}
+                    {dashboardStats.approvals}
                   </Text>
                 </View>
               </View>
@@ -1091,7 +1107,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Edits + Corrections</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {aiLearningProgress.realTimeEditsCount + aiLearningProgress.realTimeIndependentRepliesCount + learningEntries.filter((e) => e.wasEdited).length}
+                    {dashboardStats.editsAndCorrections}
                   </Text>
                 </View>
               </View>
@@ -1115,7 +1131,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Rejections Noted</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {aiLearningProgress.realTimeRejectionsCount}
+                    {dashboardStats.rejections}
                   </Text>
                 </View>
               </View>
@@ -1129,7 +1145,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               {(() => {
-                const outcomes = draftOutcomes || [];
+                const outcomes = evaluatedDraftOutcomes;
                 if (outcomes.length === 0) {
                   return (
                     <View style={{ alignItems: 'center', paddingVertical: 16 }}>
@@ -1173,7 +1189,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                           {outcomes.length >= 10 ? `${allTimeRate}%` : '—'}
                         </Text>
                         {outcomes.length < 10 && (
-                          <Text style={{ color: colors.text.disabled, fontSize: 10 }}>Need {10 - outcomes.length} more drafts</Text>
+                          <Text style={{ color: colors.text.disabled, fontSize: 10 }}>Need {10 - outcomes.length} more reviewed drafts</Text>
                         )}
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
