@@ -26,17 +26,6 @@ const PMS_PROVIDERS: { key: PMSProvider; name: string; color: string; helpText: 
     helpText: 'Log in to Hostaway Dashboard → Settings → API → Copy Account ID and API Secret Key',
     fields: { id: 'Account ID', key: 'API Secret Key' },
   },
-  {
-    key: 'guesty', name: 'Guesty', color: '#6366F1',
-    helpText: 'Log in to Guesty Dashboard → Marketplace → Open API → Generate Token',
-    fields: { id: 'Account ID', key: 'API Token' },
-  },
-  {
-    key: 'lodgify', name: 'Lodgify', color: '#F59E0B',
-    helpText: 'Log in to Lodgify → Settings → Public API → Get API Key',
-    fields: { id: 'Property ID', key: 'API Key' },
-    comingSoon: true,
-  },
 ];
 
 const AI_PROVIDERS = [
@@ -74,7 +63,6 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
   const storedApiKey = useAppStore((s) => s.settings.apiKey);
   const setCredentials = useAppStore((s) => s.setCredentials);
   const setDemoMode = useAppStore((s) => s.setDemoMode);
-  const resetStore = useAppStore((s) => s.resetStore);
   const aiProviderUsage = useAppStore((s) => s.aiProviderUsage);
   const setProviderModel = useAppStore((s) => s.setProviderModel);
   const resetProviderUsage = useAppStore((s) => s.resetProviderUsage);

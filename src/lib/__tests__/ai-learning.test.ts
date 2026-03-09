@@ -1,12 +1,16 @@
 import {
   buildLearningDashboardStats,
+  buildLearningImportSummary,
+  buildRecurringIntentCoverage,
   type LearningDashboardStatsInput,
 } from '../ai-learning';
 import type {
   AILearningProgress,
   DraftOutcome,
+  HistorySyncStatus,
   LearningEntry,
 } from '../store';
+import type { HostawayConversation, HostawayMessage } from '../history-sync';
 
 function makeLearningEntry(overrides: Partial<LearningEntry> = {}): LearningEntry {
   return {
@@ -48,6 +52,61 @@ function makeProgress(overrides: Partial<AILearningProgress> = {}): AILearningPr
     patternsIndexed: 0,
     lastTrainingResult: null,
     ...overrides,
+  };
+}
+
+function makeHistorySyncStatus(overrides: Partial<HistorySyncStatus> = {}): HistorySyncStatus {
+  return {
+    lastFullSync: null,
+    lastIncrementalSync: null,
+    totalConversationsSynced: 0,
+    totalMessagesSynced: 0,
+    isSyncing: false,
+    isPaused: false,
+    syncPhase: 'idle',
+    syncProgress: 0,
+    syncError: null,
+    dateRangeStart: null,
+    dateRangeEnd: null,
+    dateRangeMonths: 24,
+    processedConversations: 0,
+    processedMessages: 0,
+    estimatedTimeRemaining: null,
+    currentBatch: 0,
+    totalBatches: 0,
+    errorCount: 0,
+    errorLog: [],
+    canResume: false,
+    ...overrides,
+  };
+}
+
+function makeConversation(id: number): HostawayConversation {
+  return {
+    id,
+    listingMapId: 100 + id,
+  };
+}
+
+function makeGuestMessage(id: number, conversationId: number, body: string): HostawayMessage {
+  return {
+    id,
+    conversationId,
+    body,
+    isIncoming: true,
+    status: 'sent',
+    insertedOn: '2026-03-01T12:00:00Z',
+  };
+}
+
+function makeHostMessage(id: number, conversationId: number, body: string): HostawayMessage {
+  return {
+    id,
+    conversationId,
+    body,
+    isIncoming: false,
+    status: 'sent',
+    insertedOn: '2026-03-01T12:05:00Z',
   };
 }
 
@@ -124,5 +183,145 @@ describe('buildLearningDashboardStats', () => {
     expect(stats.rejections).toBe(0);
     expect(stats.approvalRate).toBe(50);
     expect(stats.trainedMessageCount).toBe(42);
+  });
+});
+
+describe('buildLearningImportSummary', () => {
+  it('uses conversation counts for message-fetch progress labels and keeps message totals separate', () => {
+    const summary = buildLearningImportSummary({
+      historySyncStatus: makeHistorySyncStatus({
+        isSyncing: true,
+        syncPhase: 'messages',
+        syncProgress: 100,
+        processedConversations: 1465,
+        processedMessages: 22486,
+        estimatedTimeRemaining: 2000,
+      }),
+      aiLearningProgress: makeProgress({
+        totalMessagesAnalyzed: 13151,
+        patternsIndexed: 420,
+        lastTrainingResult: {
+          hostMessagesAnalyzed: 13151,
+          patternsIndexed: 420,
+          trainingSampleSize: 8000,
+          trainingDurationMs: 45000,
+        },
+      }),
+      totalConversationsDiscovered: 1465,
+    });
+
+    expect(summary.statusLabel).toBe('Fetching messages for conversation 1465 of 1465');
+    expect(summary.detailLabel).toBe('22486 messages fetched');
+    expect(summary.hostMessagesAnalyzed).toBe(13151);
+    expect(summary.patternsIndexed).toBe(420);
+    expect(summary.isImported).toBe(true);
+  });
+
+  it('surfaces training as the next step after import completes', () => {
+    const summary = buildLearningImportSummary({
+      historySyncStatus: makeHistorySyncStatus({
+        isSyncing: false,
+        syncPhase: 'complete',
+        syncProgress: 100,
+        totalConversationsSynced: 120,
+        totalMessagesSynced: 3200,
+      }),
+      aiLearningProgress: makeProgress({
+        totalMessagesAnalyzed: 0,
+        patternsIndexed: 0,
+        lastTrainingResult: null,
+      }),
+      totalConversationsDiscovered: 120,
+    });
+
+    expect(summary.statusLabel).toBe('Import complete. Training your history now');
+    expect(summary.isImported).toBe(true);
+    expect(summary.isTrainingReady).toBe(false);
+  });
+});
+
+describe('buildRecurringIntentCoverage', () => {
+  it('computes coverage from recurring guest intents against indexed patterns', () => {
+    const conversations = [
+      makeConversation(1),
+      makeConversation(2),
+      makeConversation(3),
+      makeConversation(4),
+      makeConversation(5),
+      makeConversation(6),
+      makeConversation(7),
+      makeConversation(8),
+      makeConversation(9),
+      makeConversation(10),
+      makeConversation(11),
+      makeConversation(12),
+      makeConversation(13),
+      makeConversation(14),
+      makeConversation(15),
+    ];
+
+    const messagesByConversation: Record<number, HostawayMessage[]> = {};
+
+    for (let index = 1; index <= 6; index++) {
+      messagesByConversation[index] = [
+        makeGuestMessage(index * 10, index, 'What is the wifi password?'),
+        makeHostMessage(index * 10 + 1, index, 'The wifi password is listed in your check-in guide.'),
+      ];
+    }
+
+    for (let index = 7; index <= 11; index++) {
+      messagesByConversation[index] = [
+        makeGuestMessage(index * 10, index, 'Can we check in early tomorrow?'),
+        makeHostMessage(index * 10 + 1, index, 'Early check-in depends on cleaning progress.'),
+      ];
+    }
+
+    for (let index = 12; index <= 15; index++) {
+      messagesByConversation[index] = [
+        makeGuestMessage(index * 10, index, 'Where should we park our car?'),
+        makeHostMessage(index * 10 + 1, index, 'You can park in the driveway.'),
+      ];
+    }
+
+    const coverage = buildRecurringIntentCoverage({
+      conversations,
+      messagesByConversation,
+      indexedPatterns: [
+        { guestIntent: 'wifi' },
+        { guestIntent: 'wifi' },
+        { guestIntent: 'wifi' },
+        { guestIntent: 'wifi' },
+        { guestIntent: 'early_checkin' },
+        { guestIntent: 'early_checkin' },
+      ],
+      minimumRecurringVolume: 4,
+      coveredPatternThreshold: 3,
+    });
+
+    expect(coverage.recurringIntentCount).toBe(3);
+    expect(coverage.coveredIntentCount).toBe(1);
+    expect(coverage.coveragePercent).toBe(33);
+    expect(coverage.targetPercent).toBe(75);
+    expect(coverage.rows[0].intent).toBe('wifi');
+    expect(coverage.rows[0].status).toBe('covered');
+    expect(coverage.rows.find((row) => row.intent === 'early_checkin')?.status).toBe('weak');
+    expect(coverage.rows.find((row) => row.intent === 'parking')?.status).toBe('missing');
+  });
+
+  it('ignores low-volume intents below the recurring threshold', () => {
+    const coverage = buildRecurringIntentCoverage({
+      conversations: [makeConversation(1), makeConversation(2), makeConversation(3)],
+      messagesByConversation: {
+        1: [makeGuestMessage(1, 1, 'What is the wifi password?')],
+        2: [makeGuestMessage(2, 2, 'Where can we park?')],
+        3: [makeGuestMessage(3, 3, 'Can we check in early?')],
+      },
+      indexedPatterns: [{ guestIntent: 'wifi' }],
+      minimumRecurringVolume: 2,
+      coveredPatternThreshold: 2,
+    });
+
+    expect(coverage.recurringIntentCount).toBe(0);
+    expect(coverage.coveragePercent).toBe(0);
   });
 });
