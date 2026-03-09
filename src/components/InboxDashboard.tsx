@@ -170,6 +170,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
   // Track if initial load has happened
   const hasInitialLoaded = useRef(false);
+  const hasRecoveredEmptyInbox = useRef(false);
   const lastRefreshTime = useRef<number>(0);
   const [, setLastSyncTime] = useState<Date | null>(null);
   const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
@@ -575,6 +576,29 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       }
     }
   }, [isDemoMode, accountId, apiKey, handleRefresh, conversations.length, setConversations]);
+
+  // Recover once if a connected inbox unexpectedly drops to zero conversations
+  // after the initial load already succeeded.
+  useEffect(() => {
+    const isConnected = features.serverProxiedAI || Boolean(accountId && apiKey);
+
+    if (!hasInitialLoaded.current || isDemoMode || !isConnected) {
+      return;
+    }
+
+    if (conversations.length > 0) {
+      hasRecoveredEmptyInbox.current = false;
+      return;
+    }
+
+    if (isRefreshing || isSilentRefreshing || hasRecoveredEmptyInbox.current) {
+      return;
+    }
+
+    hasRecoveredEmptyInbox.current = true;
+    console.log('[Inbox] Recovering unexpectedly empty inbox...');
+    handleRefresh(true);
+  }, [isDemoMode, accountId, apiKey, conversations.length, isRefreshing, isSilentRefreshing, handleRefresh]);
 
   // Auto-refresh every 30 seconds while inbox is open
   useEffect(() => {
