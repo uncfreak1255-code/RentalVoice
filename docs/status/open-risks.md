@@ -1,28 +1,32 @@
 # Rental Voice open risks
 
-Last updated: 2026-03-06
+Last updated: 2026-03-09
 
 ## Highest risks
 
-1. Founder/live environment does not exist yet
-- No real live Supabase app-auth environment has been designated
-- Founder bootstrap cannot move past tooling/preflight until that exists
+1. Founder/live backend exists, but the actual founder account still does not
+- `Rental Voice Live` (`zsitbuwzxtsgfqzhtged`) is prepared, but `sawyerbeck25@gmail.com` is not bootstrapped yet
+- Future sessions can mistake “live project prepared” for “founder account ready” if they do not read status first
 
-2. Current linked Supabase project is test-only
-- `gqnocsoouudbogwislsl` is linked locally and contains test/smoke app users
-- Running live founder or commercial cutover actions there would corrupt the rollout path
+2. Fresh live rollback is blocked by missing `pg_dump`
+- This machine cannot create a fresh protected baseline right now because PostgreSQL client tooling is missing
+- Live founder bootstrap execute should not happen until that is fixed
 
-3. Personal-mode and commercial-mode assumptions can still drift
+3. Durable account-backed AI learning is still not live
+- Imported history and learning surfaces improved, but permanent founder-account-backed learning persistence is not the current app reality yet
+- App container resets can still wipe local-only learning state before migration is completed
+
+4. Current linked Supabase project is still the default local runtime
+- `/Users/sawbeck/Projects/RentalVoice/server/.env` still points at `gqnocsoouudbogwislsl` by design
+- Agents can accidentally run the wrong Supabase workflow if they do not separate `test` from `live`
+
+5. Personal-mode and founder/commercial assumptions can still drift
 - Current product must remain Hostaway-first and personal-mode default
-- Future sessions can accidentally optimize for staged commercial paths if state is not read first
+- Future sessions can accidentally optimize for staged founder/commercial paths before the app-side cutover work is approved
 
-4. Local environment metadata is intentionally local-only
-- `server/.env` carries current project classification and should not be treated as committed truth
-- The committed templates and status docs must stay aligned with it
-
-5. Verification still depends on the local workspace, not the automation worktree
-- Nightly automation may report missing toolchain capability that does not apply to the real workspace
-- Use the local repo for actual verification decisions
+6. Local environment metadata is intentionally local-only
+- `/Users/sawbeck/Projects/RentalVoice/server/.env` and `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` are not committed truth
+- The committed runbooks and status docs must stay aligned with those local files
 
 ## Operational mitigations in place
 
@@ -30,13 +34,18 @@ Last updated: 2026-03-06
 - explicit environment classification in runtime manifests
 - live founder preflight
 - rehearsal preflight with forbidden project-ref gating
-- live founder env template
+- dedicated live founder project `zsitbuwzxtsgfqzhtged`
+- live founder env template and local live env file
 - founder live-readiness checklist
 - founder bootstrap packet generator
+- founder bootstrap dry run manifest
+- dedicated Supabase environment workflow runbook
 
 ## What remains blocked
 
-- founder auth creation
-- founder billing bypass validation in a real live environment
+- founder bootstrap execute until `pg_dump` is installed and a fresh baseline exists
+- founder billing-bypass validation with a real founder session
+- app-side founder login/recovery path
+- durable learning migration into the founder account
 - personal-to-founder migration rehearsal on a distinct rehearsal target
 - any real commercial cutover

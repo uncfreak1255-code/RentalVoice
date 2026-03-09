@@ -15,28 +15,41 @@ npm run ops:baseline:protect -- --checkpoint-id pre-github-promotion-<timestamp>
 ```
 
 2. Review the baseline manifest:
-   - confirm local workspace is marked canonical
-   - confirm current app mode is still `personal`
-   - confirm linked Supabase project ref is recorded
-   - confirm git dirty counts match expectations
+- confirm local workspace is marked canonical
+- confirm current app mode is still `personal`
+- confirm linked Supabase project ref is recorded
+- confirm git dirty counts match expectations
 
 3. Group the local-only work into promotion batches:
-   - safety / checkpoint / rollback
-   - commercial staging infrastructure
-   - billing / telemetry
-   - docs / runbooks
+- safety / checkpoint / rollback
+- commercial staging infrastructure
+- billing / telemetry
+- docs / runbooks
+- founder/live environment prep
 
-4. Promote carefully:
-   - commit local work in logical groups
-   - push only after the protected baseline exists
-   - do not enable commercial mode by default during promotion
+4. Rehearse database-impacting changes on `test` first:
+- keep `/Users/sawbeck/Projects/RentalVoice/server/.env` pointed at `gqnocsoouudbogwislsl`
+- apply migrations and verify app behavior there first
+- if the batch touches Supabase promotion rules, read `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
 
-5. After push:
-   - keep the protected baseline checkpoint id in the release notes or handoff notes
-   - use that checkpoint as the rollback anchor if the promoted code needs to be unwound locally
+5. Promote carefully:
+- commit local work in logical groups
+- push only after the protected baseline exists
+- do not enable commercial mode by default during promotion
+- do not silently switch the default local environment from `test` to `live`
+
+6. If the same batch needs live promotion later:
+- use the same migration history already rehearsed on `test`
+- load `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` intentionally in an isolated shell or worktree
+- run preflight before touching live
+- validate live deliberately after promotion
+
+7. After push:
+- keep the protected baseline checkpoint id in the release notes or handoff notes
+- use that checkpoint as the rollback anchor if the promoted code needs to be unwound locally
 
 ## Non-goals
 
 - This runbook does not decide when to cut over to commercial mode.
-- This runbook does not create the founder account.
+- This runbook does not create the founder account automatically.
 - This runbook does not declare GitHub as production by itself.
