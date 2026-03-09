@@ -1,91 +1,40 @@
-# Ops safety commands (backup + rollback)
+# Ops toolkit
 
-This folder contains the first production safety layer for RentalVoice:
+Operational scripts for checkpointing, rollback, migration, drills, and staged founder/bootstrap workflows.
 
-- checkpoint creation (database backup + manifest)
-- protected local baseline creation (checkpoint + verification + foundation manifest)
-- checkpoint verification (checksum + remote object existence)
-- fast rollback (kill switches + deploy rollback hooks)
-- database restore from checkpoint
-- restore drill for staging
-- staged founder bootstrap tooling for the future real live environment
+## Environment expectations
 
-## Required environment variables
+Required for backup/restore tooling:
 
 - `DATABASE_URL`: Postgres URL for backup/restore
-- `SUPABASE_ENV_CLASS`: Environment classification (`test`, `staging`, `live`, etc.)
-- `SUPABASE_PROJECT_REF`: Supabase project ref used by the current server environment
-- `SUPABASE_PROJECT_LABEL`: Human-readable Supabase project label
-- `BACKUP_BUCKET`: Optional S3 destination (example: `s3://my-bucket/rentalvoice/checkpoints`)
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`: Needed when `BACKUP_BUCKET` is set
-- `BACKUP_ENCRYPTION_KEY`: Optional AES key for encrypted dumps
+- `pg_dump`
+- `pg_restore`
+- `shasum`
 
-## Optional rollback variables
+Founder/live tooling additionally depends on:
 
-- `FEATURE_FLAG_WEBHOOK_URL`: Endpoint to set rollback-safe flags
-- `FEATURE_FLAG_WEBHOOK_TOKEN`: Optional bearer token
-- `PREVIOUS_SERVER_RELEASE_CMD`: Command that deploys previous server release
-- `PREVIOUS_EXPO_UPDATE_CMD`: Command that points Expo updates to previous stable group
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_ENV_CLASS`
+- `SUPABASE_PROJECT_REF`
+- `SUPABASE_PROJECT_LABEL`
 
-## Optional controlled migration variables
+## Core commands
 
-- `APPLY_DB_MIGRATIONS_CMD`: Command to apply schema migrations
-- `DEPLOY_SERVER_RELEASE_CMD`: Command to deploy the new server release
-- `LOCAL_LEARNING_IMPORT_CMD`: Command to run local-to-commercial learning import
-- `POST_DEPLOY_SMOKE_CMD`: Command to run checkpoint smoke checks after deploy
-- `AUTO_ROLLBACK_ON_FAILURE`: `true` (default) or `false`
+- create checkpoint:
+  - `npm run ops:checkpoint -- --checkpoint-id <id>`
+- verify checkpoint:
+  - `npm run ops:checkpoint:verify -- --checkpoint-id <id>`
+- create protected baseline:
+  - `npm run ops:baseline:protect -- --checkpoint-id <id>`
+- fast rollback:
+  - `npm run ops:rollback:fast -- --checkpoint-id <id>`
+- restore DB manually:
+  - `npm run ops:restore:db -- --checkpoint-id <id>`
+- restore drill:
+  - `npm run ops:drill -- --checkpoint-id <id>`
 
-## Commands
-
-- `npm run ops:checkpoint`
-- `npm run ops:checkpoint:verify -- --checkpoint-id <id>`
-- `npm run ops:baseline:protect -- --checkpoint-id protected-local-baseline-<timestamp>`
-- `npm run ops:rollback:fast -- --checkpoint-id <id>`
-- `npm run ops:restore:db -- --checkpoint-id <id> --yes`
-- `npm run ops:drill -- --checkpoint-id <id>`
-- `npm run ops:migration:controlled -- --checkpoint-id <id>`
-- `npm run ops:founder:checklist`
-- `npm run ops:founder:packet`
-- `npm run ops:founder:preflight`
-- `npm run ops:founder:preflight:rehearsal`
-- `npm run ops:founder:bootstrap`
-
-## Safe default workflow per release
-
-1. Create checkpoint:
-   - `npm run ops:checkpoint -- --checkpoint-id pre-release-<timestamp>`
-2. Verify checkpoint:
-   - `npm run ops:checkpoint:verify -- --checkpoint-id pre-release-<timestamp>`
-3. Ship release.
-4. If needed, run fast rollback:
-   - `npm run ops:rollback:fast -- --checkpoint-id pre-release-<timestamp>`
-5. Restore DB only if required:
-   - `npm run ops:restore:db -- --checkpoint-id pre-release-<timestamp> --yes`
-
-## Protect the current local app as canonical
-
-Use this before any GitHub promotion, auth cutover, or founder bootstrap work:
-
-- `npm run ops:baseline:protect -- --checkpoint-id protected-local-baseline-<timestamp>`
-
-This does three things:
-
-1. creates the database checkpoint
-2. verifies the checkpoint
-3. writes a protected baseline manifest at `ops/manifests/<checkpoint-id>.baseline.json`
-
-The checkpoint manifest now also records:
-
-- local workspace as canonical source
-- git branch / dirty counts
-- current app mode default
-- linked Supabase project ref
-- Expo / EAS project metadata
-- known current-state environment truths
-
-This is the rollback anchor while GitHub remains behind local.
-
-## Controlled migration order (automated)
+## Controlled commercial migration
 
 Run exact cutover order with rollback hook:
 
@@ -102,17 +51,18 @@ Execution order:
 
 If any step fails and `AUTO_ROLLBACK_ON_FAILURE` is not set to `false`, fast rollback runs automatically.
 
-## Future founder bootstrap (staged, not for current personal mode)
+## Founder bootstrap (staged, not default current app UX)
 
-The founder app-auth account still does not exist, but the dedicated live environment now does.
+The real founder backend account now exists, but current app UX still does not use founder auth as the default visible login path.
 
 Current Supabase founder truth:
 
 - linked local default `test` project: `gqnocsoouudbogwislsl`
 - forbidden non-live founder targets: `gqnocsoouudbogwislsl`, `cqbzsntmlwpsaxwnoath`
 - dedicated live founder target: `zsitbuwzxtsgfqzhtged` (`Rental Voice Live`)
+- real founder backend account exists for `sawyerbeck25@gmail.com`
 
-Use the staged bootstrap script only after the live founder env is loaded intentionally and a fresh protected baseline exists:
+Use founder ops commands deliberately:
 
 - generate live-readiness checklist:
   - `npm run ops:founder:checklist`
@@ -122,21 +72,12 @@ Use the staged bootstrap script only after the live founder env is loaded intent
   - `npm run ops:founder:preflight`
 - validate non-live rehearsal environment:
   - `npm run ops:founder:preflight:rehearsal`
-- dry run:
+- dry run bootstrap:
   - `npm run ops:founder:bootstrap`
-- execute intentionally:
-  - `npm run ops:founder:bootstrap -- --execute --yes --password '<temporary-password>'`
-- rehearsal execute intentionally on a distinct non-live project only:
-  - `ALLOW_NONLIVE_SUPABASE=true npm run ops:founder:bootstrap -- --execute --yes --rehearsal --password '<temporary-password>'`
 
-The bootstrap script is idempotent and is designed to:
+Do not rerun founder bootstrap execute casually. Treat the live founder account as persistent canary data.
 
-1. create or reuse the founder auth user
-2. create the `users` row
-3. create the organization and owner membership
-4. create `org_settings`
-5. create managed `ai_configs`
-6. seed `org_entitlements`
-7. emit the founder env vars that still need to be set
+## Baseline note for this machine
 
-Keep this staged until the real live environment exists and personal-mode data is ready to migrate one-way into that founder account.
+- Homebrew `libpq` is installed and provides `pg_dump`
+- the `protected-local-baseline-20260309-founder-live-execute` checkpoint was created using a temporary Supabase CLI login credential for the linked test database immediately before founder bootstrap execute
