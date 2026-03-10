@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Make Sawyer’s founder account usable and durable while the user-facing app keeps improving in parallel toward App Store readiness.
+**Goal:** Build durable app identity and learning recovery for Rental Voice, using Sawyer’s founder account as the first canary while the user-facing app keeps improving in parallel toward App Store readiness.
 
-**Architecture:** Use three coordinated lanes: Founder Path, User App Hardening, and Release Readiness. Keep normal development on the linked `test` environment, keep `live` limited to founder validation, and converge only after founder session recovery and durable learning migration are stable.
+**Architecture:** Use three coordinated lanes: Durable Identity + Founder Canary, User App Hardening, and Release Readiness. Keep normal development on the linked `test` environment, keep `live` limited to founder validation, and converge only after account-backed session recovery and durable learning migration are stable.
 
 **Tech Stack:** Expo React Native, TypeScript, Supabase, Hostaway integration, local ops tooling, Jest, ESLint.
 
@@ -26,7 +26,7 @@
 4. Confirm the status docs point future agents to the founder app-path lane next.
 5. Commit docs as one checkpoint.
 
-### Task 2: Founder path design and scope freeze
+### Task 2: Durable identity and founder path design and scope freeze
 
 **Files:**
 - Create: `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-founder-app-path-design.md`
@@ -34,12 +34,13 @@
 
 **Steps:**
 1. Audit current app boot/session/onboarding flow.
-2. Define exactly how founder sign-in is reached without replacing the default personal path.
-3. Define founder session restore logic after app resets.
-4. Define how founder mode is detected and surfaced internally.
-5. Freeze the initial founder app-path scope before coding.
+2. Define the durable identity target: `Rental Voice account -> Connect Hostaway -> Sync and learn`.
+3. Define exactly how founder sign-in is reached without replacing the default personal path.
+4. Define founder session restore logic after app resets.
+5. Define how founder mode is detected and surfaced internally.
+6. Freeze the initial founder app-path scope before coding.
 
-### Task 3: Founder session recovery implementation
+### Task 3: Durable session recovery implementation
 
 **Files:**
 - Modify: `/Users/sawbeck/Projects/RentalVoice/src/app/`
@@ -50,12 +51,12 @@
 
 **Steps:**
 1. Write failing tests for founder session boot and recovery.
-2. Implement minimal founder session restore logic.
+2. Implement minimal account-backed session restore logic for the founder canary path.
 3. Verify app resets do not silently drop the founder identity.
-4. Add clear fallback behavior when founder session is missing or invalid.
-5. Commit the founder session slice.
+4. Add clear fallback behavior when account session is missing or invalid.
+5. Commit the session slice.
 
-### Task 4: Founder learning migration contract
+### Task 4: Durable learning migration contract
 
 **Files:**
 - Modify: `/Users/sawbeck/Projects/RentalVoice/src/lib/commercial-migration.ts`
@@ -68,8 +69,9 @@
 1. Inventory the exact local learning artifacts that still need migration.
 2. Write failing tests for snapshot/export/import behavior.
 3. Implement the smallest migration payload that preserves durable learning value.
-4. Validate import into the founder account on non-live rehearsal first if needed.
-5. Commit the migration slice.
+4. Ensure the payload shape is reusable for future non-founder user accounts.
+5. Validate import into the founder account on non-live rehearsal first if needed.
+6. Commit the migration slice.
 
 ### Task 5: Founder canary validation
 

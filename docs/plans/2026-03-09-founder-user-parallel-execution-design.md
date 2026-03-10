@@ -13,6 +13,7 @@ The correct flow is not "finish founder first, then start the user app." The cor
 3. build the app-side founder account lane on top of the already-bootstrapped live founder backend
 4. once the founder path is stable, use the founder account as the persistent live canary account
 5. only then promote validated patterns into the broader user app
+6. evolve the default architecture toward `Rental Voice account -> Connect Hostaway -> Sync and learn` once the canary path is proven
 
 This avoids blocking all product progress on founder auth, while also avoiding the mistake of treating the current local-only personal path as the forever account.
 
@@ -35,11 +36,13 @@ Run the founder-account lane and the user-app hardening lane at the same time. T
 ### Lane A: Founder account and durability lane
 
 Purpose:
-- make the live founder account usable from the app
+- establish durable app identity as the long-term architecture
+- make the live founder account usable from the app as the first canary path
 - stop founder identity from depending on fragile local flags
 - migrate learning into the founder-backed path
 
 This lane owns:
+- account-first auth architecture (`Rental Voice account -> Connect Hostaway`)
 - app-side founder login/recovery
 - founder session restore after app reset
 - personal-to-founder learning migration
@@ -99,6 +102,7 @@ Lane C should not lead implementation. It follows validated work from Lane A and
 - backend founder account exists in `Rental Voice Live`
 - app-side founder path does not exist yet
 - current daily app path is still Hostaway-first `personal`
+- the future durable default should be Rental Voice account first, Hostaway connect second
 
 ### Target state
 
@@ -117,6 +121,7 @@ All must be true:
 - founder session survives app resets
 - founder learning migration runs successfully
 - founder-backed learning is durable
+- the durable identity model is reusable for future non-founder users
 - founder diagnostics and entitlements validate in-app
 
 ### Gate B: user app quality ready
