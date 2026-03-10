@@ -42,3 +42,11 @@ Build the durable app-identity and learning foundation on top of the now-bootstr
 - Founder and future user session recovery do not depend on fragile local-only onboarding flags
 - Durable learning migration into the founder account is implemented or explicitly staged with verified data paths
 - The current personal-mode default remains intact while the founder path is being hardened
+
+## Execution docs
+
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-founder-app-path-design.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-user-app-hardening-queue.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-app-store-gate-checklist.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-app-privacy-and-support-truth.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-app-store-readiness-roadmap.md`
