@@ -46,8 +46,11 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const updateSettings = useAppStore((s) => s.updateSettings);
   const analytics = useAppStore((s) => s.analytics);
   const autoPilotEnabled = useAppStore((s) => s.settings.autoPilotEnabled);
+  const currentTier = useAppStore((s) => s.currentTier);
   const aiLearningProgress = useAppStore((s) => s.aiLearningProgress);
   const founderSession = useAppStore((s) => s.founderSession);
+  const learningEntries = useAppStore((s) => s.learningEntries);
+  const draftOutcomes = useAppStore((s) => s.draftOutcomes);
 
   // AI Usage stats
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
@@ -148,6 +151,13 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const commercialDraftLimit = commercialUsage?.usage.draftsLimit || 0;
   const commercialDraftsUsed = commercialUsage?.usage.draftsUsed || 0;
   const isFiniteCommercialLimit = Number.isFinite(commercialDraftLimit) && commercialDraftLimit > 0;
+  const approvedLearnedCount = learningEntries.filter((e) => e.wasApproved && !e.wasEdited).length;
+  const editedLearnedCount = learningEntries.filter((e) => e.wasEdited).length;
+  const independentLearnedCount = draftOutcomes.filter((o) => o.outcomeType === 'independent').length;
+  const effectiveMessagesTrained = (aiLearningProgress?.totalMessagesAnalyzed || 0)
+    + approvedLearnedCount
+    + editedLearnedCount
+    + independentLearnedCount;
   const usageLabel = features.serverProxiedAI ? 'Drafts Used' : 'Drafts Today';
   const usageValue = features.serverProxiedAI
     ? (commercialUsage
@@ -166,6 +176,26 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const usageFooterText = features.serverProxiedAI
     ? `${commercialUsage?.plan ? `${commercialUsage.plan.charAt(0).toUpperCase()}${commercialUsage.plan.slice(1)}` : 'Starter'} plan • Managed AI metering`
     : `${usageStats?.tierLabel || 'Starter'} plan • Resets daily at midnight`;
+  const normalizedTier = currentTier === 'pro' ? 'professional' : currentTier;
+  const hasPaidAutoPilot = features.serverProxiedAI
+    ? commercialUsage?.limits.autopilot === true
+    : normalizedTier === 'professional' || normalizedTier === 'business';
+  const approvalRateValue = (() => {
+    const total = analytics.aiResponsesApproved + analytics.aiResponsesEdited + analytics.aiResponsesRejected;
+    if (total === 0) return '—';
+    return `${Math.round((analytics.aiResponsesApproved / total) * 100)}%`;
+  })();
+  const openAutoPilotUpgrade = () => {
+    if (features.serverProxiedAI) {
+      handleNavigate('billingMemory');
+      return;
+    }
+
+    Alert.alert(
+      'Auto-Pilot requires a paid plan',
+      'Trusted guest-reply automation is reserved for Professional and Business tiers. Upgrade controls will be surfaced with the managed commercial plan flow.'
+    );
+  };
 
   return (
     <View style={sLocal.root}>
@@ -184,7 +214,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <View style={s.card}>
             <Row
               icon={<Wifi size={18} color={colors.primary.DEFAULT} />}
-              label="API Status"
+              label="PMS Status"
               right={
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? '#F59E0B' : '#10B981', marginRight: 6 }} />
@@ -242,11 +272,13 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                 </View>
               </View>
             )}
-            <ValueRow
-              icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
-              label={features.serverProxiedAI ? 'AI Routing' : 'Model'}
-              value={activeModelName}
-            />
+            {features.serverProxiedAI && (
+              <ValueRow
+                icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
+                label="AI Routing"
+                value={activeModelName}
+              />
+            )}
             <ValueRow
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
               label="This Month"
@@ -358,45 +390,59 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           {/* ── Auto-Pilot ── */}
           <SectionHeader title="Auto-Pilot" />
           <View style={s.card}>
-            <ToggleRow
-              icon={<Plane size={18} color={colors.primary.DEFAULT} />}
-              label="Auto-Pilot Mode"
-              value={autoPilotEnabled}
-              onValueChange={(v) => {
-                if (v) {
-                  Alert.alert('Enable AutoPilot', 'High-confidence AI drafts will be sent automatically.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Enable', onPress: () => updateSettings({ pilotMode: 'autopilot', autoPilotEnabled: true }) },
-                  ]);
-                } else {
-                  updateSettings({ pilotMode: 'copilot', autoPilotEnabled: false });
-                }
-              }}
-              isLast={!autoPilotEnabled}
-            />
-            {autoPilotEnabled && (
-              <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: '#000000' }}>Confidence Threshold</Text>
-                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
-                </View>
-                <Slider
-                  minimumValue={50}
-                  maximumValue={100}
-                  step={5}
-                  value={settings.autoPilotConfidenceThreshold}
-                  onValueChange={(v) => updateSettings({ autoPilotConfidenceThreshold: Math.round(v) })}
-                  minimumTrackTintColor={colors.primary.DEFAULT}
-                  maximumTrackTintColor="#E5E7EB"
-                  thumbTintColor="#FFFFFF"
-                  style={{ height: 28 }}
+            {hasPaidAutoPilot ? (
+              <>
+                <ToggleRow
+                  icon={<Plane size={18} color={colors.primary.DEFAULT} />}
+                  label="Auto-Pilot"
+                  value={autoPilotEnabled}
+                  onValueChange={(v) => {
+                    if (v) {
+                      Alert.alert('Enable Auto-Pilot', 'Only trusted, high-confidence guest replies are eligible for Auto-Pilot. Risky or low-confidence scenarios still require review.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Enable', onPress: () => updateSettings({ pilotMode: 'autopilot', autoPilotEnabled: true }) },
+                      ]);
+                    } else {
+                      updateSettings({ pilotMode: 'copilot', autoPilotEnabled: false });
+                    }
+                  }}
+                  isLast={!autoPilotEnabled}
                 />
-              </View>
+                {autoPilotEnabled && (
+                  <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: '#000000' }}>Confidence Threshold</Text>
+                      <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
+                    </View>
+                    <Slider
+                      minimumValue={50}
+                      maximumValue={100}
+                      step={5}
+                      value={settings.autoPilotConfidenceThreshold}
+                      onValueChange={(v) => updateSettings({ autoPilotConfidenceThreshold: Math.round(v) })}
+                      minimumTrackTintColor={colors.primary.DEFAULT}
+                      maximumTrackTintColor="#E5E7EB"
+                      thumbTintColor="#FFFFFF"
+                      style={{ height: 28 }}
+                    />
+                  </View>
+                )}
+              </>
+            ) : (
+              <LinkRow
+                icon={<Plane size={18} color={colors.primary.DEFAULT} />}
+                label="Unlock Auto-Pilot"
+                onPress={openAutoPilotUpgrade}
+                isLast
+              />
             )}
           </View>
-          <SectionFooter text={autoPilotEnabled
-            ? `Drafts above ${settings.autoPilotConfidenceThreshold}% confidence will be sent automatically.`
-            : 'When enabled, high-confidence AI drafts are sent without manual review.'
+          <SectionFooter text={
+            hasPaidAutoPilot
+              ? (autoPilotEnabled
+                ? `Only trusted replies above ${settings.autoPilotConfidenceThreshold}% confidence are eligible for Auto-Pilot. Risky or unresolved scenarios still require review.`
+                : 'Trusted automation for high-confidence guest replies. Risky, low-confidence, or unresolved scenarios still require review.')
+              : 'Auto-Pilot is available on paid plans for trusted high-confidence replies only.'
           } />
 
           {/* ── AI Learning ── */}
@@ -411,13 +457,13 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             <ValueRow
               icon={<MessageSquare size={18} color={colors.primary.DEFAULT} />}
               label="Messages Trained"
-              value={String(aiLearningProgress?.totalMessagesAnalyzed || 0)}
+              value={String(effectiveMessagesTrained)}
             />
             <ValueRow
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
               label="Profile Strength"
               value={(() => {
-                const count = aiLearningProgress?.totalMessagesAnalyzed || 0;
+                const count = effectiveMessagesTrained;
                 if (count >= 500) return 'Expert';
                 if (count >= 200) return 'Strong';
                 if (count >= 50) return 'Learning';
@@ -451,27 +497,21 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             />
             <ToggleRow
               icon={<BellOff size={18} color={colors.primary.DEFAULT} />}
-              label="Urgent Only"
+              label="Priority Alerts Only"
               value={settings.notificationCategories?.newMessage === false}
               onValueChange={(v) => updateSettings({ notificationCategories: { ...settings.notificationCategories, newMessage: !v } })}
               isLast
             />
           </View>
 
-          {/* ── AI Performance ── */}
-          <SectionHeader title="AI Performance" />
+          {/* ── Performance & Insights ── */}
+          <SectionHeader title="Performance & Insights" />
           <View style={s.card}>
             <Row
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
-              label="AI Accuracy"
+              label="Approval Rate"
               right={
-                <Text style={[s.tealValue, { fontSize: 17 }]}>
-                  {(() => {
-                    const total = analytics.aiResponsesApproved + analytics.aiResponsesEdited + analytics.aiResponsesRejected;
-                    if (total === 0) return '—';
-                    return `${Math.round((analytics.aiResponsesApproved / total) * 100)}%`;
-                  })()}
-                </Text>
+                <Text style={[s.tealValue, { fontSize: 17 }]}>{approvalRateValue}</Text>
               }
             />
             <ValueRow
@@ -481,7 +521,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               isLast
             />
           </View>
-          <SectionFooter text="Percentage of AI drafts approved without edits. Higher = AI matches your style better." />
+          <SectionFooter text="Approval Rate reflects how often AI drafts are accepted without edits. Higher means the AI is matching your voice more closely." />
 
           {/* ── About ── */}
           <SectionHeader title="About" />

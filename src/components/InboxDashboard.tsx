@@ -6,7 +6,10 @@ import { useAppStore, type Conversation, type InboxSortPreference, type Guest } 
 import { getDemoConversations } from '@/lib/demo-data';
 import { ConversationItem } from './ConversationItem';
 import { DemoModeBanner } from './DemoModeBanner';
+import { DailyBriefingCard } from './DailyBriefingCard';
 import { checkAndRetrainIfNeeded } from '@/lib/auto-import';
+import { buildDailyBriefing } from '@/lib/daily-briefing';
+import { isRenderableUnreadConversation } from '@/lib/inbox-trust';
 
 import {
   Inbox,
@@ -80,8 +83,8 @@ function sortByRecent(conversations: Conversation[]): Conversation[] {
 
 function sortByUnreadFirst(conversations: Conversation[]): Conversation[] {
   return [...conversations].sort((a, b) => {
-    const unreadA = a.unreadCount > 0 ? 1 : 0;
-    const unreadB = b.unreadCount > 0 ? 1 : 0;
+    const unreadA = isRenderableUnreadConversation(a) ? 1 : 0;
+    const unreadB = isRenderableUnreadConversation(b) ? 1 : 0;
     if (unreadB !== unreadA) {
       return unreadB - unreadA;
     }
@@ -144,6 +147,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const [searchQuery, setSearchQuery] = useState('');
 
   const conversations = useAppStore((s) => s.conversations);
+  const issues = useAppStore((s) => s.issues);
 
   const selectedPropertyId = useAppStore((s) => s.settings.selectedPropertyId);
   const accountId = useAppStore((s) => s.settings.accountId);
@@ -153,6 +157,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const setProperties = useAppStore((s) => s.setProperties);
   const setConversations = useAppStore((s) => s.setConversations);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const historySyncStatus = useAppStore((s) => s.historySyncStatus);
 
 
   const settings = useAppStore((s) => s.settings);
@@ -165,9 +170,11 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
   // Track if initial load has happened
   const hasInitialLoaded = useRef(false);
+  const hasRecoveredEmptyInbox = useRef(false);
   const lastRefreshTime = useRef<number>(0);
   const [, setLastSyncTime] = useState<Date | null>(null);
   const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
+  const [isBriefingCollapsed, setIsBriefingCollapsed] = useState(true);
 
   const filteredConversations = useMemo(() => {
     let result = [...conversations];
@@ -179,15 +186,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     // Filter by active tab
     switch (activeFilter) {
       case 'unread':
-        // A conversation is truly unread only when:
-        // 1. It has unreadCount > 0, AND
-        // 2. The last message is from a guest (host hasn't replied yet)
-        // This matches ConversationItem's visual isUnread logic
-        result = result.filter((c) => {
-          if (c.unreadCount <= 0) return false;
-          const lastSender = c.lastMessage?.sender;
-          return lastSender !== 'host'; // Host already replied = not unread
-        });
+        result = result.filter((c) => isRenderableUnreadConversation(c));
         break;
       case 'inquiry':
         result = result.filter((c) => c.isInquiry === true);
@@ -242,7 +241,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
     return {
       total: active.length,
-      unread: active.filter((c) => c.unreadCount > 0 && c.lastMessage?.sender !== 'host').length,
+      unread: active.filter((c) => isRenderableUnreadConversation(c)).length,
       inquiry: active.filter((c) => c.isInquiry === true).length,
       checkIn: active.filter((c) => {
         if (!c.checkInDate) return false;
@@ -256,6 +255,18 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       }).length,
     };
   }, [conversations]);
+
+  const dailyBriefing = useMemo(() => {
+    if (activeFilter !== 'all' || searchQuery.trim()) {
+      return null;
+    }
+
+    return buildDailyBriefing({
+      conversations,
+      issues,
+      now: new Date(),
+    });
+  }, [activeFilter, conversations, issues, searchQuery]);
 
   const handleRefresh = useCallback(async (silent = false) => {
     if (silent) {
@@ -566,6 +577,29 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     }
   }, [isDemoMode, accountId, apiKey, handleRefresh, conversations.length, setConversations]);
 
+  // Recover once if a connected inbox unexpectedly drops to zero conversations
+  // after the initial load already succeeded.
+  useEffect(() => {
+    const isConnected = features.serverProxiedAI || Boolean(accountId && apiKey);
+
+    if (!hasInitialLoaded.current || isDemoMode || !isConnected) {
+      return;
+    }
+
+    if (conversations.length > 0) {
+      hasRecoveredEmptyInbox.current = false;
+      return;
+    }
+
+    if (isRefreshing || isSilentRefreshing || hasRecoveredEmptyInbox.current) {
+      return;
+    }
+
+    hasRecoveredEmptyInbox.current = true;
+    console.log('[Inbox] Recovering unexpectedly empty inbox...');
+    handleRefresh(true);
+  }, [isDemoMode, accountId, apiKey, conversations.length, isRefreshing, isSilentRefreshing, handleRefresh]);
+
   // Auto-refresh every 30 seconds while inbox is open
   useEffect(() => {
     if (isDemoMode || (!features.serverProxiedAI && (!accountId || !apiKey))) return;
@@ -620,6 +654,21 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     { id: 'check_in', label: 'Check-in', icon: Clock, count: stats.checkIn },
     { id: 'check_out', label: 'Check-out', icon: Clock, count: stats.checkOut },
   ];
+
+  const showSyncBanner = !isDemoMode && (
+    historySyncStatus.isSyncing
+    || ((features.serverProxiedAI || (!!accountId && !!apiKey))
+      && !historySyncStatus.lastFullSync
+      && conversations.length === 0)
+  );
+
+  const syncBannerText = historySyncStatus.isSyncing
+    ? historySyncStatus.syncPhase === 'messages'
+      ? `Syncing guest history in the background • ${historySyncStatus.processedMessages} messages fetched`
+      : historySyncStatus.syncPhase === 'conversations'
+        ? `Connecting your inbox • ${historySyncStatus.processedConversations} conversations indexed`
+        : 'Training your workspace in the background'
+    : 'Your workspace is connected. Background sync will finish inside the app.';
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
@@ -707,8 +756,59 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           />
         )}
 
+        {showSyncBanner && (
+          <View style={{ paddingHorizontal: 20, paddingBottom: 8, backgroundColor: '#FFFFFF' }}>
+            <View
+              style={{
+                borderRadius: 18,
+                padding: 16,
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                gap: 10,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#0F172A', fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>
+                    Background sync is running
+                  </Text>
+                  <Text style={{ color: '#64748B', fontSize: 13, lineHeight: 18, marginTop: 4 }}>
+                    {syncBannerText}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    import('expo-router').then(({ router }) => router.push('/settings/sync-data'));
+                  }}
+                  style={{
+                    minHeight: 34,
+                    paddingHorizontal: 12,
+                    borderRadius: 9999,
+                    backgroundColor: '#E2E8F0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#0F172A', fontSize: 12, fontFamily: typography.fontFamily.medium }}>
+                    View Sync
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Conversation List — clean white background, cards have shadow for separation */}
         <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          {dailyBriefing && (
+            <DailyBriefingCard
+              briefing={dailyBriefing}
+              collapsed={isBriefingCollapsed}
+              onToggleCollapsed={() => setIsBriefingCollapsed((value) => !value)}
+              onPressAction={onSelectConversation}
+            />
+          )}
           {filteredConversations.length > 0 ? (
             <FlatList
               ref={flatListRef}

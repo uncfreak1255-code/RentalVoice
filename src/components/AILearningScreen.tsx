@@ -35,6 +35,8 @@ import * as Haptics from 'expo-haptics';
 import {
   analyzeConversationsForStyle,
   buildLearningDashboardStats,
+  buildLearningImportSummary,
+  buildRecurringIntentCoverage,
   calculateLearningProgress,
 } from '@/lib/ai-learning';
 import { historySyncManager, formatTimeRemaining, type SyncProgress, type HostawayConversation, type HostawayMessage } from '@/lib/history-sync';
@@ -879,6 +881,54 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
   const canStartHistoryImport = isCommercialMode ? isServerConnected : !!(accountId && apiKey);
   const backgroundSyncAvailableInMode = isCommercialMode ? canStartHistoryImport : backgroundFetchAvailable === true;
+  const trainingResult = aiLearningProgress.lastTrainingResult;
+  const responseIndex = useMemo(() => aiTrainingService.getResponseIndex(), [trainingState?.lastTrainingTime, trainingResult?.patternsIndexed, aiLearningProgress.patternsIndexed]);
+  const learningImportSummary = useMemo(() => buildLearningImportSummary({
+    historySyncStatus,
+    aiLearningProgress,
+    totalConversationsDiscovered: syncProgress?.totalConversations ?? null,
+  }), [historySyncStatus, aiLearningProgress, syncProgress?.totalConversations]);
+  const recurringCoverage = useMemo(() => {
+    if (!fetchedHistoryData || fetchedHistoryData.conversations.length === 0) {
+      return buildRecurringIntentCoverage({
+        conversations: [],
+        messagesByConversation: {},
+        indexedPatterns: responseIndex.patterns,
+      });
+    }
+
+    return buildRecurringIntentCoverage({
+      conversations: fetchedHistoryData.conversations,
+      messagesByConversation: fetchedHistoryData.messages,
+      indexedPatterns: responseIndex.patterns,
+    });
+  }, [fetchedHistoryData, responseIndex.patterns]);
+  const globalProfile = hostStyleProfiles['global'];
+  const hasVisibleGlobalProfile = !!globalProfile && globalProfile.samplesAnalyzed > 0;
+  const hasTrainingEvidence =
+    learningImportSummary.isTrainingReady ||
+    recurringCoverage.recurringIntentCount > 0 ||
+    !!trainingState?.hasCompletedInitialTraining;
+  const profileSyncPending = !hasVisibleGlobalProfile && hasTrainingEvidence;
+  const learningPrimaryAction = historySyncStatus.canResume
+    ? 'Resume Import'
+    : !canStartHistoryImport
+      ? 'Connect Hostaway First'
+      : !learningImportSummary.isImported
+        ? 'Import History'
+        : recurringCoverage.recurringIntentCount > 0
+          ? 'Review Coverage'
+          : 'Fetch More History';
+  const handlePrimaryLearningAction = useCallback(() => {
+    if (!canStartHistoryImport) return;
+    if (historySyncStatus.canResume) {
+      void handleStartSync(true);
+      return;
+    }
+    if (!learningImportSummary.isImported || recurringCoverage.recurringIntentCount === 0) {
+      void handleStartSync(false);
+    }
+  }, [canStartHistoryImport, historySyncStatus.canResume, handleStartSync, learningImportSummary.isImported, recurringCoverage.recurringIntentCount]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
@@ -984,67 +1034,58 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <Brain size={24} color="#A855F7" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text.primary, fontWeight: '600', fontSize: 18 }}>Style Learning</Text>
-                <Text style={{ color: colors.text.muted, fontSize: 14 }}>
-                  {dashboardStats.feedbackInteractions > 0
-                    ? `Learning from ${dashboardStats.feedbackInteractions} feedback interactions`
-                    : 'Ready to learn your communication style'}
-                </Text>
+                <Text style={{ color: colors.text.primary, fontWeight: '600', fontSize: 18 }}>Learning Status</Text>
+                <Text style={{ color: colors.text.muted, fontSize: 14 }}>{learningImportSummary.statusLabel}</Text>
               </View>
             </View>
 
-            {/* Profile Strength Meter */}
-            <View style={{ marginBottom: 16 }}>
+            <View style={{ backgroundColor: colors.bg.hover, borderRadius: 14, padding: 14, marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                <Text style={{ color: colors.text.muted, fontSize: 14 }}>Profile Strength</Text>
-                <Text style={{ color: colors.primary.DEFAULT, fontWeight: '600' }}>
-                  {(() => {
-                    const count = dashboardStats.trainedMessageCount;
-                    if (count >= 500) return 'Expert';
-                    if (count >= 200) return 'Strong';
-                    if (count >= 50) return 'Learning';
-                    if (count > 0) return 'Building';
-                    return 'Not Started';
-                  })()}
-                </Text>
+                <Text style={{ color: colors.text.muted, fontSize: 13 }}>Import progress</Text>
+                <Text style={{ color: '#0EA5E9', fontWeight: '600' }}>{learningImportSummary.progressPercent}%</Text>
               </View>
-              <View style={{ height: 8, backgroundColor: colors.bg.hover, borderRadius: 9999, overflow: 'hidden' }}>
+              <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 9999, overflow: 'hidden' }}>
                 <View
-                  style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${Math.min((dashboardStats.trainedMessageCount / 500) * 100, 100)}%` }}
+                  style={{ backgroundColor: '#0EA5E9', borderRadius: 9999, height: '100%', width: `${Math.max(0, Math.min(learningImportSummary.progressPercent, 100))}%` }}
                 />
               </View>
+              <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 8 }}>{learningImportSummary.detailLabel}</Text>
               <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 4 }}>
-                {dashboardStats.trainedMessageCount} messages trained
+                {learningImportSummary.hostMessagesAnalyzed.toLocaleString()} host replies analyzed • {learningImportSummary.patternsIndexed.toLocaleString()} reusable patterns indexed
               </Text>
             </View>
 
-            {/* Training Button */}
             <Pressable
-              onPress={handleTrainModel}
-              disabled={isTraining || (trainingState?.isTraining ?? false)}
-              style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: isTraining || trainingState?.isTraining ? '#E2E8F0' : colors.primary.DEFAULT, opacity: pressed ? 0.8 : 1 })}
+              onPress={handlePrimaryLearningAction}
+              disabled={!canStartHistoryImport || historySyncStatus.isSyncing}
+              style={({ pressed }) => ({
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+                backgroundColor: !canStartHistoryImport || historySyncStatus.isSyncing ? '#E2E8F0' : colors.primary.DEFAULT,
+                opacity: pressed ? 0.8 : 1,
+              })}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {isTraining || trainingState?.isTraining ? (
+                {historySyncStatus.isSyncing ? (
                   <>
                     <Animated.View style={spinStyle}>
                       <RefreshCw size={18} color="#A855F7" />
                     </Animated.View>
                     <Text style={{ color: colors.primary.DEFAULT, fontWeight: '600', marginLeft: 8 }}>
-                      Training... {trainingState?.progress ?? aiLearningProgress.trainingProgress}%
+                      {learningImportSummary.statusLabel}
                     </Text>
                   </>
                 ) : (
                   <>
                     <Sparkles size={18} color="#FFFFFF" />
-                    <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>Train on Messages</Text>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>{learningPrimaryAction}</Text>
                   </>
                 )}
               </View>
             </Pressable>
 
-            {/* Training Summary */}
-            {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult) && !isTraining && (
+            {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult) && !isTraining && !historySyncStatus.isSyncing && (
               <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
                 {trainingState?.hasCompletedInitialTraining
                   ? getTrainingSummary(trainingState)
@@ -1058,17 +1099,20 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           {/* Stats Grid */}
           <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginBottom: 24 }}>
             <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
-              Learning Statistics
+              Coverage Snapshot
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
               <View style={{ width: '50%', paddingRight: 8, marginBottom: 12 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <BarChart3 size={16} color="#14B8A6" />
-                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Messages Trained</Text>
+                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Recurring Coverage</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {dashboardStats.trainedMessageCount}
+                    {recurringCoverage.coveragePercent}%
+                  </Text>
+                  <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>
+                    Target: {recurringCoverage.targetPercent}%
                   </Text>
                 </View>
               </View>
@@ -1077,14 +1121,12 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <TrendingUp size={16} color="#A855F7" />
-                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Approval Rate</Text>
+                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Recurring Intents</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {dashboardStats.evaluatedDrafts >= 10 ? `${dashboardStats.approvalRate}%` : '—'}
+                    {recurringCoverage.recurringIntentCount}
                   </Text>
-                  {dashboardStats.evaluatedDrafts < 10 && (
-                    <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>Need 10+ reviewed drafts</Text>
-                  )}
+                  <Text style={{ color: colors.text.disabled, fontSize: 10, marginTop: 2 }}>Guest question categories seen often enough to measure</Text>
                 </View>
               </View>
 
@@ -1092,10 +1134,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <CheckCircle size={16} color="#22C55E" />
-                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Approvals</Text>
+                    <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Covered</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontWeight: '700' }}>
-                    {dashboardStats.approvals}
+                    {recurringCoverage.coveredIntentCount}
                   </Text>
                 </View>
               </View>
@@ -1135,6 +1177,46 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   </Text>
                 </View>
               </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#64748B', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginLeft: 4 }}>
+              Top Repeated Guest Questions
+            </Text>
+            <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
+              {recurringCoverage.rows.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+                  <MessageSquare size={24} color="#475569" />
+                  <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                    Import and train on your history to measure which repeated guest questions the AI can already cover.
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {recurringCoverage.rows.slice(0, 5).map((row) => {
+                    const badgeColor = row.status === 'covered' ? '#16A34A' : row.status === 'weak' ? '#D97706' : '#DC2626';
+                    const badgeBg = row.status === 'covered' ? '#DCFCE7' : row.status === 'weak' ? '#FEF3C7' : '#FEE2E2';
+                    return (
+                      <View key={row.intent} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.hover, borderRadius: 12, padding: 12 }}>
+                        <View style={{ flex: 1, paddingRight: 12 }}>
+                          <Text style={{ color: colors.text.primary, fontSize: 14, fontWeight: '600' }}>
+                            {row.intent.replace(/_/g, ' ')}
+                          </Text>
+                          <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 2 }}>
+                            {row.guestQuestionCount} repeated guest questions • {row.indexedPatternCount} learned examples
+                          </Text>
+                        </View>
+                        <View style={{ backgroundColor: badgeBg, borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                          <Text style={{ color: badgeColor, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>
+                            {row.status}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </Animated.View>
 
@@ -1228,13 +1310,41 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               {(() => {
-                const globalProfile = hostStyleProfiles['global'];
-                if (!globalProfile || globalProfile.samplesAnalyzed === 0) {
+                if (!hasVisibleGlobalProfile || !globalProfile) {
+                  if (profileSyncPending) {
+                    return (
+                      <View style={{ gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Brain size={24} color="#475569" />
+                          <Text style={{ color: colors.text.primary, fontSize: 14, fontWeight: '600', marginLeft: 10 }}>
+                            History imported. Learning signals are ready.
+                          </Text>
+                        </View>
+                        <Text style={{ color: '#64748B', fontSize: 13, lineHeight: 20 }}>
+                          The app has already indexed your host replies and repeated guest questions. The visible style profile cards are still catching up.
+                        </Text>
+                        <View style={{ gap: 8 }}>
+                          <Text style={{ color: colors.text.muted, fontSize: 13 }}>
+                            Host replies analyzed: <Text style={{ color: colors.text.primary, fontWeight: '600' }}>{learningImportSummary.hostMessagesAnalyzed.toLocaleString()}</Text>
+                          </Text>
+                          <Text style={{ color: colors.text.muted, fontSize: 13 }}>
+                            Reusable patterns indexed: <Text style={{ color: colors.text.primary, fontWeight: '600' }}>{learningImportSummary.patternsIndexed.toLocaleString()}</Text>
+                          </Text>
+                          <Text style={{ color: colors.text.muted, fontSize: 13 }}>
+                            Repeated guest-question coverage: <Text style={{ color: colors.text.primary, fontWeight: '600' }}>{recurringCoverage.coveragePercent}%</Text> of {recurringCoverage.recurringIntentCount} recurring categories
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  }
+
                   return (
                     <View style={{ alignItems: 'center', paddingVertical: 16 }}>
                       <Brain size={24} color="#475569" />
                       <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
-                        Train on your message history to see what the AI learned about your style
+                        {learningImportSummary.isImported
+                          ? 'Import finished. The app is still converting your history into a visible style profile.'
+                          : 'Import your message history to see what the AI learned about your style'}
                       </Text>
                     </View>
                   );
@@ -1307,14 +1417,22 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 16, padding: 16 }}>
               {(() => {
-                const globalProfile = hostStyleProfiles['global'];
                 if (!globalProfile) {
                   return (
                     <View style={{ alignItems: 'center', paddingVertical: 16 }}>
                       <Sliders size={24} color="#475569" />
                       <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
-                        Train on messages first to unlock style controls
+                        {profileSyncPending
+                          ? 'Training finished, but the editable style profile has not hydrated yet.'
+                          : learningImportSummary.isImported
+                            ? 'Style controls unlock after the first visible style profile finishes building.'
+                            : 'Import and train on messages first to unlock style controls'}
                       </Text>
+                      {profileSyncPending && (
+                        <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 8, textAlign: 'center' }}>
+                          Current learning signal: {learningImportSummary.hostMessagesAnalyzed.toLocaleString()} host replies analyzed and {learningImportSummary.patternsIndexed.toLocaleString()} patterns indexed.
+                        </Text>
+                      )}
                     </View>
                   );
                 }
@@ -1681,32 +1799,25 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               {/* Sync Status / Progress */}
               {historySyncStatus.isSyncing ? (
                 <View style={{ padding: 16 }}>
-...
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                     <Text style={{ color: colors.text.muted, fontSize: 13, fontFamily: typography.fontFamily.medium }}>
-                      {historySyncStatus.isPaused
-                        ? 'Paused'
-                        : historySyncStatus.syncPhase === 'conversations'
-                        ? 'Fetching conversations...'
-                        : historySyncStatus.syncPhase === 'messages'
-                        ? `Fetching messages (${historySyncStatus.processedConversations}/${syncProgress?.totalConversations || '?'})...`
-                        : 'Analyzing patterns...'}
+                      {learningImportSummary.statusLabel}
                     </Text>
                     <Text style={{ color: '#0EA5E9', fontSize: 13, fontFamily: typography.fontFamily.semibold }}>
-                      {historySyncStatus.syncProgress}%
+                      {learningImportSummary.progressPercent}%
                     </Text>
                   </View>
 
                   {/* Progress Bar */}
                   <View style={{ height: 6, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginVertical: 8 }}>
                     <View
-                      style={{ height: '100%', borderRadius: 3, backgroundColor: historySyncStatus.isPaused ? '#F59E0B' : '#0EA5E9', width: `${historySyncStatus.syncProgress}%` }}
+                      style={{ height: '100%', borderRadius: 3, backgroundColor: historySyncStatus.isPaused ? '#F59E0B' : '#0EA5E9', width: `${learningImportSummary.progressPercent}%` }}
                     />
                   </View>
 
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
                     <Text style={{ color: '#64748B', fontSize: 12 }}>
-                      {historySyncStatus.processedMessages} messages fetched
+                      {learningImportSummary.detailLabel}
                     </Text>
                     <Text style={{ color: '#64748B', fontSize: 12 }}>
                       {formatTimeRemaining(historySyncStatus.estimatedTimeRemaining)}
@@ -1795,9 +1906,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {/* Import Button */}
                   <LinkRow
                     icon={<Download size={18} color={colors.primary.DEFAULT} />}
-                    label={!canStartHistoryImport ? "Connect Hostaway First" : historySyncStatus.lastFullSync ? "Fetch More History" : "Import All History"}
+                    label={learningPrimaryAction}
                     onPress={() => {
-                      if (canStartHistoryImport) handleStartSync(false);
+                      handlePrimaryLearningAction();
                     }}
                     isLast
                   />

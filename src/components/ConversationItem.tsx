@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import type { Conversation } from '@/lib/store';
+import { guestMemoryManager } from '@/lib/advanced-training';
 import { PremiumPressable } from '@/components/ui/PremiumPressable';
 import { typography } from '@/lib/design-tokens';
 
@@ -116,6 +117,11 @@ export const ConversationItem = memo(function ConversationItem({
   const { guest, property, lastMessage, unreadCount, checkInDate, checkOutDate } = conversation;
   const lastSender = lastMessage?.sender;
   const isUnread = unreadCount > 0 && lastSender !== 'host';
+  const guestMemory = useMemo(() => {
+    if (!guest?.email && !guest?.phone) return null;
+    return guestMemoryManager.getGuestMemory(guest.email, guest.phone);
+  }, [guest?.email, guest?.phone]);
+  const showReturningBadge = Boolean(guestMemory?.preferences.isReturning);
 
   const lastMessagePreview = useMemo(() => {
     if (!lastMessage?.content) return 'No messages yet';
@@ -189,6 +195,11 @@ export const ConversationItem = memo(function ConversationItem({
             <Text style={[styles.guestName, isUnread && styles.guestNameUnread]} numberOfLines={1}>
               {guest.name || 'Unknown Guest'}
             </Text>
+            {showReturningBadge ? (
+              <View style={styles.returningTag}>
+                <Text style={styles.returningTagText}>Returning</Text>
+              </View>
+            ) : null}
             {inlineTags.map((t) => (
               <View key={t.id} style={[styles.inlineTag, { backgroundColor: t.bg }]}>
                 <Text style={[styles.inlineTagText, { color: t.color }]}>{t.label}</Text>
@@ -298,6 +309,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginLeft: 6,
   },
+  returningTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    marginLeft: 6,
+    backgroundColor: '#EEF9F6',
+    borderWidth: 1,
+    borderColor: '#D8F1EA',
+  },
+  returningTagText: {
+    fontSize: 10.5,
+    fontFamily: typography.fontFamily.medium,
+    color: '#0F766E',
+  },
   inlineTagText: {
     fontSize: 12,
     fontFamily: typography.fontFamily.medium,
@@ -359,4 +384,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
 });
-

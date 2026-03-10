@@ -9,6 +9,7 @@ import type {
   QuickReplyTemplate,
   AILearningProgress,
   DraftOutcome,
+  HistorySyncStatus,
 } from './store';
 import type { HostawayMessage, HostawayConversation } from './hostaway';
 
@@ -72,6 +73,54 @@ export interface LearningDashboardStats {
   rejections: number;
   approvalRate: number;
   trainedMessageCount: number;
+}
+
+export interface LearningImportSummaryInput {
+  historySyncStatus: HistorySyncStatus;
+  aiLearningProgress: AILearningProgress;
+  totalConversationsDiscovered?: number | null;
+}
+
+export interface LearningImportSummary {
+  statusLabel: string;
+  detailLabel: string;
+  progressPercent: number;
+  conversationsDiscovered: number;
+  conversationsProcessed: number;
+  messagesFetched: number;
+  hostMessagesAnalyzed: number;
+  patternsIndexed: number;
+  isImported: boolean;
+  isTrainingReady: boolean;
+}
+
+export interface IndexedResponsePatternLike {
+  guestIntent: string;
+}
+
+export interface RecurringIntentCoverageInput {
+  conversations: HostawayConversation[];
+  messagesByConversation: Record<number, HostawayMessage[]>;
+  indexedPatterns: IndexedResponsePatternLike[];
+  minimumRecurringVolume?: number;
+  coveredPatternThreshold?: number;
+  targetPercent?: number;
+}
+
+export interface RecurringIntentCoverageRow {
+  intent: string;
+  guestQuestionCount: number;
+  indexedPatternCount: number;
+  status: 'covered' | 'weak' | 'missing';
+}
+
+export interface RecurringIntentCoverageSummary {
+  targetPercent: number;
+  recurringIntentCount: number;
+  coveredIntentCount: number;
+  coveragePercent: number;
+  targetMet: boolean;
+  rows: RecurringIntentCoverageRow[];
 }
 
 // Common greeting patterns to detect
@@ -411,6 +460,132 @@ export function buildLearningDashboardStats({
   };
 }
 
+export function buildLearningImportSummary({
+  historySyncStatus,
+  aiLearningProgress,
+  totalConversationsDiscovered,
+}: LearningImportSummaryInput): LearningImportSummary {
+  const conversationsDiscovered = Math.max(
+    totalConversationsDiscovered || 0,
+    historySyncStatus.totalConversationsSynced || 0,
+    historySyncStatus.processedConversations || 0
+  );
+  const hostMessagesAnalyzed =
+    aiLearningProgress.lastTrainingResult?.hostMessagesAnalyzed ??
+    aiLearningProgress.totalMessagesAnalyzed;
+  const patternsIndexed =
+    aiLearningProgress.lastTrainingResult?.patternsIndexed ??
+    aiLearningProgress.patternsIndexed;
+  const isImported =
+    historySyncStatus.syncPhase === 'complete' ||
+    (conversationsDiscovered > 0 && historySyncStatus.processedConversations >= conversationsDiscovered);
+  const isTrainingReady = hostMessagesAnalyzed > 0 && patternsIndexed > 0;
+
+  let statusLabel = 'Import your message history to start learning';
+  if (historySyncStatus.isPaused) {
+    statusLabel = 'Import paused';
+  } else if (historySyncStatus.isSyncing) {
+    if (historySyncStatus.syncPhase === 'conversations') {
+      statusLabel = 'Fetching conversations';
+    } else if (historySyncStatus.syncPhase === 'messages') {
+      statusLabel = `Fetching messages for conversation ${historySyncStatus.processedConversations} of ${conversationsDiscovered || '?'}`;
+    } else if (historySyncStatus.syncPhase === 'analyzing') {
+      statusLabel = 'Analyzing patterns from your history';
+    }
+  } else if (isImported && !isTrainingReady) {
+    statusLabel = 'Import complete. Training your history now';
+  } else if (isTrainingReady) {
+    statusLabel = 'Learning ready';
+  }
+
+  let detailLabel = 'No history imported yet';
+  if (historySyncStatus.isSyncing || isImported) {
+    detailLabel = `${historySyncStatus.processedMessages || historySyncStatus.totalMessagesSynced} messages fetched`;
+  }
+  if (isTrainingReady && !historySyncStatus.isSyncing) {
+    detailLabel = `${hostMessagesAnalyzed} host messages analyzed • ${patternsIndexed} patterns indexed`;
+  }
+
+  return {
+    statusLabel,
+    detailLabel,
+    progressPercent: historySyncStatus.syncProgress,
+    conversationsDiscovered,
+    conversationsProcessed: historySyncStatus.processedConversations,
+    messagesFetched: historySyncStatus.processedMessages || historySyncStatus.totalMessagesSynced,
+    hostMessagesAnalyzed,
+    patternsIndexed,
+    isImported,
+    isTrainingReady,
+  };
+}
+
+export function buildRecurringIntentCoverage({
+  conversations,
+  messagesByConversation,
+  indexedPatterns,
+  minimumRecurringVolume = 5,
+  coveredPatternThreshold = 3,
+  targetPercent = 75,
+}: RecurringIntentCoverageInput): RecurringIntentCoverageSummary {
+  const guestIntentCounts = new Map<string, number>();
+
+  for (const conversation of conversations) {
+    const messages = messagesByConversation[conversation.id] || [];
+    for (const message of messages) {
+      const isGuestMessage = Number(message.isIncoming) === 1;
+      if (!isGuestMessage || !message.body?.trim()) continue;
+      const intent = detectIntent(message.body);
+      guestIntentCounts.set(intent, (guestIntentCounts.get(intent) || 0) + 1);
+    }
+  }
+
+  const indexedPatternCounts = new Map<string, number>();
+  for (const pattern of indexedPatterns) {
+    indexedPatternCounts.set(pattern.guestIntent, (indexedPatternCounts.get(pattern.guestIntent) || 0) + 1);
+  }
+
+  const rows = [...guestIntentCounts.entries()]
+    .filter(([, count]) => count >= minimumRecurringVolume)
+    .map(([intent, guestQuestionCount]) => {
+      const indexedPatternCount = indexedPatternCounts.get(intent) || 0;
+      const status: RecurringIntentCoverageRow['status'] = indexedPatternCount >= coveredPatternThreshold
+        ? 'covered'
+        : indexedPatternCount > 0
+          ? 'weak'
+          : 'missing';
+
+      return {
+        intent,
+        guestQuestionCount,
+        indexedPatternCount,
+        status,
+      };
+    })
+    .sort((a, b) => {
+      const statusRank = { covered: 0, weak: 1, missing: 2 };
+      if (statusRank[a.status] !== statusRank[b.status]) {
+        return statusRank[a.status] - statusRank[b.status];
+      }
+      return b.guestQuestionCount - a.guestQuestionCount;
+    });
+
+  const recurringIntentCount = rows.length;
+  const coveredIntentCount = rows.filter((row) => row.status === 'covered').length;
+  const coveragePercent = recurringIntentCount > 0
+    ? Math.round((coveredIntentCount / recurringIntentCount) * 100)
+    : 0;
+
+  return {
+    targetPercent,
+    recurringIntentCount,
+    coveredIntentCount,
+    coveragePercent,
+    targetMet: recurringIntentCount > 0 && coveragePercent >= targetPercent,
+    rows,
+  };
+}
+
 /**
  * Generate style instructions for the AI based on learned profile
  */
@@ -467,9 +642,12 @@ export function generateStyleInstructions(profile: HostStyleProfile): string {
 
 // Intent detection patterns for response categorization
 const INTENT_PATTERNS: Record<string, RegExp[]> = {
+  early_checkin: [/early.*check.?in/i, /check.?in.*early/i, /earlier.*arriv/i, /arriv.*early/i],
+  late_checkout: [/late.*check.?out/i, /later.*leave/i, /stay.*longer/i],
   check_in: [/check.?in/i, /arrival/i, /key|access|door|lock/i, /when.*arrive/i],
   check_out: [/check.?out/i, /departure/i, /leaving/i, /late.*check.*out/i],
   wifi: [/wi.?fi/i, /internet|password|network/i],
+  parking: [/park|parking|car|garage|driveway/i],
   issue: [/broken|not working|problem|issue|fix/i, /doesn't work|dirty|noise/i],
   amenity: [/pool|gym|parking|tv|kitchen|bathroom/i],
   booking: [/book|reservation|extend|cancel/i, /dates|availability/i],

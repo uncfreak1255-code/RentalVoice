@@ -85,7 +85,20 @@ export interface PropertyKnowledge {
 export interface Issue {
   id: string;
   conversationId: string;
-  category: 'maintenance' | 'cleanliness' | 'amenity' | 'noise' | 'access' | 'lease_violation' | 'rent_delinquency' | 'pest' | 'utility' | 'other';
+  category:
+    | 'maintenance'
+    | 'cleanliness'
+    | 'amenity'
+    | 'complaint'
+    | 'refund_risk'
+    | 'policy_billing'
+    | 'noise'
+    | 'access'
+    | 'lease_violation'
+    | 'rent_delinquency'
+    | 'pest'
+    | 'utility'
+    | 'other';
   description: string;
   status: 'open' | 'in_progress' | 'resolved';
   priority: 'low' | 'medium' | 'high' | 'urgent';
