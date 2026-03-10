@@ -171,8 +171,14 @@ export function MessageComposer({
 
   useEffect(() => {
     if (!aiDraft || isEditingDraft) return;
-    setIsDraftMinimized(message.trim().length > 0);
-  }, [aiDraft, isEditingDraft, message]);
+    // Auto-minimize when keyboard appears OR user types
+    if (isKeyboardVisible || message.trim().length > 0) {
+      setIsDraftMinimized(true);
+    } else if (!isKeyboardVisible && message.trim().length === 0) {
+      // Restore when keyboard hides and user hasn't typed
+      setIsDraftMinimized(false);
+    }
+  }, [aiDraft, isEditingDraft, message, isKeyboardVisible]);
 
   // Reset when draft is dismissed
   useEffect(() => {
@@ -338,7 +344,7 @@ export function MessageComposer({
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={[mcStyles.v2GlassPanel, { maxHeight: isKeyboardVisible && !isEditingDraft ? 100 : 280 }]}
+          style={[mcStyles.v2GlassPanel, { maxHeight: 280 }]}
           testID="chat-ai-draft"
         >
           <ScrollView
@@ -585,7 +591,7 @@ export function MessageComposer({
       {/* Message Input */}
       {!isEditingDraft && (
         <View style={{ flexDirection: 'column', width: '100%' }}>
-          {aiDraft && !isKeyboardVisible && (
+          {aiDraft && isDraftMinimized && !isKeyboardVisible && (
             <View style={mcStyles.ownReplyHint}>
               <Edit3 size={12} color={colors.text.muted} />
               <Text style={[mcStyles.ownReplyHintText, { flex: 1 }]}>

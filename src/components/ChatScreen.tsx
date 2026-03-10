@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView, Keyboard, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 
 import { format } from 'date-fns';
@@ -142,6 +142,7 @@ function SmartReplyBar({ guestMessage, propertyKnowledge, onSelect }: {
 }
 
 export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreenProps) {
+  const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const hasScrolledToBottom = useRef(false);
@@ -1431,7 +1432,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={chatStyles.flex1}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 56 : 0}
         >
           <View style={chatStyles.flex1}>
             <FlatList
