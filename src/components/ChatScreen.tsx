@@ -644,6 +644,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
     setIsGeneratingDraft(true);
     setCurrentModifier(modifier);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
       let enhancedResponse: EnhancedAIResponse | null = null;
@@ -754,6 +755,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         historicalMatches: enhancedResponse.historicalMatches,
         knowledgeConflicts: enhancedResponse.knowledgeConflicts,
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       // Handle action items
       if (enhancedResponse.actionItems.length > 0) {
@@ -965,6 +967,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
   const handleApproveAiDraft = useCallback(async (contentOverride?: string) => {
     if (!currentEnhancedDraft || isSending) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsSending(true);
 
     // Capture context BEFORE updating UI
@@ -1118,6 +1121,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
   }, []);
 
   const handleDismissAiDraft = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const messagesWithoutDraft = messages.filter((m) => m.sender !== 'ai_draft');
     const lastNonDraft = messagesWithoutDraft[messagesWithoutDraft.length - 1];
 

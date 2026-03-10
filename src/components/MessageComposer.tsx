@@ -15,7 +15,7 @@ import {
   Trash2,
   MoreHorizontal,
 } from 'lucide-react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, withSequence } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import type { RegenerationOption, ConfidenceScore, SentimentAnalysis, ActionItem, KnowledgeConflict, HistoricalMatchInfo } from '@/lib/ai-enhanced';
 import { scanForSensitiveData, type ScanResult } from '@/lib/privacy-scanner';
@@ -60,6 +60,41 @@ interface MessageComposerProps {
 
 
 
+
+function TypingDots() {
+  const dot1 = useSharedValue(0.3);
+  const dot2 = useSharedValue(0.3);
+  const dot3 = useSharedValue(0.3);
+
+  useEffect(() => {
+    const pulse = (sv: typeof dot1, delay: number) => {
+      sv.value = withRepeat(
+        withDelay(delay, withSequence(
+          withTiming(1, { duration: 400 }),
+          withTiming(0.3, { duration: 400 }),
+        )),
+        -1, false,
+      );
+    };
+    pulse(dot1, 0);
+    pulse(dot2, 200);
+    pulse(dot3, 400);
+  }, []);
+
+  const s1 = useAnimatedStyle(() => ({ opacity: dot1.value, transform: [{ scale: 0.7 + dot1.value * 0.3 }] }));
+  const s2 = useAnimatedStyle(() => ({ opacity: dot2.value, transform: [{ scale: 0.7 + dot2.value * 0.3 }] }));
+  const s3 = useAnimatedStyle(() => ({ opacity: dot3.value, transform: [{ scale: 0.7 + dot3.value * 0.3 }] }));
+
+  const dot = { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary.DEFAULT, marginHorizontal: 2 } as const;
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 8 }}>
+      <Animated.View style={[dot, s1]} />
+      <Animated.View style={[dot, s2]} />
+      <Animated.View style={[dot, s3]} />
+    </View>
+  );
+}
 
 export function MessageComposer({
   onSend,
@@ -354,9 +389,12 @@ export function MessageComposer({
             nestedScrollEnabled={true}
           >
           {isGenerating ? (
-            <View style={mcStyles.rowCenter}>
-              <ActivityIndicator size="small" color={colors.primary.DEFAULT} />
-              <Text style={mcStyles.tealLabel}>Drafting a response...</Text>
+            <View style={mcStyles.generatingContainer}>
+              <View style={mcStyles.rowCenter}>
+                <Sparkles size={16} color={colors.primary.DEFAULT} />
+                <Text style={mcStyles.tealLabel}>Writing your reply</Text>
+              </View>
+              <TypingDots />
             </View>
           ) : (
             <>
@@ -684,6 +722,10 @@ const mcStyles = StyleSheet.create({
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     marginBottom: spacing['2'],
+  },
+  generatingContainer: {
+    alignItems: 'center' as const,
+    paddingVertical: spacing['3'],
   },
   tealLabel: {
     color: colors.primary.DEFAULT,

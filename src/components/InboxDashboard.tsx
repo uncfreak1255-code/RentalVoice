@@ -129,6 +129,15 @@ function applySortPreference(conversations: Conversation[], preference: InboxSor
   }
 }
 
+function formatSyncTime(date: Date): string {
+  const now = Date.now();
+  const diff = now - date.getTime();
+  if (diff < 10_000) return 'just now';
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 type FilterTab = 'all' | 'unread' | 'inquiry' | 'check_in' | 'check_out';
 
 interface InboxDashboardProps {
@@ -172,7 +181,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const hasInitialLoaded = useRef(false);
   const hasRecoveredEmptyInbox = useRef(false);
   const lastRefreshTime = useRef<number>(0);
-  const [, setLastSyncTime] = useState<Date | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
   const [isBriefingCollapsed, setIsBriefingCollapsed] = useState(true);
 
@@ -637,6 +646,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   useEffect(() => {
     if (!isRefreshing) {
       lastRefreshTime.current = Date.now();
+      setLastSyncTime(new Date());
     }
   }, [isRefreshing]);
 
@@ -745,6 +755,18 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             })}
           </ScrollView>
         </View>
+
+        {/* Sync Status */}
+        {lastSyncTime && !isRefreshing && (
+          <Text style={{ textAlign: 'center', fontSize: 11, color: colors.text.disabled, paddingVertical: 4 }}>
+            Updated {formatSyncTime(lastSyncTime)}
+          </Text>
+        )}
+        {isRefreshing && (
+          <Text style={{ textAlign: 'center', fontSize: 11, color: colors.primary.DEFAULT, paddingVertical: 4 }}>
+            Syncing...
+          </Text>
+        )}
 
         {/* Demo Mode Banner */}
         {(isDemoMode || (!features.serverProxiedAI && !accountId && !apiKey)) && (

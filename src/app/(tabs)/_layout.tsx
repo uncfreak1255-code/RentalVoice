@@ -2,8 +2,15 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { MessageSquare, CalendarDays, Settings } from 'lucide-react-native';
 import { colors, typography } from '@/lib/design-tokens';
+import { useAppStore } from '@/lib/store';
+import { isRenderableUnreadConversation } from '@/lib/inbox-trust';
 
 export default function TabLayout() {
+  const conversations = useAppStore((s) => s.conversations);
+  const unreadCount = conversations.filter((c) =>
+    c.status !== 'archived' && c.workflowStatus !== 'archived' && isRenderableUnreadConversation(c)
+  ).length;
+
   return (
     <Tabs
       screenOptions={{
@@ -33,6 +40,16 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <MessageSquare size={size} color={color} />
           ),
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: colors.primary.DEFAULT,
+            fontSize: 10,
+            fontFamily: typography.fontFamily.medium,
+            minWidth: 18,
+            height: 18,
+            lineHeight: 18,
+            borderRadius: 9,
+          },
         }}
       />
       <Tabs.Screen
