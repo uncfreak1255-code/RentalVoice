@@ -130,9 +130,9 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
   }, [resetStore]);
 
   const features = [
-    { icon: Lock, title: 'End-to-End Encryption', desc: 'All messages and data are encrypted in transit and at rest' },
-    { icon: Shield, title: 'Secure API Connection', desc: 'Hostaway credentials stored with expo-secure-store' },
-    { icon: Eye, title: 'Privacy-First Design', desc: 'No data sold or shared — your data stays on your device' },
+    { icon: Lock, title: 'Secure Connections', desc: 'Data transmitted over encrypted HTTPS connections' },
+    { icon: Shield, title: 'Secure Credential Storage', desc: 'PMS credentials stored using platform-native secure storage' },
+    { icon: Eye, title: 'Privacy-First Design', desc: 'Your data is not sold to advertisers or data brokers' },
   ];
 
   return (
@@ -154,8 +154,8 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
                 <Shield size={22} color={colors.primary.DEFAULT} />
               </View>
               <View style={s.flex}>
-                <Text style={s.bannerTitle}>Your Data is Protected</Text>
-                <Text style={s.bannerDesc}>All security features are active and verified.</Text>
+                <Text style={s.bannerTitle}>Privacy Settings</Text>
+                <Text style={s.bannerDesc}>Manage your privacy and security preferences below.</Text>
               </View>
             </View>
           </Animated.View>
@@ -227,7 +227,7 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
                 </View>
                 <View style={s.flex}>
                   <Text style={s.rowTitle}>{isExporting ? 'Preparing Export…' : 'Export My Data'}</Text>
-                  <Text style={s.rowSub}>Download a copy of your data as JSON</Text>
+                  <Text style={s.rowSub}>Export a summary of your properties and usage data</Text>
                 </View>
                 <FileText size={16} color={colors.text.disabled} />
               </Pressable>
@@ -240,8 +240,8 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
                   <Trash2 size={20} color={colors.danger.DEFAULT} />
                 </View>
                 <View style={s.flex}>
-                  <Text style={[s.rowTitle, { color: colors.danger.light }]}>Delete All Data</Text>
-                  <Text style={s.rowSub}>Permanently remove all local data</Text>
+                  <Text style={[s.rowTitle, { color: colors.danger.light }]}>Reset App Data</Text>
+                  <Text style={s.rowSub}>Clear local app data and preferences</Text>
                 </View>
                 <AlertTriangle size={16} color={colors.danger.DEFAULT} />
               </Pressable>

@@ -15,6 +15,7 @@ const settingsRoutes: Record<string, string> = {
   billing: '/settings/billing?source=settings',
   billingMemory: '/settings/billing?source=memory_limit',
   founderDiagnostics: '/settings/founder-diagnostics',
+  founderAccess: '/settings/founder-access',
   apiSettings: '/settings/api',
   syncData: '/settings/sync-data',
   languageSettings: '/settings/language',

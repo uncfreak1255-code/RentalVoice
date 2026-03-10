@@ -3,6 +3,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { saveCold, removeCold } from './cold-storage';
 import type { CalibrationEntry, ConversationFlow, ReplyDelta } from './ai-intelligence';
+import {
+  loadFounderSession as loadFounderSessionFromStorage,
+  saveFounderSession as saveFounderSessionToStorage,
+  clearFounderSession as clearFounderSessionFromStorage,
+  type FounderMigrationState,
+} from './secure-storage';
 
 // Types
 export interface Guest {
@@ -451,6 +457,17 @@ export interface PropertyAutoPilotSettings {
   customScheduleEnd?: string;
 }
 
+// Founder Session — durable identity for the founder account
+export interface FounderSession {
+  userId: string;
+  orgId: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+  validatedAt: string;
+  migrationState: FounderMigrationState;
+}
+
 interface AppState {
   // Settings
   settings: AppSettings;
@@ -590,6 +607,13 @@ interface AppState {
   // Demo mode
   isDemoMode: boolean;
   setDemoMode: (value: boolean) => void;
+
+  // Founder Session
+  founderSession: FounderSession | null;
+  founderSessionLoading: boolean;
+  setFounderSession: (session: FounderSession) => void;
+  clearFounderSession: () => void;
+  restoreFounderSession: () => Promise<FounderSession | null>;
 
   // Reset
   resetStore: () => void;
@@ -1261,6 +1285,49 @@ export const useAppStore = create<AppState>()(
       isDemoMode: false,
       setDemoMode: (value) => set({ isDemoMode: value }),
 
+      // Founder Session
+      founderSession: null,
+      founderSessionLoading: false,
+      setFounderSession: (session) => {
+        set({ founderSession: session, founderSessionLoading: false });
+        // Persist to secure storage in background
+        saveFounderSessionToStorage(session).catch((err) => {
+          console.error('[Store] Failed to persist founder session:', err);
+        });
+      },
+      clearFounderSession: () => {
+        set({ founderSession: null, founderSessionLoading: false });
+        clearFounderSessionFromStorage().catch((err) => {
+          console.error('[Store] Failed to clear founder session from storage:', err);
+        });
+      },
+      restoreFounderSession: async () => {
+        set({ founderSessionLoading: true });
+        try {
+          const session = await loadFounderSessionFromStorage();
+          if (session) {
+            const founderSession: FounderSession = {
+              userId: session.userId,
+              orgId: session.orgId,
+              email: session.email,
+              accessToken: session.accessToken,
+              refreshToken: session.refreshToken,
+              validatedAt: session.validatedAt,
+              migrationState: session.migrationState,
+            };
+            set({ founderSession, founderSessionLoading: false });
+            console.log('[Store] Founder session restored for', session.email);
+            return founderSession;
+          }
+          set({ founderSessionLoading: false });
+          return null;
+        } catch (error) {
+          console.error('[Store] Failed to restore founder session:', error);
+          set({ founderSessionLoading: false });
+          return null;
+        }
+      },
+
       // Reset
       resetStore: () => {
         // Clear cold storage to prevent zombie data on next mount
@@ -1331,6 +1398,11 @@ export const useAppStore = create<AppState>()(
           replyDeltas: [],
           activeConversationId: null,
           isDemoMode: false,
+          // Note: founderSession in-memory state is cleared, but secure storage
+          // is NOT cleared here. Founder session survives Hostaway disconnects.
+          // Use clearFounderSession() explicitly to wipe stored founder tokens.
+          founderSession: null,
+          founderSessionLoading: false,
         });
       },
     }),

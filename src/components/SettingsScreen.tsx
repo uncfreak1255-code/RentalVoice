@@ -10,6 +10,7 @@ import {
   Brain, BookOpen, Globe,
   BarChart3, BellOff,
   Plane, MessageSquare, Cpu, Zap,
+  User,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
@@ -46,6 +47,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const analytics = useAppStore((s) => s.analytics);
   const autoPilotEnabled = useAppStore((s) => s.settings.autoPilotEnabled);
   const aiLearningProgress = useAppStore((s) => s.aiLearningProgress);
+  const founderSession = useAppStore((s) => s.founderSession);
 
   // AI Usage stats
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
@@ -199,6 +201,21 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               isLast
             />
           </View>
+
+          {/* ── Founder ── */}
+          <SectionHeader title="Founder" />
+          <View style={s.card}>
+            <LinkRow
+              icon={<User size={18} color={founderSession ? '#10B981' : colors.primary.DEFAULT} />}
+              iconBg={founderSession ? '#D1FAE5' : undefined}
+              label={founderSession ? 'Founder Account Active' : 'Founder Access'}
+              onPress={() => handleNavigate('founderAccess')}
+              isLast
+            />
+          </View>
+          {founderSession && (
+            <SectionFooter text={`Signed in as ${founderSession.email}`} />
+          )}
 
           {/* ── AI Usage ── */}
           <SectionHeader title="AI Usage" />

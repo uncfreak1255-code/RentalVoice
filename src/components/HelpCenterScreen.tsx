@@ -47,9 +47,9 @@ const faqCategories: FAQCategory[] = [
     title: 'Privacy & Security',
     icon: Shield,
     faqs: [
-      { question: 'Is my data secure?', answer: 'Yes. Rental Voice encrypts your data in transit and at rest. Hostaway connection credentials are stored in secure device storage in personal mode and encrypted workspace storage in managed commercial mode.' },
-      { question: 'Can I export or delete my data?', answer: 'Go to Settings → Privacy & Security → Data Management. You can export all your data as JSON or permanently delete everything from the app.' },
-      { question: 'What does Privacy Compliance scanning do?', answer: 'The privacy scanner checks your AI drafts and conversation history for sensitive data like credit card numbers, SSNs, and personal information — helping you stay compliant with GDPR and CCPA.' },
+      { question: 'Is my data secure?', answer: 'Yes. Rental Voice uses secure connections (HTTPS) for all data transfers. Your PMS credentials are stored using platform-native secure storage. In commercial mode, data is managed through secure server infrastructure.' },
+      { question: 'Can I export or delete my data?', answer: 'Go to Settings → Privacy & Security → Data Management. You can export a summary of your data or reset local app data. Stored credentials can be cleared by disconnecting your PMS account.' },
+      { question: 'What does the privacy scanner do?', answer: 'The privacy scanner flags potential sensitive data like card numbers and personal identifiers in messages, helping you catch accidental data exposure before sending.' },
     ],
   },
 ];
@@ -239,15 +239,13 @@ export function HelpCenterScreen({ onBack }: HelpCenterScreenProps) {
                 </View>
                 <ExternalLink size={14} color={colors.text.disabled} />
               </Pressable>
-              <Pressable
-                style={({ pressed }) => [s.contactRow, { opacity: pressed ? 0.7 : 1 }]}
-              >
+              <View style={s.contactRow}>
                 <View style={s.contactIcon}><MessageCircle size={20} color={colors.text.muted} /></View>
                 <View style={s.flex}>
-                  <Text style={s.contactTitle}>Live Chat</Text>
-                  <Text style={s.contactSub}>Available 9am – 5pm EST</Text>
+                  <Text style={s.contactTitle}>Response Time</Text>
+                  <Text style={s.contactSub}>We aim to respond within 24 hours</Text>
                 </View>
-              </Pressable>
+              </View>
             </View>
           </Animated.View>
         </ScrollView>

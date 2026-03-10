@@ -16,6 +16,14 @@ const STORAGE_KEYS = {
   STABLE_ACCOUNT_SOURCE_ACCOUNT_ID: 'hostaway_stable_account_source_account_id',
   MIGRATION_DONE: 'hostaway_migration_done',
   COMMERCIAL_LEARNING_IMPORT_DONE: 'hostaway_commercial_learning_import_done',
+  // Founder session keys
+  FOUNDER_ACCESS_TOKEN: 'rv_founder_access_token',
+  FOUNDER_REFRESH_TOKEN: 'rv_founder_refresh_token',
+  FOUNDER_USER_ID: 'rv_founder_user_id',
+  FOUNDER_ORG_ID: 'rv_founder_org_id',
+  FOUNDER_EMAIL: 'rv_founder_email',
+  FOUNDER_SESSION_VALIDATED_AT: 'rv_founder_session_validated_at',
+  FOUNDER_MIGRATION_STATE: 'rv_founder_migration_state',
 } as const;
 
 export interface StoredCredentials {
@@ -383,5 +391,115 @@ export async function setCommercialLearningImportDone(stableId: string): Promise
     console.log('[SecureStorage] Commercial learning import marked complete for', stableId);
   } catch (error) {
     console.error('[SecureStorage] Failed to mark commercial learning import done:', error);
+  }
+}
+
+// ── Founder Session ──
+
+export type FounderMigrationState = 'pending' | 'in_progress' | 'completed' | 'failed';
+
+export interface FounderSessionData {
+  userId: string;
+  orgId: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+  validatedAt: string;
+  migrationState: FounderMigrationState;
+}
+
+/**
+ * Persist a founder session to secure storage.
+ * Tokens go to encrypted storage; metadata alongside them.
+ */
+export async function saveFounderSession(session: FounderSessionData): Promise<void> {
+  try {
+    await Promise.all([
+      setItem(STORAGE_KEYS.FOUNDER_ACCESS_TOKEN, session.accessToken),
+      setItem(STORAGE_KEYS.FOUNDER_REFRESH_TOKEN, session.refreshToken),
+      setItem(STORAGE_KEYS.FOUNDER_USER_ID, session.userId),
+      setItem(STORAGE_KEYS.FOUNDER_ORG_ID, session.orgId),
+      setItem(STORAGE_KEYS.FOUNDER_EMAIL, session.email),
+      setItem(STORAGE_KEYS.FOUNDER_SESSION_VALIDATED_AT, session.validatedAt),
+      setItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE, session.migrationState),
+    ]);
+    console.log('[SecureStorage] Founder session saved');
+  } catch (error) {
+    console.error('[SecureStorage] Failed to save founder session:', error);
+    throw new Error('Failed to save founder session');
+  }
+}
+
+/**
+ * Load the founder session from secure storage.
+ * Returns null if any required field is missing.
+ */
+export async function loadFounderSession(): Promise<FounderSessionData | null> {
+  try {
+    const [accessToken, refreshToken, userId, orgId, email, validatedAt, migrationState] =
+      await Promise.all([
+        getItem(STORAGE_KEYS.FOUNDER_ACCESS_TOKEN),
+        getItem(STORAGE_KEYS.FOUNDER_REFRESH_TOKEN),
+        getItem(STORAGE_KEYS.FOUNDER_USER_ID),
+        getItem(STORAGE_KEYS.FOUNDER_ORG_ID),
+        getItem(STORAGE_KEYS.FOUNDER_EMAIL),
+        getItem(STORAGE_KEYS.FOUNDER_SESSION_VALIDATED_AT),
+        getItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE),
+      ]);
+
+    if (!accessToken || !refreshToken || !userId || !orgId || !email) {
+      return null;
+    }
+
+    return {
+      accessToken,
+      refreshToken,
+      userId,
+      orgId,
+      email,
+      validatedAt: validatedAt || new Date().toISOString(),
+      migrationState: (migrationState as FounderMigrationState) || 'pending',
+    };
+  } catch (error) {
+    console.error('[SecureStorage] Failed to load founder session:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear the entire founder session from secure storage.
+ */
+export async function clearFounderSession(): Promise<void> {
+  try {
+    await Promise.all([
+      deleteItem(STORAGE_KEYS.FOUNDER_ACCESS_TOKEN),
+      deleteItem(STORAGE_KEYS.FOUNDER_REFRESH_TOKEN),
+      deleteItem(STORAGE_KEYS.FOUNDER_USER_ID),
+      deleteItem(STORAGE_KEYS.FOUNDER_ORG_ID),
+      deleteItem(STORAGE_KEYS.FOUNDER_EMAIL),
+      deleteItem(STORAGE_KEYS.FOUNDER_SESSION_VALIDATED_AT),
+      deleteItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE),
+    ]);
+    console.log('[SecureStorage] Founder session cleared');
+  } catch (error) {
+    console.error('[SecureStorage] Failed to clear founder session:', error);
+  }
+}
+
+/**
+ * Quick check: is there a founder session present in secure storage?
+ * Does not validate token expiry — just presence of required fields.
+ */
+export async function isFounderSessionPresent(): Promise<boolean> {
+  try {
+    const [accessToken, userId, email] = await Promise.all([
+      getItem(STORAGE_KEYS.FOUNDER_ACCESS_TOKEN),
+      getItem(STORAGE_KEYS.FOUNDER_USER_ID),
+      getItem(STORAGE_KEYS.FOUNDER_EMAIL),
+    ]);
+    return !!(accessToken && userId && email);
+  } catch (error) {
+    console.error('[SecureStorage] Failed to check founder session presence:', error);
+    return false;
   }
 }

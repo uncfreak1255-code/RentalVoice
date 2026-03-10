@@ -252,7 +252,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   </View>
                 )}
                 {!isValidating && statusMessage && <View style={ob.statusRow}><Sparkles size={18} color={colors.primary.DEFAULT} /><Text style={ob.statusText}>{statusMessage}</Text></View>}
-                <View style={ob.secRow}><Shield size={18} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} /><Text style={ob.secText}>Your credentials are stored securely on your device and never shared with third parties.</Text></View>
+                <View style={ob.secRow}><Shield size={18} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} /><Text style={ob.secText}>Your credentials are stored using platform-native secure storage.</Text></View>
                 <Pressable style={ob.helpLink}><Text style={ob.helpText}>Where do I find my API credentials?</Text></Pressable>
                 <View style={{ paddingBottom: spacing['6'] }}>
                   <Pressable onPress={handleConnectHostaway} disabled={!hasInput || isValidating || pmsConfig.comingSoon} style={({ pressed }) => [ob.ctaBtn, { backgroundColor: hasInput && !isValidating && !pmsConfig.comingSoon ? colors.accent.DEFAULT : colors.bg.hover, marginBottom: spacing['3'], opacity: pressed ? 0.9 : 1 }]} testID="onboarding-connect">

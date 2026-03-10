@@ -34,6 +34,8 @@ export default function InboxTab() {
   const activeConversationId = useAppStore((s) => s.activeConversationId);
   const setActiveConversation = useAppStore((s) => s.setActiveConversation);
   const resetStore = useAppStore((s) => s.resetStore);
+  const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
+  const founderSession = useAppStore((s) => s.founderSession);
 
   const { isOffline, queueLength, recheckNow } = useNetworkStatus();
 
@@ -45,6 +47,15 @@ export default function InboxTab() {
       setActiveConversation(null);
     }
   }, [activeConversationId, isOnboarded, isRestoringConnection, setActiveConversation, router]);
+
+  // Attempt to restore founder session from secure storage on app startup.
+  // This runs before Hostaway restore — founder session takes priority.
+  useEffect(() => {
+    restoreFounderSession().catch((err) => {
+      console.error('[InboxTab] Founder session restore failed (non-fatal):', err);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Restore connection from secure storage on app startup
   useEffect(() => {
