@@ -15,6 +15,7 @@ import {
   isCommercialLearningImportDone,
   setCommercialLearningImportDone,
 } from '@/lib/secure-storage';
+import { canSync, isLocalLearningEmpty, restoreLearningFromCloud } from '@/lib/learning-sync';
 import { colors, typography, spacing } from '@/lib/design-tokens';
 import { StatusBar } from 'expo-status-bar';
 import { getAppEntryDestination, type RestoreOutcome } from '@/lib/session-gate';
@@ -51,6 +52,11 @@ export default function AppEntry() {
 
           runDataMigration(restoreResult.accountId, restoreResult.apiKey).catch((error) => {
             console.warn('[AppEntry] Background migration error (non-fatal):', error);
+          });
+
+          // Restore learning from cloud if local state is empty (fresh install/reset)
+          restoreLearningIfNeeded().catch((error) => {
+            console.warn('[AppEntry] Learning restore error (non-fatal):', error);
           });
         }
 
@@ -122,6 +128,22 @@ async function runDataMigration(enteredAccountId: string, apiKey: string): Promi
     } catch (error) {
       console.warn('[AppEntry] Commercial learning import skipped (non-fatal):', error);
     }
+  }
+}
+
+async function restoreLearningIfNeeded(): Promise<void> {
+  const session = await canSync();
+  if (!session) return; // No founder auth — nothing to restore from
+
+  const empty = await isLocalLearningEmpty();
+  if (!empty) return; // Local learning exists — no need to pull
+
+  console.log('[AppEntry] Local learning empty, restoring from cloud...');
+  const result = await restoreLearningFromCloud();
+  if (result.success && result.profileRestored) {
+    console.log(`[AppEntry] Learning restored: profile + ${result.examplesRestored} examples`);
+  } else if (!result.success) {
+    console.warn('[AppEntry] Learning restore failed:', result.error);
   }
 }
 

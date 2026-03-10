@@ -8,6 +8,7 @@ import type { HostStyleProfile, Conversation, Message, PropertyKnowledge, Messag
 import type { HostawayMessage, HostawayConversation } from './hostaway';
 import { analyzeMessage } from './ai-learning';
 import { scopedKey } from './account-scoped-storage';
+import { syncLearningToCloud } from './learning-sync';
 
 // Storage keys
 const INCREMENTAL_QUEUE_KEY = 'ai_incremental_queue';
@@ -141,6 +142,11 @@ class IncrementalTrainer {
 
       // Notify: "Learned from 10 new messages"
       this.notifyCallbacks();
+
+      // Sync learning state to cloud (fire-and-forget, throttled internally)
+      syncLearningToCloud().catch((err) =>
+        console.error('[IncrementalTrainer] Cloud sync failed:', err)
+      );
 
     } catch (error) {
       console.error('[IncrementalTrainer] Batch processing error:', error);
