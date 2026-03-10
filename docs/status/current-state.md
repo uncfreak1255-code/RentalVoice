@@ -13,6 +13,7 @@ Last updated: 2026-03-09
 
 - Current user-facing mode: `personal`
 - Current visible onboarding/auth flow: Hostaway Account ID + API key
+- Target durable identity architecture: Rental Voice account first, Hostaway connection second
 - Current visible UX must remain Hostaway-first until an explicit cutover
 - Commercial mode remains staged and non-default
 
@@ -46,6 +47,7 @@ Last updated: 2026-03-09
   - founder user id: `502b3aa7-0793-458f-881d-3929a859ab6b`
   - founder org id: `600c7934-8e01-425f-a60c-14c5e7b5c36c`
 - Current app UX still does not use founder auth as the default visible login path
+- Future durable user path should be: `Sign in to Rental Voice` -> `Connect Hostaway` -> `Sync and learn`
 
 ## Safety / rollback truth
 
