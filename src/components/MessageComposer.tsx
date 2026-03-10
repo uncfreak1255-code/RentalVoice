@@ -585,28 +585,16 @@ export function MessageComposer({
       {/* Message Input */}
       {!isEditingDraft && (
         <View style={{ flexDirection: 'column', width: '100%' }}>
-          {aiDraft && (
+          {aiDraft && !isKeyboardVisible && (
             <View style={mcStyles.ownReplyHint}>
               <Edit3 size={12} color={colors.text.muted} />
-              <Text style={mcStyles.ownReplyHintText}>
+              <Text style={[mcStyles.ownReplyHintText, { flex: 1 }]}>
                 Write your own reply (AI will learn from this)
               </Text>
+              <ModelPicker compact />
             </View>
           )}
         <View style={mcStyles.inputRow}>
-          {onAttachMedia && (
-              <PremiumPressable
-              hapticFeedback="light"
-              onPress={onAttachMedia}
-              style={mcStyles.attachBtn}
-              accessibilityLabel="Attach media"
-            >
-              <Paperclip size={18} color={colors.text.disabled} />
-            </PremiumPressable>
-          )}
-
-          <ModelPicker compact />
-
           <View style={mcStyles.inputContainer}>
             <TextInput
               value={message}
@@ -939,8 +927,8 @@ const mcStyles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row' as const,
     alignItems: 'flex-end' as const,
-    paddingHorizontal: spacing['4'],
-    paddingVertical: spacing['3'],
+    paddingHorizontal: spacing['3'],
+    paddingVertical: spacing['2'],
   },
   attachBtn: {
     width: 40,
@@ -957,9 +945,10 @@ const mcStyles = StyleSheet.create({
     alignItems: 'flex-end' as const,
     backgroundColor: colors.bg.card,
     borderRadius: radius['2xl'],
-    paddingHorizontal: spacing['4'],
+    paddingHorizontal: spacing['3'],
     paddingVertical: spacing['2'],
     marginRight: spacing['2'],
+    minHeight: 40,
   },
   textInput: {
     flex: 1,
@@ -968,11 +957,12 @@ const mcStyles = StyleSheet.create({
     color: colors.text.primary,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     borderRadius: radius.full,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+    flexShrink: 0,
   },
 
   // ── V2 Premium AI Draft Styles (matching chat-premium-draft.html) ──
