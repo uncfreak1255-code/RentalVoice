@@ -938,7 +938,8 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
           lastGuestMessage.content,
           content,
           true,
-          conversation?.property?.id
+          conversation?.property?.id,
+          'host_written' // User composed this independently — ground truth for voice learning
         ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
         updateAILearningProgress({
@@ -1026,6 +1027,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
           guestIntent: draftMessage.detectedIntent || 'unknown',
           propertyId: conversation?.property?.id || '',
           timestamp: new Date(),
+          originType: wasEditedByUser ? 'ai_edited' : 'ai_approved',
         };
         addLearningEntry(learningEntry);
 
@@ -1054,7 +1056,8 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             lastGuestMessage.content,
             contentToSend,
             wasEditedByUser,
-            conversation?.property?.id
+            conversation?.property?.id,
+            wasEditedByUser ? 'ai_edited' : 'ai_approved'
           ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
           updateAILearningProgress({

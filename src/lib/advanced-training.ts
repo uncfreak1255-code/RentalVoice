@@ -4,7 +4,7 @@
 // Few-Shot Dynamic Examples, Conversation Flow Learning, Guest Memory
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { HostStyleProfile, Conversation, Message, PropertyKnowledge } from './store';
+import type { HostStyleProfile, Conversation, Message, PropertyKnowledge, MessageOriginType } from './store';
 import type { HostawayMessage, HostawayConversation } from './hostaway';
 import { analyzeMessage } from './ai-learning';
 import { scopedKey } from './account-scoped-storage';
@@ -41,6 +41,7 @@ interface QueuedMessage {
   timestamp: number;
   wasEdited: boolean;
   wasApproved: boolean;
+  originType?: MessageOriginType;
 }
 
 const INCREMENTAL_BATCH_SIZE = 10;
@@ -103,11 +104,14 @@ class IncrementalTrainer {
       for (const msg of batch) {
         const analysis = analyzeMessage(msg.content);
 
-        // Approval-weighted learning: approved=3x, edited=2x, regular=1x
-        const weight = msg.wasApproved ? 3 : msg.wasEdited ? 2 : 1;
+        // Origin-aware weighting: host_written=3x (ground truth), ai_edited=2.5x, ai_approved=1x
+        // Legacy messages without originType fall back to old behavior
+        const weight = msg.originType
+          ? (msg.originType === 'host_written' ? 3 : msg.originType === 'ai_edited' ? 2.5 : 1)
+          : (msg.wasApproved ? 3 : msg.wasEdited ? 2 : 1);
 
         // Run updateStyleMetrics multiple times based on weight
-        // This effectively makes approved messages count 3x in style calculations
+        // host_written messages dominate style learning; ai_approved minimally influences
         for (let w = 0; w < weight; w++) {
           await this.updateStyleMetrics(msg, analysis);
         }
@@ -1352,6 +1356,7 @@ export interface FewShotExample {
   keywords: string[];
   propertyId?: string;
   timestamp: number;
+  originType?: MessageOriginType;
 }
 
 class FewShotIndexer {
@@ -1406,7 +1411,7 @@ class FewShotIndexer {
   }
 
   // Add a new example to the index
-  async addExample(guestMessage: string, hostResponse: string, propertyId?: string): Promise<void> {
+  async addExample(guestMessage: string, hostResponse: string, propertyId?: string, originType?: MessageOriginType): Promise<void> {
     const intent = this.detectIntent(guestMessage);
     const keywords = this.extractKeywords(guestMessage);
 
@@ -1418,6 +1423,7 @@ class FewShotIndexer {
       keywords,
       propertyId,
       timestamp: Date.now(),
+      originType,
     };
 
     this.examples.push(example);
@@ -1470,6 +1476,11 @@ class FewShotIndexer {
       const ageInDays = (Date.now() - example.timestamp) / (1000 * 60 * 60 * 24);
       if (ageInDays < 30) score += 10;
       else if (ageInDays < 90) score += 5;
+
+      // Origin quality bonus — prefer host-written ground truth over AI-generated
+      if (example.originType === 'host_written') score += 30;
+      else if (example.originType === 'ai_edited') score += 15;
+      // ai_approved and legacy (undefined) get no bonus
 
       if (score > 0) {
         scored.push({ example, score });
@@ -1535,6 +1546,52 @@ class FewShotIndexer {
       byIntent[ex.intent] = (byIntent[ex.intent] || 0) + 1;
     }
     return { total: this.examples.length, byIntent };
+  }
+
+  /**
+   * Get diverse host-written examples for voice anchoring when no historical match exists.
+   * Returns examples from different intents to give the LLM a broad sense of the host's voice.
+   */
+  getHostWrittenVoiceAnchors(limit: number = 5): FewShotExample[] {
+    // Filter to host-written only (ground truth voice)
+    const hostWritten = this.examples.filter(ex => ex.originType === 'host_written');
+
+    if (hostWritten.length === 0) {
+      // Fallback: use ai_edited (host corrected) if no pure host-written exist
+      const edited = this.examples.filter(ex => ex.originType === 'ai_edited');
+      if (edited.length === 0) return [];
+      // Pick most recent diverse intents
+      return this.pickDiverseExamples(edited, limit);
+    }
+
+    return this.pickDiverseExamples(hostWritten, limit);
+  }
+
+  private pickDiverseExamples(pool: FewShotExample[], limit: number): FewShotExample[] {
+    // Pick one example per intent (diverse), sorted by recency
+    const byIntent = new Map<string, FewShotExample>();
+    const sorted = [...pool].sort((a, b) => b.timestamp - a.timestamp);
+
+    for (const ex of sorted) {
+      if (!byIntent.has(ex.intent)) {
+        byIntent.set(ex.intent, ex);
+      }
+      if (byIntent.size >= limit) break;
+    }
+
+    // If we have fewer intents than limit, fill with most recent remaining
+    const selected = Array.from(byIntent.values());
+    if (selected.length < limit) {
+      const selectedIds = new Set(selected.map(s => s.id));
+      for (const ex of sorted) {
+        if (!selectedIds.has(ex.id)) {
+          selected.push(ex);
+          if (selected.length >= limit) break;
+        }
+      }
+    }
+
+    return selected.slice(0, limit);
   }
 }
 

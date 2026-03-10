@@ -3,7 +3,7 @@
 // with smart sampling, historical response matching, and auto-training
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { HostStyleProfile, LearningEntry } from './store';
+import type { HostStyleProfile, LearningEntry, MessageOriginType } from './store';
 import type { HostawayMessage, HostawayConversation } from './history-sync';
 import { analyzeMessage, analyzeHostawayHistory, mergeAnalysisWithProfile, type AnonymizedPattern, type HistoricalAnalysisResult } from './ai-learning';
 import { supermemoryService, type MemorySearchResult } from './supermemory-service';
@@ -1008,9 +1008,10 @@ class AITrainingService {
     guestMessage: string,
     hostResponse: string,
     wasEdited: boolean,
-    propertyId?: string
+    propertyId?: string,
+    originType?: MessageOriginType
   ): Promise<void> {
-    console.log('[AITraining] Learning from reply:', { wasEdited, responseLength: hostResponse.length });
+    console.log('[AITraining] Learning from reply:', { wasEdited, originType: originType || 'legacy', responseLength: hostResponse.length });
 
     // 1. Local index (existing behavior — fast, keyword-based)
     const pattern = this.createResponsePattern(guestMessage, hostResponse, propertyId);

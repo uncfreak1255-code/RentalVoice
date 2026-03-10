@@ -137,6 +137,8 @@ export interface AnalyticsData {
 }
 
 // Learning data for AI improvement
+export type MessageOriginType = 'host_written' | 'ai_approved' | 'ai_edited';
+
 export interface LearningEntry {
   id: string;
   originalResponse: string;
@@ -146,6 +148,7 @@ export interface LearningEntry {
   guestIntent: string;
   propertyId: string;
   timestamp: Date;
+  originType?: MessageOriginType; // undefined = legacy data (pre-tagging)
 }
 
 // Host style profile for AI mimicry

@@ -2518,8 +2518,27 @@ The host has previously responded to similar guest questions. Use these as the P
 6. If examples include emojis, use similar emoji style
 7. If no strong match exists for part of the question, generate safely but flag lower confidence
 `;
-  } else if (historicalMatches?.matchCount === 0) {
-    prompt += `\n\nNOTE: No similar historical responses found. Generate a response based on property knowledge and learned style profile. Use a slightly more conservative/safe approach since we don't have direct examples from this host for this type of question.`;
+  } else if (historicalMatches && !historicalMatches.usedHistoricalBasis) {
+    // No strong historical match — inject voice anchor from verified host-written messages
+    const voiceAnchors = fewShotIndexer.getHostWrittenVoiceAnchors(5);
+
+    if (voiceAnchors.length > 0) {
+      prompt += `\n\nVOICE ANCHOR (no historical match for this question — use these to maintain the host's voice):
+These are REAL messages the host wrote. Your response to this new question should sound like the SAME PERSON who wrote these:
+
+`;
+      voiceAnchors.forEach((anchor, i) => {
+        const truncated = anchor.hostResponse.substring(0, 200) + (anchor.hostResponse.length > 200 ? '...' : '');
+        prompt += `${i + 1}. "${truncated}"\n`;
+      });
+
+      prompt += `
+Match the tone, phrasing style, warmth level, and personality shown above.
+Do NOT default to generic or formal language — sound like THIS host.
+`;
+    } else {
+      prompt += `\n\nNOTE: No similar historical responses found. Generate a response based on property knowledge and learned style profile. Use a slightly more conservative/safe approach since we don't have direct examples from this host for this type of question.`;
+    }
   }
 
   return prompt;
@@ -2721,7 +2740,8 @@ export async function learnFromSentMessage(
   guestMessage: string,
   propertyId?: string,
   wasEdited: boolean = false,
-  wasApproved: boolean = true
+  wasApproved: boolean = true,
+  originType?: 'host_written' | 'ai_approved' | 'ai_edited'
 ): Promise<void> {
   try {
     // Queue for incremental training (auto-trains every 10 messages)
@@ -2733,12 +2753,13 @@ export async function learnFromSentMessage(
       timestamp: Date.now(),
       wasEdited,
       wasApproved,
+      originType,
     });
 
-    // Add to few-shot index
-    await fewShotIndexer.addExample(guestMessage, hostResponse, propertyId);
+    // Add to few-shot index with origin tracking
+    await fewShotIndexer.addExample(guestMessage, hostResponse, propertyId, originType);
 
-    console.log('[Learning] Message queued for incremental training, edited:', wasEdited);
+    console.log('[Learning] Message queued for incremental training, origin:', originType || 'legacy');
   } catch (error) {
     console.error('[Learning] Failed to learn from sent message:', error);
   }
