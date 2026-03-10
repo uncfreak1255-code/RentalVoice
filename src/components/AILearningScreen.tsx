@@ -1257,28 +1257,59 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   });
                 }
 
-                // Also calculate all-time rate
+                // Split accuracy: real approval rate vs usable rate
                 const totalApproved = outcomes.filter((o) => o.outcomeType === 'approved').length;
                 const totalEdited = outcomes.filter((o) => o.outcomeType === 'edited').length;
-                const allTimeRate = outcomes.length > 0 ? Math.round(((totalApproved + totalEdited) / outcomes.length) * 100) : 0;
+                const totalRejected = outcomes.filter((o) => o.outcomeType === 'rejected').length;
+                const realApprovalRate = outcomes.length > 0 ? Math.round((totalApproved / outcomes.length) * 100) : 0;
+                const usableRate = outcomes.length > 0 ? Math.round(((totalApproved + totalEdited) / outcomes.length) * 100) : 0;
+                const hasEnoughData = outcomes.length >= 10;
 
                 return (
                   <>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+                    {/* Primary metrics row */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
                       <View>
-                        <Text style={{ color: colors.text.muted, fontSize: 12 }}>Overall Acceptance</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 12 }}>Approval Rate</Text>
                         <Text style={{ color: colors.text.primary, fontSize: 28, fontWeight: '700' }}>
-                          {outcomes.length >= 10 ? `${allTimeRate}%` : '—'}
+                          {hasEnoughData ? `${realApprovalRate}%` : '—'}
                         </Text>
-                        {outcomes.length < 10 && (
-                          <Text style={{ color: colors.text.disabled, fontSize: 10 }}>Need {10 - outcomes.length} more reviewed drafts</Text>
-                        )}
+                        <Text style={{ color: colors.text.disabled, fontSize: 10 }}>
+                          {hasEnoughData ? 'Approved as-is' : `Need ${10 - outcomes.length} more drafts`}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'center' }}>
+                        <Text style={{ color: colors.text.muted, fontSize: 12 }}>Usable Rate</Text>
+                        <Text style={{ color: colors.text.primary, fontSize: 28, fontWeight: '700' }}>
+                          {hasEnoughData ? `${usableRate}%` : '—'}
+                        </Text>
+                        <Text style={{ color: colors.text.disabled, fontSize: 10 }}>
+                          {hasEnoughData ? 'Approved + edited' : ''}
+                        </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ color: colors.text.muted, fontSize: 12 }}>Total Drafts</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 12 }}>Total</Text>
                         <Text style={{ color: colors.text.primary, fontSize: 28, fontWeight: '700' }}>{outcomes.length}</Text>
+                        <Text style={{ color: colors.text.disabled, fontSize: 10 }}>
+                          {totalRejected > 0 ? `${totalRejected} rejected` : ''}
+                        </Text>
                       </View>
                     </View>
+
+                    {/* Outcome breakdown bar */}
+                    {hasEnoughData && (
+                      <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
+                        {totalApproved > 0 && (
+                          <View style={{ flex: totalApproved, backgroundColor: '#22C55E' }} />
+                        )}
+                        {totalEdited > 0 && (
+                          <View style={{ flex: totalEdited, backgroundColor: '#F59E0B' }} />
+                        )}
+                        {totalRejected > 0 && (
+                          <View style={{ flex: totalRejected, backgroundColor: '#EF4444' }} />
+                        )}
+                      </View>
+                    )}
 
                     {/* Weekly bar chart */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 60 }}>

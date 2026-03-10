@@ -22,25 +22,25 @@ Last updated: 2026-03-10
 
 ---
 
-## Phase 1: Learning Durability (IN PROGRESS)
+## Phase 1: Learning Durability (COMPLETED)
 
 ### Fix 2 — Supabase Learning Profile Sync
 **Goal**: Learning data survives app resets, device changes, and reinstalls.
 
 | Task | Priority | Status |
 |------|----------|--------|
-| Create `learning_profiles` table in Supabase | P0 | Pending |
-| Create `few_shot_examples` table in Supabase | P0 | Pending |
-| Build sync service (client-side) | P0 | Pending |
-| Hook sync into training batch completion | P0 | Pending |
-| Restore learning on fresh install/app reset | P0 | Pending |
-| Conflict resolution (local vs cloud) | P1 | Pending |
-| Offline queue for sync failures | P1 | Pending |
+| Create `learning_profiles` table in Supabase | P0 | Done |
+| Create `few_shot_examples` table in Supabase | P0 | Done |
+| Build sync service (client-side) | P0 | Done |
+| Hook sync into training batch completion | P0 | Done |
+| Restore learning on fresh install/app reset | P0 | Done |
+| Conflict resolution (local vs cloud) | P1 | Done |
+| Offline queue for sync failures | P1 | Done |
 
 ### Learning Quality Improvements
 | Task | Priority | Status |
 |------|----------|--------|
-| Learning dashboard accuracy metrics (real approval rate vs AI-inflated) | P1 | Pending |
+| Learning dashboard accuracy metrics (real approval rate vs AI-inflated) | P1 | Done |
 | Negative example learning from rejections | P2 | Pending |
 | Per-property voice divergence detection | P2 | Pending |
 
@@ -148,9 +148,10 @@ Last updated: 2026-03-10
 
 ## Current Sprint Focus
 
-**Active**: Phase 1 (Fix 2 — Supabase learning sync)
-**Next**: Phase 2 UX polish (concurrent with Phase 1)
-**Blocked**: Phase 3 (durable identity) blocks Phase 4 (commercial) blocks Phase 5 (App Store)
+**Completed**: Phase 0 (foundation fixes), Phase 1 (learning durability)
+**Active**: Phase 2 UX polish
+**Next**: Phase 3 (durable identity)
+**Blocked**: Phase 4 (commercial) blocks Phase 5 (App Store)
 
 ---
 
