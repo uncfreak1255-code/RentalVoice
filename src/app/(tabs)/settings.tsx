@@ -32,6 +32,7 @@ const settingsRoutes: Record<string, string> = {
   // but do not reintroduce provider-management UI into the active settings flow.
   aiProviders: '/settings/ai-providers',
   reviewResponse: '/settings/review-response',
+  testVoice: '/settings/test-voice',
 };
 
 export default function SettingsTab() {
