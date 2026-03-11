@@ -7,7 +7,7 @@ import { disconnectHostaway as disconnectLocalHostaway } from '@/lib/hostaway';
 import { useNotifications } from '@/lib/NotificationProvider';
 import {
   Wifi, Key, Bell, Shield, LogOut,
-  Brain, BookOpen, Globe,
+  Brain, BookOpen, Globe, Mic,
   BarChart3, BellOff,
   Plane, MessageSquare, Cpu, Zap,
   User,
@@ -484,6 +484,11 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               icon={<BookOpen size={18} color={colors.primary.DEFAULT} />}
               label="Manage Knowledge Base"
               onPress={() => handleNavigate('propertyKnowledge')}
+            />
+            <LinkRow
+              icon={<Mic size={18} color={colors.primary.DEFAULT} />}
+              label="Test My Voice"
+              onPress={() => handleNavigate('testVoice')}
               isLast
             />
           </View>
