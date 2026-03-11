@@ -109,7 +109,7 @@ class IncrementalTrainer {
         // Legacy messages without originType fall back to old behavior
         const weight = msg.originType
           ? (msg.originType === 'host_written' ? 3 : msg.originType === 'ai_edited' ? 2.5 : 1)
-          : (msg.wasApproved ? 3 : msg.wasEdited ? 2 : 1);
+          : (msg.wasApproved ? 1.5 : msg.wasEdited ? 2 : 1);
 
         // Run updateStyleMetrics multiple times based on weight
         // host_written messages dominate style learning; ai_approved minimally influences
@@ -119,7 +119,7 @@ class IncrementalTrainer {
 
         // Add to few-shot index (approved/edited responses are higher quality examples)
         if (msg.guestMessage) {
-          await fewShotIndexer.addExample(msg.guestMessage, msg.content, msg.propertyId);
+          await fewShotIndexer.addExample(msg.guestMessage, msg.content, msg.propertyId, msg.originType);
         }
 
         // Extract per-property knowledge from host replies
@@ -1559,8 +1559,8 @@ class FewShotIndexer {
    * Returns examples from different intents to give the LLM a broad sense of the host's voice.
    */
   getHostWrittenVoiceAnchors(limit: number = 5): FewShotExample[] {
-    // Filter to host-written only (ground truth voice)
-    const hostWritten = this.examples.filter(ex => ex.originType === 'host_written');
+    // Filter to host-written only (ground truth voice), with quality floor
+    const hostWritten = this.examples.filter(ex => ex.originType === 'host_written' && ex.hostResponse.length >= 30);
 
     if (hostWritten.length === 0) {
       // Fallback: use ai_edited (host corrected) if no pure host-written exist

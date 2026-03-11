@@ -973,7 +973,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
     // Capture context BEFORE updating UI
     const contentToSend = contentOverride || currentEnhancedDraft.content;
-    const wasEditedByUser = !!contentOverride || currentEnhancedDraft.isEdited === true;
+    const wasEditedByUser = (contentOverride != null && contentOverride !== currentEnhancedDraft.content) || currentEnhancedDraft.isEdited === true;
     const lastGuestMessage = [...messages].reverse().find(m => m.sender === 'guest');
     const draftMessage = messages.find((m) => m.sender === 'ai_draft');
     const savedDraft = { ...currentEnhancedDraft }; // Snapshot before clearing

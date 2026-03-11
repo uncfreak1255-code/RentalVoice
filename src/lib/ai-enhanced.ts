@@ -2528,7 +2528,12 @@ These are REAL messages the host wrote. Your response to this new question shoul
 
 `;
       voiceAnchors.forEach((anchor, i) => {
-        const truncated = anchor.hostResponse.substring(0, 200) + (anchor.hostResponse.length > 200 ? '...' : '');
+        // Truncate at sentence boundary before 400 chars to preserve complete thoughts
+        let truncated = anchor.hostResponse;
+        if (truncated.length > 400) {
+          const lastSentence = truncated.substring(0, 400).lastIndexOf('.');
+          truncated = lastSentence > 100 ? truncated.substring(0, lastSentence + 1) : truncated.substring(0, 400) + '...';
+        }
         prompt += `${i + 1}. "${truncated}"\n`;
       });
 
