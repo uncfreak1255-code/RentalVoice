@@ -128,8 +128,7 @@ export const ConversationItem = memo(function ConversationItem({
     const clean = lastMessage.content.replace(/\n/g, ' ').trim();
     const truncated = clean.length > 120 ? clean.slice(0, 120) + '…' : clean;
     if (lastSender === 'host') return `You: ${truncated}`;
-    const firstName = guest.name?.split(' ')[0] || 'Guest';
-    return `${firstName}: ${truncated}`;
+    return truncated;
   }, [lastMessage, lastSender, guest.name]);
 
   const timestamp = useMemo(() => {

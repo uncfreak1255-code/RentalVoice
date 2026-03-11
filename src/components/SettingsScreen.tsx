@@ -17,7 +17,7 @@ import { colors, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
 import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
-import { features } from '@/lib/config';
+import { features, isPersonal } from '@/lib/config';
 import {
   disconnectHostaway as disconnectHostawayServer,
   getAIUsage,
@@ -173,13 +173,16 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const thisMonthValue = features.serverProxiedAI
     ? (commercialUsage ? `${commercialUsage.usage.draftsUsed} drafts` : '–')
     : (usageStats ? `${usageStats.draftsThisMonth} drafts` : '–');
+  const isFounderPersonal = isPersonal && !!founderSession;
   const usageFooterText = features.serverProxiedAI
     ? `${commercialUsage?.plan ? `${commercialUsage.plan.charAt(0).toUpperCase()}${commercialUsage.plan.slice(1)}` : 'Starter'} plan • Managed AI metering`
-    : `${usageStats?.tierLabel || 'Starter'} plan • Resets daily at midnight`;
+    : isFounderPersonal
+      ? 'Founder • Unlimited local AI'
+      : `${usageStats?.tierLabel || 'Personal'} plan • Resets daily at midnight`;
   const normalizedTier = currentTier === 'pro' ? 'professional' : currentTier;
   const hasPaidAutoPilot = features.serverProxiedAI
     ? commercialUsage?.limits.autopilot === true
-    : normalizedTier === 'professional' || normalizedTier === 'business';
+    : isFounderPersonal || normalizedTier === 'professional' || normalizedTier === 'business';
   const approvalRateValue = (() => {
     const total = analytics.aiResponsesApproved + analytics.aiResponsesEdited + analytics.aiResponsesRejected;
     if (total === 0) return '—';

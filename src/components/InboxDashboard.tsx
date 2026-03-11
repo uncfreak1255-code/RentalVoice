@@ -719,7 +719,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}
             style={{ flexGrow: 0 }}
           >
             {tabs.map((tab) => {
@@ -732,11 +732,11 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                   accessibilityLabel={`${tab.label} filter${tab.count ? `, ${tab.count} conversations` : ''}`}
                   accessibilityState={{ selected: isActive }}
                   style={{
-                    paddingVertical: 10,
-                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    paddingHorizontal: 14,
                     borderRadius: 18,
                     backgroundColor: isActive ? '#1C1C1E' : '#F2F2F7',
-                    minHeight: 36,
+                    minHeight: 34,
                     justifyContent: 'center',
                   }}
                   testID={`inbox-filter-${tab.id}`}

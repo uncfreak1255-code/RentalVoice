@@ -631,11 +631,12 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         });
       }
 
-      // Show escalation alert for urgent items
-      if (item.type === 'escalation' || item.type === 'emergency') {
-        setShowEscalationAlert(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      }
+      // Escalation banner disabled — too aggressive for current UX
+      // TODO: re-enable with better inline treatment (not a fullscreen overlay)
+      // if (item.type === 'escalation' || item.type === 'emergency') {
+      //   setShowEscalationAlert(true);
+      //   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      // }
     }
   }, [conversation, addIssue]);
 
@@ -1497,28 +1498,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             />
           </View>
 
-          {/* Smart Reply Bar */}
-          {lastGuestMessage && !currentEnhancedDraft && !isGeneratingDraft && !isKeyboardVisible && (
-            <SmartReplyBar
-              guestMessage={lastGuestMessage.content}
-              propertyKnowledge={currentPropertyKnowledge}
-              onSelect={(reply: SmartReply) => {
-                if (reply.isDirect && reply.content) {
-                  // Direct reply — set as draft content
-                  setCurrentEnhancedDraft({
-                    content: reply.content,
-                    confidence: 90,
-                  });
-                } else if (reply.content) {
-                  // AI prompt modifier — regenerate with context
-                  generateDraftForConversation();
-                } else {
-                  // Custom reply — just open composer
-                  generateDraftForConversation();
-                }
-              }}
-            />
-          )}
+          {/* Smart Reply Bar — disabled, reclaiming space for composer */}
 
           {/* Composer with enhanced draft */}
           <MessageComposer
