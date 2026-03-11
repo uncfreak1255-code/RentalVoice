@@ -897,12 +897,14 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   chipScroll: {
-    maxHeight: 44,
+    flexGrow: 0,
   },
   chipContent: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 10,
+    paddingBottom: 6,
     gap: 8,
+    flexDirection: 'row',
   },
   chip: {
     backgroundColor: colors.bg.elevated,
