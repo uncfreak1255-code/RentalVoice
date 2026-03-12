@@ -1528,6 +1528,7 @@ If the guest asked multiple questions, address EACH one clearly. Use paragraph b
 
 GUIDELINES:
 - Write as yourself (${hostName || 'the host'}), not as an AI
+- ALWAYS address the guest by their first name at least once in your response
 - Answer questions directly and proactively offer relevant information
 - If you don't have specific information, be honest but offer to help find it
 - Never make up information about the property that isn't provided
@@ -2573,7 +2574,7 @@ IMPORTANT: Focus ONLY on NEW topics or follow-up clarifications the guest is ask
         flowGuidance = 'The guest seems confused or needs clarification. Explain more clearly and offer additional help.';
         break;
       case 'resolution':
-        flowGuidance = 'The guest is acknowledging/thanking you for your previous reply. They do NOT need a substantive answer. Respond with ONLY a brief, warm closing (e.g. "You\'re welcome!", "Happy to help!", "Enjoy your stay!") — 1 sentence max, no more than 10 words. Do NOT re-explain anything or bring up new information.';
+        flowGuidance = 'The guest is acknowledging/thanking you. Do NOT re-explain previous topics or bring up new information. But DO respond in YOUR natural voice — if your style is warm and enthusiastic, write a warm 2-3 sentence reply. Use the guest\'s name, express genuine appreciation, and include a forward invitation (e.g. "we would LOVE to have you back!"). Match YOUR voice, not a robotic one-liner.';
         break;
       case 'new_topic':
         flowGuidance = 'This is a new topic. Provide a complete, helpful response.';

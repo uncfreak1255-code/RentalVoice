@@ -484,9 +484,10 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         }
       };
 
-      // Fetch detailed conversations in parallel batches of 5
-      const BATCH_SIZE = 5;
+      // Fetch detailed conversations in parallel batches of 3 with inter-batch delay
+      const BATCH_SIZE = 3;
       for (let batch = 0; batch < Math.ceil(detailConvs.length / BATCH_SIZE); batch++) {
+        if (batch > 0) await new Promise(r => setTimeout(r, 300));
         const batchSlice = detailConvs.slice(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE);
         const results = await Promise.allSettled(
           batchSlice.map(conv => fetchConversationDetails(conv))

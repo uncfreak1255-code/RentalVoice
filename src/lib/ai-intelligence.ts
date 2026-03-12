@@ -495,6 +495,9 @@ export function generateVoiceDNAPromptSnippet(profile: HostStyleProfile): string
     : profile.averageResponseLength < 100 ? 'moderate length (2-4 sentences)'
     : 'detailed when needed (4+ sentences, but never padded)';
   lines.push(`LENGTH: Your messages are ${lengthDesc}, averaging ~${Math.round(profile.averageResponseLength)} words. Don't pad to seem thorough — match THIS length.`);
+  if (profile.averageResponseLength >= 40) {
+    lines.push(`MINIMUM LENGTH: Even your shortest replies are 2+ sentences. NEVER respond with a bare "You're welcome!" or "Happy to help!" — that's not your voice. Even quick thank-you replies include the guest's name and a warm touch.`);
+  }
 
   // Signature phrases
   if (profile.commonPhrases.length > 0) {
