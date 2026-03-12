@@ -29,6 +29,17 @@ import {
   CloudOff,
   MessageSquare,
   FileText,
+  Hand,
+  Palette,
+  AlignLeft,
+  Smile,
+  PenLine,
+  Home,
+  Target,
+  AlertTriangle,
+  Lightbulb,
+  Minus,
+  List,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -1420,7 +1431,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     {/* Greeting */}
                     {globalProfile.commonGreetings.length > 0 && (
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ color: '#22C55E', fontSize: 14, marginRight: 8 }}>👋</Text>
+                        <Hand size={15} color="#22C55E" style={{ marginRight: 8 }} />
                         <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                           Typical greeting: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>"{globalProfile.commonGreetings[0]}"</Text>
                         </Text>
@@ -1429,7 +1440,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                     {/* Tone */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ color: colors.primary.DEFAULT, fontSize: 14, marginRight: 8 }}>🎭</Text>
+                      <Palette size={15} color={colors.primary.DEFAULT} style={{ marginRight: 8 }} />
                       <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                         Tone: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>{formalityLabel}, {warmthLabel}</Text>
                       </Text>
@@ -1437,7 +1448,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                     {/* Length */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ color: '#14B8A6', fontSize: 14, marginRight: 8 }}>📏</Text>
+                      <AlignLeft size={15} color="#14B8A6" style={{ marginRight: 8 }} />
                       <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                         Response length: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>{lengthLabel} (~{Math.round(globalProfile.averageResponseLength)} words)</Text>
                       </Text>
@@ -1445,7 +1456,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                     {/* Emoji usage */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Text style={{ color: colors.warning.DEFAULT, fontSize: 14, marginRight: 8 }}>{globalProfile.usesEmojis ? '😊' : '📝'}</Text>
+                      <Smile size={15} color={colors.warning.DEFAULT} style={{ marginRight: 8 }} />
                       <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                         Emojis: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>{globalProfile.usesEmojis ? `Yes (${globalProfile.emojiFrequency}% of messages)` : 'Rarely used'}</Text>
                       </Text>
@@ -1454,7 +1465,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     {/* Sign-off */}
                     {globalProfile.commonSignoffs.length > 0 && (
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ color: '#60A5FA', fontSize: 14, marginRight: 8 }}>✍️</Text>
+                        <PenLine size={15} color="#60A5FA" style={{ marginRight: 8 }} />
                         <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                           Sign-off: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>"{globalProfile.commonSignoffs[0]}"</Text>
                         </Text>
@@ -1560,8 +1571,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                               opacity: pressed ? 0.7 : 1,
                             })}
                           >
-                            <Text style={{ color: Math.abs(globalProfile.warmthLevel - val) < 15 ? '#F59E0B' : '#64748B', fontSize: 11 }}>
-                              {val === 20 ? '📋' : val === 40 ? '🙂' : val === 60 ? '😊' : '🤗'}
+                            <Text style={{ color: Math.abs(globalProfile.warmthLevel - val) < 15 ? '#F59E0B' : '#64748B', fontSize: 11, fontFamily: typography.fontFamily.medium }}>
+                              {val === 20 ? 'Direct' : val === 40 ? 'Neutral' : val === 60 ? 'Friendly' : 'Warm'}
                             </Text>
                           </Pressable>
                         ))}
@@ -1601,25 +1612,28 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
                         {[
-                          { label: 'Brief', value: 25, icon: '📝' },
-                          { label: 'Medium', value: 50, icon: '📄' },
-                          { label: 'Detailed', value: 100, icon: '📋' },
-                        ].map((opt) => (
-                          <Pressable
-                            key={opt.value}
-                            onPress={() => updateHostStyleProfile('global', { averageResponseLength: opt.value })}
-                            style={({ pressed }) => ({
-                              paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
-                              backgroundColor: Math.abs(globalProfile.averageResponseLength - opt.value) < 20 ? '#14B8A620' : '#F1F5F9',
-                              opacity: pressed ? 0.7 : 1, alignItems: 'center',
-                            })}
-                          >
-                            <Text style={{ fontSize: 18, marginBottom: 2 }}>{opt.icon}</Text>
-                            <Text style={{ color: Math.abs(globalProfile.averageResponseLength - opt.value) < 20 ? '#14B8A6' : '#64748B', fontSize: 11, fontFamily: typography.fontFamily.medium }}>
-                              {opt.label}
-                            </Text>
-                          </Pressable>
-                        ))}
+                          { label: 'Brief', value: 25, Icon: Minus },
+                          { label: 'Medium', value: 50, Icon: AlignLeft },
+                          { label: 'Detailed', value: 100, Icon: List },
+                        ].map((opt) => {
+                          const isActive = Math.abs(globalProfile.averageResponseLength - opt.value) < 20;
+                          return (
+                            <Pressable
+                              key={opt.value}
+                              onPress={() => updateHostStyleProfile('global', { averageResponseLength: opt.value })}
+                              style={({ pressed }) => ({
+                                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
+                                backgroundColor: isActive ? '#14B8A620' : '#F1F5F9',
+                                opacity: pressed ? 0.7 : 1, alignItems: 'center',
+                              })}
+                            >
+                              <opt.Icon size={18} color={isActive ? '#14B8A6' : '#64748B'} style={{ marginBottom: 2 }} />
+                              <Text style={{ color: isActive ? '#14B8A6' : '#64748B', fontSize: 11, fontFamily: typography.fontFamily.medium }}>
+                                {opt.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
                     </View>
                   </View>
@@ -1646,11 +1660,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                     return (
                       <View key={propertyId.toString()} style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 14 }}>
-                        <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 14, marginBottom: 6 }}>
-                          🏠 {propertyName}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                          <Home size={14} color={colors.text.primary} style={{ marginRight: 6 }} />
+                          <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 14 }}>
+                            {propertyName}
+                          </Text>
+                        </View>
                         <Text style={{ color: colors.text.muted, fontSize: 12 }}>
-                          {fLabel} • {wLabel} • {p.usesEmojis ? '😊 Emojis' : 'No emojis'} • ~{Math.round(p.averageResponseLength)} words
+                          {fLabel} • {wLabel} • {p.usesEmojis ? 'Uses emojis' : 'No emojis'} • ~{Math.round(p.averageResponseLength)} words
                         </Text>
                         <Text style={{ color: '#475569', fontSize: 11, marginTop: 4 }}>
                           {p.samplesAnalyzed} samples analyzed
@@ -1669,7 +1686,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             return (
               <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ marginBottom: 24 }}>
                 <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
-                  🎯 Confidence Calibration
+                  Confidence Calibration
                 </Text>
                 <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
                   {/* Calibration Score */}
@@ -1708,11 +1725,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                   {/* Adjustment Recommendation */}
                   {calSummary.confidenceAdjustment !== 0 && (
-                    <View style={{ backgroundColor: 'rgba(99,102,241,0.1)', borderRadius: 10, padding: 10, marginTop: 8 }}>
-                      <Text style={{ color: '#A5B4FC', fontSize: 12 }}>
+                    <View style={{ backgroundColor: 'rgba(99,102,241,0.1)', borderRadius: 10, padding: 10, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
+                      {calSummary.confidenceAdjustment < 0
+                        ? <AlertTriangle size={14} color="#F59E0B" style={{ marginRight: 6 }} />
+                        : <Lightbulb size={14} color="#A5B4FC" style={{ marginRight: 6 }} />}
+                      <Text style={{ color: '#A5B4FC', fontSize: 12, flex: 1 }}>
                         {calSummary.confidenceAdjustment < 0
-                          ? `⚠️ AI is overconfident by ~${Math.abs(calSummary.confidenceAdjustment)}%. Adjusting threshold down.`
-                          : `💡 AI is underconfident by ~${calSummary.confidenceAdjustment}%. Could safely increase auto-pilot.`}
+                          ? `AI is overconfident by ~${Math.abs(calSummary.confidenceAdjustment)}%. Adjusting threshold down.`
+                          : `AI is underconfident by ~${calSummary.confidenceAdjustment}%. Could safely increase auto-pilot.`}
                       </Text>
                     </View>
                   )}
