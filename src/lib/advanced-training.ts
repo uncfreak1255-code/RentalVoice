@@ -1400,8 +1400,8 @@ class FewShotIndexer {
 
   async saveIndex(): Promise<void> {
     try {
-      // Keep last 1000 examples
-      const toSave = this.examples.slice(-1000);
+      // Keep last 5000 examples (covers most hosts' full history)
+      const toSave = this.examples.slice(-5000);
       await AsyncStorage.setItem(scopedKey(FEW_SHOT_INDEX_KEY), JSON.stringify({
         examples: toSave,
       }));

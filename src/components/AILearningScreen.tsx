@@ -1086,13 +1086,43 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </Pressable>
 
             {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult) && !isTraining && !historySyncStatus.isSyncing && (
-              <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
-                {trainingState?.hasCompletedInitialTraining
-                  ? getTrainingSummary(trainingState)
-                  : aiLearningProgress.lastTrainingResult
-                    ? `Trained on ${aiLearningProgress.lastTrainingResult.hostMessagesAnalyzed.toLocaleString()} messages • ${aiLearningProgress.lastTrainingResult.patternsIndexed.toLocaleString()} patterns indexed`
-                    : null}
-              </Text>
+              <View>
+                <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
+                  {trainingState?.hasCompletedInitialTraining
+                    ? getTrainingSummary(trainingState)
+                    : aiLearningProgress.lastTrainingResult
+                      ? `Trained on ${aiLearningProgress.lastTrainingResult.hostMessagesAnalyzed.toLocaleString()} messages • ${aiLearningProgress.lastTrainingResult.patternsIndexed.toLocaleString()} patterns indexed`
+                      : null}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    Alert.alert(
+                      'Retrain Voice Model',
+                      'This will re-analyze all your imported history with the latest voice engine improvements. Training takes 1-2 minutes.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Retrain', onPress: handleTrainModel },
+                      ]
+                    );
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 12,
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    alignSelf: 'center',
+                  }}
+                >
+                  <RefreshCw size={14} color="#A855F7" />
+                  <Text style={{ color: '#A855F7', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                    Retrain on Full History
+                  </Text>
+                </Pressable>
+              </View>
             )}
           </Animated.View>
 
