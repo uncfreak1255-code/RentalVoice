@@ -58,6 +58,10 @@ export interface PropertyKnowledge {
   lateCheckOutFee?: number;
   earlyCheckInAvailable?: boolean;
   lateCheckOutAvailable?: boolean;
+  petsAllowed?: boolean;
+  petFee?: number;              // e.g. 200 ($200+tax per pet)
+  petFeeStructure?: string;     // e.g. "per pet", "per pet per night", "flat fee"
+  petRestrictions?: string;     // e.g. "Max 2 pets, 50lb limit, no aggressive breeds"
 
   // ── LTR-specific ──
   leaseStartDate?: string;

@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Pla
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useAppStore, PropertyKnowledge } from '@/lib/store';
-import { ArrowLeft, Wifi, DoorOpen, DoorClosed, Car, ScrollText, Wrench, MapPin, Phone, FileText, MessageSquare, ChevronDown, ChevronUp, Check, Clock, DollarSign, Download, Home, CheckCircle2 } from 'lucide-react-native';
+import { ArrowLeft, Wifi, DoorOpen, DoorClosed, Car, ScrollText, Wrench, MapPin, Phone, FileText, MessageSquare, ChevronDown, ChevronUp, Check, Clock, DollarSign, Download, Home, CheckCircle2, PawPrint } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
@@ -41,7 +41,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   const isCommercialMode = isCommercial;
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(properties[0]?.id || null);
   const [showPropertySelector, setShowPropertySelector] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ wifi: true, checkin: false, checkout: false, parking: false, rules: false, appliances: false, local: false, emergency: false, custom: false, tone: false, upsells: false });
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ wifi: true, checkin: false, checkout: false, parking: false, rules: false, pets: false, appliances: false, local: false, emergency: false, custom: false, tone: false, upsells: false });
   const [formData, setFormData] = useState<Partial<PropertyKnowledge>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
@@ -63,13 +63,14 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   }, [formData]);
 
   // Calculate completion percentage
-  const totalSections = 8;
+  const totalSections = 9;
   const filledSections = [
     isSectionFilled(['wifiName', 'wifiPassword']),
     isSectionFilled(['checkInTime', 'checkInInstructions']),
     isSectionFilled(['checkOutTime', 'checkOutInstructions']),
     isSectionFilled(['parkingInfo']),
     isSectionFilled(['houseRules']),
+    formData.petsAllowed !== undefined,
     isSectionFilled(['applianceGuide']),
     isSectionFilled(['localRecommendations']),
     isSectionFilled(['emergencyContacts']),
@@ -263,7 +264,27 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               {renderInput('Parking Details', 'parkingInfo', 'Where can guests park?', true)}
             </CollapsibleSection>
             <CollapsibleSection title="House Rules" icon={<ScrollText size={20} color="#EAB308" />} isExpanded={expandedSections.rules} onToggle={() => toggleSection('rules')} isFilled={isSectionFilled(['houseRules'])}>
-              {renderInput('House Rules', 'houseRules', 'Key rules: quiet hours, smoking, pets...', true)}
+              {renderInput('House Rules', 'houseRules', 'Key rules: quiet hours, smoking...', true)}
+            </CollapsibleSection>
+            <CollapsibleSection title="Pet Policy" icon={<PawPrint size={20} color="#F97316" />} isExpanded={expandedSections.pets} onToggle={() => toggleSection('pets')} isFilled={formData.petsAllowed !== undefined}>
+              <View style={[pk.row, { justifyContent: 'space-between', marginBottom: spacing['4'], backgroundColor: colors.bg.elevated, borderRadius: radius.lg, padding: spacing['4'] }]}>
+                <View style={pk.row}><PawPrint size={18} color="#F97316" /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Pets Allowed</Text></View>
+                <Pressable onPress={() => { updateField('petsAllowed', !formData.petsAllowed); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                  style={[pk.toggle, { backgroundColor: formData.petsAllowed ? '#22C55E' : colors.border.DEFAULT }]}>
+                  <View style={[pk.toggleThumb, { marginLeft: formData.petsAllowed ? 'auto' : 0 }]} />
+                </Pressable>
+              </View>
+              {formData.petsAllowed && (
+                <View style={{ gap: spacing['3'] }}>
+                  {renderInput('Pet Fee ($)', 'petFee' as any, 'e.g., 200')}
+                  {renderInput('Fee Structure', 'petFeeStructure', 'e.g., per pet, per pet per night, flat fee')}
+                  {renderInput('Restrictions', 'petRestrictions', 'e.g., Max 2 pets, 50lb limit, no aggressive breeds', true)}
+                  {renderInput('Additional Pet Policy', 'petPolicy', 'Any other pet-related info...', true)}
+                </View>
+              )}
+              {formData.petsAllowed === false && (
+                <Text style={{ color: colors.text.muted, fontSize: 13, marginTop: 4 }}>When guests ask about pets, the AI will let them know pets are not allowed at this property.</Text>
+              )}
             </CollapsibleSection>
             <CollapsibleSection title="Appliances & Amenities" icon={<Wrench size={20} color="#06B6D4" />} isExpanded={expandedSections.appliances} onToggle={() => toggleSection('appliances')} isFilled={isSectionFilled(['applianceGuide'])}>
               {renderInput('Appliance Guide', 'applianceGuide', 'Instructions for TV, thermostat...', true)}

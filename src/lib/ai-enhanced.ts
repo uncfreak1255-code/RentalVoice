@@ -473,10 +473,18 @@ function checkKnowledgeAvailable(intent: string, knowledge?: PropertyKnowledge):
     'parking_inquiry': 'parkingInfo',
     'appliance_inquiry': 'applianceGuide',
     'local_recommendation': 'localRecommendations',
+    'pet_inquiry': 'petPolicy',
   };
 
   const field = knowledgeMap[intent];
-  return field ? !!knowledge[field] : false;
+  if (field && knowledge[field]) return true;
+
+  // Pet inquiry has multiple possible knowledge sources
+  if (intent === 'pet_inquiry') {
+    return !!(knowledge.petPolicy || knowledge.petFee || knowledge.petsAllowed !== undefined);
+  }
+
+  return false;
 }
 
 /**
@@ -553,6 +561,29 @@ Adapt naturally but keep this warm, exclamation-heavy, family-friendly tone.`);
           answers.push(`House Rules — ${knowledge.houseRules}`);
         }
         break;
+      case 'pet_inquiry': {
+        const petParts: string[] = [];
+        if (knowledge.petsAllowed === true) {
+          petParts.push('Pets ARE allowed at this property');
+        } else if (knowledge.petsAllowed === false) {
+          petParts.push('Pets are NOT allowed at this property');
+        }
+        if (knowledge.petFee) {
+          const structure = knowledge.petFeeStructure || 'per pet';
+          petParts.push(`Pet fee: $${knowledge.petFee} + tax ${structure}`);
+        }
+        if (knowledge.petRestrictions) {
+          petParts.push(`Restrictions: ${knowledge.petRestrictions}`);
+        }
+        if (knowledge.petPolicy) {
+          petParts.push(`Pet Policy: ${knowledge.petPolicy}`);
+        }
+        if (petParts.length > 0) {
+          answers.push(`Pet Policy — ${petParts.join('. ')}`);
+          answers.push(`IMPORTANT: When a guest mentions bringing pets, you MUST mention the pet fee and any restrictions in your response. This is a financial detail the guest needs before booking.`);
+        }
+        break;
+      }
     }
   }
 
@@ -1659,6 +1690,23 @@ BANNED PHRASES (these are AI artifacts — no real person writes like this):
     }
     if (knowledge.lateCheckOutAvailable && knowledge.lateCheckOutFee) {
       prompt += `- Late Check-out: Available for $${knowledge.lateCheckOutFee}\n`;
+    }
+    if (knowledge.petsAllowed !== undefined) {
+      if (knowledge.petsAllowed) {
+        let petLine = '- Pets: Allowed';
+        if (knowledge.petFee) {
+          const structure = knowledge.petFeeStructure || 'per pet';
+          petLine += ` ($${knowledge.petFee} + tax ${structure})`;
+        }
+        if (knowledge.petRestrictions) {
+          petLine += ` — ${knowledge.petRestrictions}`;
+        }
+        prompt += petLine + '\n';
+      } else {
+        prompt += '- Pets: NOT allowed at this property\n';
+      }
+    } else if (knowledge.petPolicy) {
+      prompt += `- Pet Policy: ${knowledge.petPolicy}\n`;
     }
 
     // Add DIRECT ANSWER block for detected topics that have knowledge

@@ -572,6 +572,7 @@ class MultiPassTrainer {
       check_in: /check.?in|arrive|arrival|key|code|lock/i,
       check_out: /check.?out|leave|leaving|departure/i,
       parking: /park|car|garage|driveway/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
       maintenance: /broken|not working|fix|repair|issue|problem/i,
       thanks: /thank|appreciate|great|wonderful/i,
       question: /where|how|what|when|can I/i,
@@ -1126,6 +1127,7 @@ class TrainingQualityAnalyzer {
       check_in: /check.?in|arrive|arrival|key|code|lock/i,
       check_out: /check.?out|leave|leaving|departure/i,
       parking: /park|car|garage/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
       maintenance: /broken|not working|fix|repair|issue/i,
       thanks: /thank|appreciate|great|wonderful/i,
       refund: /refund|money back|compensation/i,
@@ -1541,6 +1543,7 @@ class FewShotIndexer {
       check_in: /check.?in|arrive|arrival|key|code|lock/i,
       check_out: /check.?out|leave|leaving|departure/i,
       parking: /park|car|garage/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
       maintenance: /broken|not working|fix|repair|issue|problem/i,
       thanks: /thank|appreciate|great|wonderful/i,
     };
@@ -1745,6 +1748,7 @@ class ConversationFlowLearner {
       check_in: /check.?in|arrive|arrival|key|code/i,
       check_out: /check.?out|leave|leaving|departure/i,
       parking: /park|car|garage/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
       issue: /broken|not working|fix|repair|problem/i,
       thanks: /thank|appreciate|great|wonderful/i,
       question: /where|how|what|when|can I/i,
@@ -1971,6 +1975,7 @@ class GuestMemoryManager {
       check_in: /check.?in|arrive|arrival|key|code/i,
       check_out: /check.?out|leave|leaving/i,
       parking: /park|car|garage/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
       amenities: /pool|gym|hot tub/i,
     };
 
