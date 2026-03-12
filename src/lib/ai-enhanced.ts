@@ -19,6 +19,7 @@ import {
   conversationFlowLearner,
   guestMemoryManager,
   negativeExampleManager,
+  multiPassTrainer,
 } from './advanced-training';
 import { getAIKey, getProviderOrder, isProviderEnabled, getSelectedModel, getGoogleAuthMethod, AI_MODELS } from './ai-keys';
 import { canGenerateDraft, recordDraftGeneration } from './ai-usage-limiter';
@@ -1695,9 +1696,10 @@ async function callGeminiAPI(
       method: 'POST',
       headers,
       body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{
           parts: [{
-            text: `${systemPrompt}\n\n${userPrompt}`
+            text: userPrompt
           }]
         }],
         generationConfig: {
@@ -2271,12 +2273,17 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
       finalConfidence.warnings.push('Response significantly longer than your typical messages');
     }
 
-    // Check excessive exclamation marks (more than host uses)
+    // Check excessive exclamation marks — but respect host's actual exclamation style
+    // Hosts who use !! and !!! naturally should not be penalized for that pattern
     const exclamationCount = (generatedContent.match(/!/g) || []).length;
-    if (exclamationCount > 4) {
-      console.log('[AI Enhanced] ⚠️ Excessive exclamation marks:', exclamationCount);
+    const hostExclamationStyle = hostStyleProfile.exclamationStyle || 'single';
+    const exclamationThreshold = hostExclamationStyle === 'triple' ? 15
+      : hostExclamationStyle === 'double' ? 10
+      : 5;
+    if (exclamationCount > exclamationThreshold) {
+      console.log('[AI Enhanced] ⚠️ Excessive exclamation marks:', exclamationCount, 'threshold:', exclamationThreshold);
       finalConfidence.overall = Math.min(finalConfidence.overall, 70);
-      finalConfidence.warnings.push('Response uses excessive exclamation marks');
+      finalConfidence.warnings.push('Response uses more exclamation marks than your typical style');
     }
 
     // Check formality mismatch
@@ -2352,17 +2359,53 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
       console.log('[AI Enhanced] ✅ Casual tone matches host style (+2)');
     }
 
-    // Exclamation match bonus: check if host's sample responses use exclamations
-    const hostSamplesUseExclamations = (hostStyleProfile.commonPhrases || []).some(p => p.includes('!'));
-    if (hostSamplesUseExclamations && exclamationCount > 0 && exclamationCount <= 4) {
-      positiveBonus += 2;
-      console.log('[AI Enhanced] ✅ Exclamation usage matches host style (+2)');
-    } else if (!hostSamplesUseExclamations && exclamationCount === 0) {
+    // Exclamation match bonus: check against voice fingerprint exclamation style
+    if (hostExclamationStyle === 'triple' || hostExclamationStyle === 'double') {
+      const multiExclamations = (generatedContent.match(/!{2,}/g) || []).length;
+      if (multiExclamations > 0) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ Multi-exclamation style matches host voice (+3)');
+      }
+    } else if (exclamationCount > 0 && exclamationCount <= exclamationThreshold) {
       positiveBonus += 1;
     }
 
-    // Cap positive bonus at +12 to prevent over-inflation
-    positiveBonus = Math.min(positiveBonus, 12);
+    // CAPS emphasis match: host uses ALL CAPS for emphasis words
+    if (hostStyleProfile.capsEmphasisWords?.length > 0) {
+      const capsWordsInResponse = (generatedContent.match(/\b[A-Z]{2,}\b/g) || [])
+        .filter((w: string) => !['AM', 'PM', 'TV', 'WiFi', 'AC', 'OK', 'ID', 'US', 'UK', 'PO', 'A/C', 'HVAC', 'HOA'].includes(w));
+      if (capsWordsInResponse.length > 0) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ CAPS emphasis matches host voice (+3)');
+      }
+    }
+
+    // Pronoun match: host uses "we/us/our" voice
+    if (hostStyleProfile.pronounPreference === 'we') {
+      const wePronouns = (generatedContent.match(/\b(we|us|our)\b/gi) || []).length;
+      const iPronouns = (generatedContent.match(/\bI\b/g) || []).length;
+      if (wePronouns > iPronouns) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ "We" pronoun voice matches host (+3)');
+      } else if (iPronouns > wePronouns && wePronouns === 0) {
+        // AI used "I" when host always says "we" — penalty
+        finalConfidence.overall = Math.max(finalConfidence.overall - 5, 30);
+        finalConfidence.warnings.push('Voice mismatch: used "I/me" but host always says "we/us/our"');
+        console.log('[AI Enhanced] ⚠️ Pronoun mismatch: AI used "I" but host uses "we" (-5)');
+      }
+    }
+
+    // Guest name usage match
+    if (hostStyleProfile.usesGuestNames && conversation.guest?.name) {
+      const guestFirstName = conversation.guest.name.split(' ')[0];
+      if (guestFirstName && generatedContent.includes(guestFirstName)) {
+        positiveBonus += 2;
+        console.log('[AI Enhanced] ✅ Guest name used, matches host pattern (+2)');
+      }
+    }
+
+    // Cap positive bonus at +18 to allow voice fingerprint signals to have real impact
+    positiveBonus = Math.min(positiveBonus, 18);
     if (positiveBonus > 0) {
       finalConfidence.overall = Math.min(finalConfidence.overall + positiveBonus, 95);
       console.log(`[AI Enhanced] ✅ Post-generation style bonus: +${positiveBonus} → ${finalConfidence.overall}%`);
@@ -2420,10 +2463,10 @@ function searchAndPrepareHistoricalContext(
       intent: m.guestIntent,
       score: m.matchScore || 0,
       responsePreview: m.hostResponse.substring(0, 100) + (m.hostResponse.length > 100 ? '...' : ''),
-      // Top 2 matches get full response (up to 800 chars), rest get 200 chars
+      // Top 2 matches get full response (up to 800 chars), rest get 500 chars
       fullResponse: i < 2
         ? m.hostResponse.substring(0, 800) + (m.hostResponse.length > 800 ? '...' : '')
-        : m.hostResponse.substring(0, 200) + (m.hostResponse.length > 200 ? '...' : ''),
+        : m.hostResponse.substring(0, 500) + (m.hostResponse.length > 500 ? '...' : ''),
     })),
   };
 }
@@ -2591,9 +2634,9 @@ These are REAL messages the host wrote. Your response to this new question shoul
       voiceAnchors.forEach((anchor, i) => {
         // Truncate at sentence boundary before 400 chars to preserve complete thoughts
         let truncated = anchor.hostResponse;
-        if (truncated.length > 400) {
-          const lastSentence = truncated.substring(0, 400).lastIndexOf('.');
-          truncated = lastSentence > 100 ? truncated.substring(0, lastSentence + 1) : truncated.substring(0, 400) + '...';
+        if (truncated.length > 800) {
+          const lastSentence = truncated.substring(0, 800).lastIndexOf('.');
+          truncated = lastSentence > 200 ? truncated.substring(0, lastSentence + 1) : truncated.substring(0, 800) + '...';
         }
         prompt += `${i + 1}. "${truncated}"\n`;
       });
@@ -2669,6 +2712,21 @@ async function buildSystemPromptWithEditLearning(
       if (advancedPrompt) {
         prompt += advancedPrompt;
       }
+    }
+
+    // MULTI-PASS TRAINING: Inject frequent phrases mined from host messages
+    try {
+      const frequentPhrases = multiPassTrainer.getFrequentPhrases();
+      if (frequentPhrases.length > 0) {
+        prompt += `\n\nHOST'S SIGNATURE PHRASES (phrases this host uses frequently — weave these naturally into your response):
+${frequentPhrases.slice(0, 15).map(p => `• "${p}"`).join('\n')}
+Use these exact phrases where they fit naturally. They are part of this host's authentic voice.
+`;
+        console.log(`[AI Enhanced] Injected ${Math.min(frequentPhrases.length, 15)} frequent phrases from MultiPassTrainer`);
+      }
+    } catch (e) {
+      // MultiPass phrases are optional — don't block generation
+      console.warn('[AI Enhanced] MultiPass phrases injection failed:', e);
     }
   } catch (error) {
     console.error('[AI Enhanced] Error getting learning adjustments:', error);

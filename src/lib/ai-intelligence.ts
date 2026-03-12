@@ -252,8 +252,13 @@ export function createCalibrationEntry(outcome: DraftOutcome): CalibrationEntry 
       ? 'underconfident'   // 41-55% + approved = should be higher
       : (wasEdited ? 'calibrated' : 'overconfident');
   } else {
-    // Upper-medium confidence (56-69) — calibrated if accepted/edited
-    calibrationResult = (wasAccepted || wasEdited) ? 'calibrated' : 'overconfident';
+    // Upper-medium confidence (56-69)
+    // Accepted without edit = underconfident (score should have been higher since draft was good as-is)
+    // Edited = slightly underconfident (draft was usable but needed tweaks — nudge score up)
+    // Rejected = overconfident (score was too high for a bad draft)
+    calibrationResult = wasAccepted
+      ? 'underconfident'
+      : (wasEdited ? 'underconfident' : 'overconfident');
   }
 
   return {

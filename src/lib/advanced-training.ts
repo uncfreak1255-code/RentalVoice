@@ -226,6 +226,8 @@ export interface MultiPassResult {
   patternsExtracted: number;
   metrics: Record<string, number>;
   completedAt: number;
+  /** Top frequent phrases extracted from phrase_mining pass */
+  frequentPhrasesList?: string[];
 }
 
 class MultiPassTrainer {
@@ -267,6 +269,11 @@ class MultiPassTrainer {
 
   getState(): MultiPassState {
     return { ...this.state };
+  }
+
+  /** Get the top frequent phrases mined from host messages, ready for LLM prompt injection */
+  getFrequentPhrases(): string[] {
+    return this.state.results?.phrase_mining?.frequentPhrasesList || [];
   }
 
   onStateChange(callback: (state: MultiPassState) => void): () => void {
@@ -343,6 +350,7 @@ class MultiPassTrainer {
     const startTime = Date.now();
     let patternsExtracted = 0;
     const metrics: Record<string, number> = {};
+    let frequentPhrasesList: string[] | undefined;
 
     switch (pass) {
       case 'style_tone':
@@ -363,11 +371,12 @@ class MultiPassTrainer {
         break;
 
       case 'phrase_mining':
-        // Pass 3: Extract unique phrases
+        // Pass 3: Extract unique phrases and persist top frequent ones
         const phraseResult = await this.runPhraseMiningPass(messages, onProgress);
         patternsExtracted = phraseResult.patterns;
         metrics.uniquePhrases = phraseResult.uniquePhrases;
         metrics.frequentPhrases = phraseResult.frequentPhrases;
+        frequentPhrasesList = phraseResult.topPhrases;
         break;
 
       case 'contextual':
@@ -393,6 +402,7 @@ class MultiPassTrainer {
       patternsExtracted,
       metrics,
       completedAt: Date.now(),
+      frequentPhrasesList,
     };
   }
 
@@ -458,7 +468,7 @@ class MultiPassTrainer {
   private async runPhraseMiningPass(
     messages: { content: string }[],
     onProgress: (progress: number) => void
-  ): Promise<{ patterns: number; uniquePhrases: number; frequentPhrases: number }> {
+  ): Promise<{ patterns: number; uniquePhrases: number; frequentPhrases: number; topPhrases: string[] }> {
     const phraseCount = new Map<string, number>();
 
     for (let i = 0; i < messages.length; i++) {
@@ -473,14 +483,19 @@ class MultiPassTrainer {
       }
     }
 
-    const frequentPhrases = [...phraseCount.entries()]
+    const frequentEntries = [...phraseCount.entries()]
       .filter(([_, count]) => count >= 3)
-      .length;
+      .sort((a, b) => b[1] - a[1]);
+
+    const frequentPhrases = frequentEntries.length;
+    // Persist top 30 most frequent phrases for LLM prompt injection
+    const topPhrases = frequentEntries.slice(0, 30).map(([phrase]) => phrase);
 
     return {
       patterns: messages.length,
       uniquePhrases: phraseCount.size,
       frequentPhrases,
+      topPhrases,
     };
   }
 
@@ -1511,8 +1526,8 @@ class FewShotIndexer {
     for (let i = 0; i < examples.length; i++) {
       const ex = examples[i];
       prompt += `\nExample ${i + 1}:\n`;
-      prompt += `Guest: "${ex.guestMessage.substring(0, 150)}${ex.guestMessage.length > 150 ? '...' : ''}"\n`;
-      prompt += `Your response: "${ex.hostResponse.substring(0, 200)}${ex.hostResponse.length > 200 ? '...' : ''}"\n`;
+      prompt += `Guest: "${ex.guestMessage.substring(0, 400)}${ex.guestMessage.length > 400 ? '...' : ''}"\n`;
+      prompt += `Your response: "${ex.hostResponse.substring(0, 600)}${ex.hostResponse.length > 600 ? '...' : ''}"\n`;
     }
 
     prompt += '\nUse these examples to guide your tone, style, and level of detail.\n';
