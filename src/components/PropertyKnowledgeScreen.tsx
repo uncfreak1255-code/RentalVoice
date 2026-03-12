@@ -18,16 +18,16 @@ interface SectionProps { title: string; icon: React.ReactNode; children: React.R
 
 function CollapsibleSection({ title, icon, children, isExpanded, onToggle, isFilled }: SectionProps) {
   return (
-    <Animated.View entering={FadeInDown.duration(300).delay(100)} style={{ marginBottom: spacing['4'] }}>
-      <Pressable onPress={onToggle} style={({ pressed }) => [pk.sectionHeader, { opacity: pressed ? 0.8 : 1 }]}>
-        <View style={pk.row}>{icon}<Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['3'], flex: 1 }}>{title}</Text></View>
+    <Animated.View entering={FadeInDown.duration(300).delay(100)} style={{ marginBottom: spacing['3'], marginHorizontal: 16, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' }}>
+      <Pressable onPress={onToggle} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing['4'], opacity: pressed ? 0.8 : 1 }]}>
+        <View style={pk.row}>{icon}<Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['3'], flex: 1, fontSize: 16 }}>{title}</Text></View>
         <View style={pk.row}>
           {isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E', marginRight: 10 }} />}
           {!isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginRight: 10 }} />}
-          {isExpanded ? <ChevronUp size={20} color="#64748B" /> : <ChevronDown size={20} color="#64748B" />}
+          {isExpanded ? <ChevronUp size={18} color="#C7C7CC" /> : <ChevronDown size={18} color="#C7C7CC" />}
         </View>
       </Pressable>
-      {isExpanded && <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: spacing['2'], paddingHorizontal: spacing['2'] }}>{children}</Animated.View>}
+      {isExpanded && <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E7EB' }}>{children}</Animated.View>}
     </Animated.View>
   );
 }
@@ -170,7 +170,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   return (
     <View style={pk.root}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], borderBottomWidth: 1, borderBottomColor: colors.border.DEFAULT }}>
+        <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#C6C6C8', backgroundColor: '#FFFFFF' }}>
           <View style={[pk.row, { justifyContent: 'space-between' }]}>
             <View style={pk.row}>
               <Pressable onPress={onBack} style={({ pressed }) => [pk.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
@@ -200,7 +200,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
             <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: spacing['2'] }}>
               {properties.map((property) => (
                 <Pressable key={property.id} onPress={() => { setSelectedPropertyId(property.id); setShowPropertySelector(false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                  style={[pk.row, { padding: spacing['3'], borderRadius: radius.xl, marginBottom: 4, backgroundColor: property.id === selectedPropertyId ? colors.primary.muted : colors.bg.elevated }]}>
+                  style={[pk.row, { padding: spacing['3'], borderRadius: radius.md, marginBottom: 4, backgroundColor: property.id === selectedPropertyId ? colors.primary.muted : colors.bg.elevated }]}>
                   {property.image && <Image source={{ uri: property.image }} style={{ width: 40, height: 40, borderRadius: 6 }} contentFit="cover" />}
                   <View style={{ marginLeft: spacing['3'], flex: 1 }}>
                     <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>{property.name}</Text>
@@ -214,17 +214,17 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
         </Animated.View>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <ScrollView style={{ flex: 1, paddingHorizontal: spacing['4'], paddingTop: spacing['4'] }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ flex: 1, paddingTop: spacing['4'] }} showsVerticalScrollIndicator={false}>
             {/* Auto-Import Button — Option A: Solid Teal Banner */}
             {selectedProperty && (
-              <Animated.View entering={FadeInDown.duration(300)} style={{ marginBottom: spacing['4'] }}>
+              <Animated.View entering={FadeInDown.duration(300)} style={{ marginBottom: spacing['4'], marginHorizontal: 16 }}>
                 <Pressable
                   onPress={handleAutoImport}
                   disabled={isImporting}
                   style={({ pressed }) => ({
                     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                     backgroundColor: importSuccess ? '#22C55E' : colors.primary.DEFAULT,
-                    borderRadius: 14,
+                    borderRadius: 12,
                     paddingVertical: 14, paddingHorizontal: spacing['4'],
                     opacity: pressed ? 0.85 : isImporting ? 0.7 : 1,
                     shadowColor: importSuccess ? '#22C55E' : colors.primary.DEFAULT,
@@ -309,14 +309,14 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
 }
 
 const pk = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg.base },
+  root: { flex: 1, backgroundColor: '#F2F2F7' },
   row: { flexDirection: 'row', alignItems: 'center' },
   title: { color: colors.text.primary, fontSize: 20, fontFamily: typography.fontFamily.bold },
-  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
-  propSelector: { marginTop: spacing['4'], backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: spacing['3'], flexDirection: 'row', alignItems: 'center' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: spacing['4'] },
+  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
+  propSelector: { marginTop: spacing['4'], backgroundColor: '#F2F2F7', borderRadius: radius.md, padding: spacing['3'], flexDirection: 'row', alignItems: 'center' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.md, padding: spacing['4'], marginHorizontal: 16 },
   input: { backgroundColor: colors.bg.elevated, borderRadius: radius.lg, paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], color: colors.text.primary },
-  toneCard: { flex: 1, minWidth: 100, padding: spacing['3'], borderRadius: radius.xl, borderWidth: 1 },
+  toneCard: { flex: 1, minWidth: 100, padding: spacing['3'], borderRadius: radius.md, borderWidth: 1 },
   toggle: { width: 48, height: 28, borderRadius: radius.full, padding: 4, flexDirection: 'row' },
   toggleThumb: { width: 20, height: 20, borderRadius: radius.full, backgroundColor: '#FFFFFF' },
 });
