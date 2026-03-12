@@ -568,12 +568,23 @@ class MultiPassTrainer {
 
   private detectIntent(content: string): string {
     const intentPatterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code|lock/i,
-      check_out: /check.?out|leave|leaving|departure/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
       parking: /park|car|garage|driveway/i,
       pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
-      maintenance: /broken|not working|fix|repair|issue|problem/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
       question: /where|how|what|when|can I/i,
     };
@@ -1123,17 +1134,25 @@ class TrainingQualityAnalyzer {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code|lock/i,
-      check_out: /check.?out|leave|leaving|departure/i,
-      parking: /park|car|garage/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
       pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
-      maintenance: /broken|not working|fix|repair|issue/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
-      refund: /refund|money back|compensation/i,
-      amenity: /pool|gym|hot tub|amenities/i,
-      local_tips: /restaurant|recommend|nearby/i,
-      booking: /reservation|extend|cancel|dates/i,
+      question: /where|how|what|when|can I/i,
     };
 
     for (const [intent, pattern] of Object.entries(patterns)) {
@@ -1539,13 +1558,25 @@ class FewShotIndexer {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code|lock/i,
-      check_out: /check.?out|leave|leaving|departure/i,
-      parking: /park|car|garage/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
       pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
-      maintenance: /broken|not working|fix|repair|issue|problem/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
+      question: /where|how|what|when|can I/i,
     };
 
     for (const [intent, pattern] of Object.entries(patterns)) {
@@ -1744,12 +1775,23 @@ class ConversationFlowLearner {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code/i,
-      check_out: /check.?out|leave|leaving|departure/i,
-      parking: /park|car|garage/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
       pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
-      issue: /broken|not working|fix|repair|problem/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
       question: /where|how|what|when|can I/i,
     };
@@ -1971,12 +2013,25 @@ class GuestMemoryManager {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password/i,
-      check_in: /check.?in|arrive|arrival|key|code/i,
-      check_out: /check.?out|leave|leaving/i,
-      parking: /park|car|garage/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
       pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
-      amenities: /pool|gym|hot tub/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
+      thanks: /thank|appreciate|great|wonderful/i,
+      question: /where|how|what|when|can I/i,
     };
 
     for (const [intent, pattern] of Object.entries(patterns)) {

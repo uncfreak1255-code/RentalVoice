@@ -432,6 +432,8 @@ export function detectTopics(content: string, knowledge?: PropertyKnowledge, opt
     { pattern: /\b(extend|extension|stay longer|more nights|additional night)\b/i, topic: 'Stay Extension', intent: 'extension_request', priority: 2 },
     // Refund
     { pattern: /\b(refund|money back|reimburse|compensation|discount)\b/i, topic: 'Refund', intent: 'refund_request', priority: 1 },
+    // Emergency
+    { pattern: /\b(emergency|urgent|fire|flood|ambulance|police|danger|safety|911)\b/i, topic: 'Emergency', intent: 'emergency_inquiry', priority: 0 },
   ];
 
   for (const { pattern, topic, intent, priority } of topicPatterns) {
@@ -474,6 +476,10 @@ function checkKnowledgeAvailable(intent: string, knowledge?: PropertyKnowledge):
     'appliance_inquiry': 'applianceGuide',
     'local_recommendation': 'localRecommendations',
     'pet_inquiry': 'petPolicy',
+    'housekeeping_inquiry': 'houseRules',
+    'early_checkin_request': 'earlyCheckInAvailable',
+    'late_checkout_request': 'lateCheckOutAvailable',
+    'emergency_inquiry': 'emergencyContacts',
   };
 
   const field = knowledgeMap[intent];
@@ -482,6 +488,16 @@ function checkKnowledgeAvailable(intent: string, knowledge?: PropertyKnowledge):
   // Pet inquiry has multiple possible knowledge sources
   if (intent === 'pet_inquiry') {
     return !!(knowledge.petPolicy || knowledge.petFee || knowledge.petsAllowed !== undefined);
+  }
+
+  // Early check-in has fee + availability as separate fields
+  if (intent === 'early_checkin_request') {
+    return !!(knowledge.earlyCheckInAvailable || knowledge.earlyCheckInFee);
+  }
+
+  // Late check-out has fee + availability as separate fields
+  if (intent === 'late_checkout_request') {
+    return !!(knowledge.lateCheckOutAvailable || knowledge.lateCheckOutFee);
   }
 
   return false;
@@ -559,6 +575,13 @@ Adapt naturally but keep this warm, exclamation-heavy, family-friendly tone.`);
       case 'housekeeping_inquiry':
         if (knowledge.houseRules) {
           answers.push(`House Rules — ${knowledge.houseRules}`);
+          answers.push(`IMPORTANT: Include the relevant house rule details in your response. Guests asking about trash, cleaning, towels, or housekeeping need specific actionable answers.`);
+        }
+        break;
+      case 'emergency_inquiry':
+        if (knowledge.emergencyContacts) {
+          answers.push(`Emergency Contacts — ${knowledge.emergencyContacts}`);
+          answers.push(`IMPORTANT: For emergency or safety questions, always provide the emergency contact information immediately. Guest safety is the top priority.`);
         }
         break;
       case 'pet_inquiry': {
@@ -1515,6 +1538,11 @@ export function buildEnhancedSystemPrompt(
         toneGuidance += `\n\nIMPORTANT: Use a casual, friendly tone like texting a friend. Keep it warm and relaxed.`;
         break;
     }
+  }
+
+  // Apply per-property tone preference if set
+  if (knowledge?.tonePreference) {
+    toneGuidance += `\n\nPROPERTY-SPECIFIC TONE: ${knowledge.tonePreference}`;
   }
 
   // Build identity based on whether we have a learned style profile
