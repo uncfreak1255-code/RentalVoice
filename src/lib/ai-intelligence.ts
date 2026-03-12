@@ -245,8 +245,14 @@ export function createCalibrationEntry(outcome: DraftOutcome): CalibrationEntry 
     calibrationResult = wasAccepted
       ? 'underconfident'   // Low confidence + approved = underconfident
       : 'calibrated';      // Low confidence + rejected = correct
+  } else if (confidence <= 55) {
+    // Lower-medium confidence (41-55) — if approved, system is underconfident
+    // This is the critical zone where most drafts land and need upward pressure
+    calibrationResult = wasAccepted
+      ? 'underconfident'   // 41-55% + approved = should be higher
+      : (wasEdited ? 'calibrated' : 'overconfident');
   } else {
-    // Medium confidence — calibrated if edited, mild issue otherwise
+    // Upper-medium confidence (56-69) — calibrated if accepted/edited
     calibrationResult = (wasAccepted || wasEdited) ? 'calibrated' : 'overconfident';
   }
 
@@ -310,11 +316,13 @@ export function computeCalibrationSummary(entries: CalibrationEntry[]): Calibrat
   const calibrationScore = Math.round((calibrated / entries.length) * 100);
 
   // Calculate confidence adjustment: negative = AI is overconfident, positive = underconfident
+  // Mature profiles (100+ entries) get wider adjustment range for stronger self-correction
+  const maxAdj = entries.length >= 100 ? 30 : 20;
   let adjustment = 0;
   if (overconfident > underconfident) {
-    adjustment = -Math.min(20, Math.round((overconfident / entries.length) * 30));
+    adjustment = -Math.min(maxAdj, Math.round((overconfident / entries.length) * 40));
   } else if (underconfident > overconfident) {
-    adjustment = Math.min(20, Math.round((underconfident / entries.length) * 30));
+    adjustment = Math.min(maxAdj, Math.round((underconfident / entries.length) * 40));
   }
 
   // Find problematic intents
@@ -443,7 +451,38 @@ export function generateVoiceDNAPromptSnippet(profile: HostStyleProfile): string
   if (profile.usesEmojis) {
     lines.push(`EMOJIS: You use emojis naturally (~${Math.round(profile.emojiFrequency / 10)} per message). They feel warm, not forced.`);
   } else {
-    lines.push('EMOJIS: You NEVER use emojis. Any emoji in the response is WRONG.');
+    lines.push('EMOJIS: You NEVER use emojis. Do NOT add 😊 or any emoji. Your warmth comes from words and exclamation marks, not emojis.');
+  }
+
+  // Pronoun preference — critical voice signal
+  if (profile.pronounPreference === 'we') {
+    lines.push('PRONOUNS: You ALWAYS say "we", "us", "our" — never "I" or "me". You speak as a team. This is non-negotiable.');
+  } else if (profile.pronounPreference === 'i') {
+    lines.push('PRONOUNS: You speak in first person — "I", "me", "my". Personal and direct.');
+  }
+
+  // Exclamation style — one of the strongest voice signals
+  if (profile.exclamationStyle === 'triple') {
+    lines.push('EXCLAMATION STYLE: You use double and triple exclamation marks ("!!" and "!!!") for emphasis. This is YOUR energy — single "!" feels flat for you.');
+  } else if (profile.exclamationStyle === 'double') {
+    lines.push('EXCLAMATION STYLE: You use double exclamation marks ("!!") naturally. More than single, less than triple.');
+  }
+
+  // CAPS emphasis — very distinctive voice marker
+  if (profile.capsEmphasisWords && profile.capsEmphasisWords.length > 0) {
+    const capsExamples = profile.capsEmphasisWords.slice(0, 5).map(w => `"${w}"`).join(', ');
+    lines.push(`CAPS EMPHASIS: You write words in ALL CAPS for emphasis: ${capsExamples}. Use this naturally — it's how you express excitement.`);
+  }
+
+  // Guest name usage
+  if (profile.usesGuestNames) {
+    lines.push('PERSONAL TOUCH: You ALWAYS use the guest\'s first name in your response. "That makes us SO happy Jason" not "That makes us so happy". Names make it personal.');
+  }
+
+  // Forward invitations
+  if (profile.forwardInvitations && profile.forwardInvitations.length > 0) {
+    const invites = profile.forwardInvitations.slice(0, 3).map(i => `"${i}"`).join(', ');
+    lines.push(`CLOSING STYLE: You end with forward-looking invitations: ${invites}. You make guests feel welcome to return.`);
   }
 
   // Length and structure

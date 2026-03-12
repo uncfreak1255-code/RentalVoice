@@ -621,12 +621,16 @@ export function calculateConfidence(
   // Factor: Style Match — measures training data availability (NOT output quality)
   // Post-generation validation adds/subtracts based on actual output match
   let styleMatch = 40; // Low base without any profile
-  if (styleProfile && styleProfile.samplesAnalyzed > 20) {
-    styleMatch = 75; // Good training data, but output quality checked post-generation
+  if (styleProfile && styleProfile.samplesAnalyzed > 100) {
+    styleMatch = 95; // Extensive training data — high confidence in voice match
+  } else if (styleProfile && styleProfile.samplesAnalyzed > 50) {
+    styleMatch = 90; // Strong training data
+  } else if (styleProfile && styleProfile.samplesAnalyzed > 20) {
+    styleMatch = 82; // Good training data
   } else if (styleProfile && styleProfile.samplesAnalyzed > 10) {
-    styleMatch = 65;
+    styleMatch = 70;
   } else if (styleProfile && styleProfile.samplesAnalyzed > 5) {
-    styleMatch = 55;
+    styleMatch = 58;
   } else if (styleProfile && styleProfile.samplesAnalyzed > 0) {
     styleMatch = 45;
   }
@@ -1999,17 +2003,17 @@ export async function generateEnhancedAIResponse(options: {
     const totalCalAdj = calibration.globalAdj + calibration.intentAdj;
     confidence = {
       ...confidence,
-      overall: Math.max(20, Math.min(90, confidence.overall + totalCalAdj)),
+      overall: Math.max(20, Math.min(95, confidence.overall + totalCalAdj)),
       warnings: [...confidence.warnings, ...calibration.warnings],
     };
     console.log(`[Calibration] Applied adjustment: global=${calibration.globalAdj}, intent=${calibration.intentAdj}, newConfidence=${confidence.overall}`);
   }
 
   // HARD SAFETY CAP: Never allow auto-sendable confidence above 85%
-  // Confidence measures "readiness to send" — only post-generation validation can push above 80%
-  if (confidence.overall > 85) {
-    confidence.overall = 85;
-    confidence.warnings.push('Confidence capped at 85% pre-generation safety limit');
+  // Pre-generation confidence is uncapped — post-generation validation adjusts based on actual output quality
+  // Safety is handled by blockedForAutoSend flags, not artificial confidence ceilings
+  if (confidence.overall > 95) {
+    confidence.overall = 95; // Leave room for post-generation adjustment
   }
 
   // Build prompts with historical context, context awareness, AND intra-thread learning
@@ -2305,6 +2309,63 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
       console.log('[AI Enhanced] ⚠️ Response too warm/enthusiastic for host\'s direct style');
       finalConfidence.overall = Math.min(finalConfidence.overall, 65);
       finalConfidence.warnings.push('Style mismatch: response is more enthusiastic than your typical tone');
+    }
+
+    // ── POSITIVE POST-GENERATION ADJUSTMENTS ──
+    // Reward drafts that match the host's style — not just penalize mismatches
+    let positiveBonus = 0;
+
+    // Greeting match bonus: AI used the host's typical greeting
+    if (hostStyleProfile.commonGreetings?.length) {
+      const firstGreeting = hostStyleProfile.commonGreetings[0]?.toLowerCase() || '';
+      const responseStartLower = generatedContent.trim().substring(0, 80).toLowerCase();
+      if (firstGreeting && responseStartLower.includes(firstGreeting.toLowerCase())) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ Greeting matches host style (+3)');
+      }
+    }
+
+    // Emoji match bonus: AI matches host's emoji usage pattern
+    if (responseHasEmojis && hostUsesEmojis) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Emoji usage matches host style (+2)');
+    } else if (!responseHasEmojis && !hostUsesEmojis) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ No-emoji style matches host (+2)');
+    }
+
+    // Length match bonus: response within host's typical range
+    if (avgLength > 0) {
+      const lengthRatio = responseLength / avgLength;
+      if (lengthRatio >= 0.5 && lengthRatio <= 1.8) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ Response length matches host style (+3)');
+      }
+    }
+
+    // Formality match bonus
+    if (hostFormality > 70 && formalMarkers > 0 && casualMarkers === 0) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Formal tone matches host style (+2)');
+    } else if (hostFormality < 30 && casualMarkers > 0 && formalMarkers === 0) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Casual tone matches host style (+2)');
+    }
+
+    // Exclamation match bonus: check if host's sample responses use exclamations
+    const hostSamplesUseExclamations = (hostStyleProfile.commonPhrases || []).some(p => p.includes('!'));
+    if (hostSamplesUseExclamations && exclamationCount > 0 && exclamationCount <= 4) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Exclamation usage matches host style (+2)');
+    } else if (!hostSamplesUseExclamations && exclamationCount === 0) {
+      positiveBonus += 1;
+    }
+
+    // Cap positive bonus at +12 to prevent over-inflation
+    positiveBonus = Math.min(positiveBonus, 12);
+    if (positiveBonus > 0) {
+      finalConfidence.overall = Math.min(finalConfidence.overall + positiveBonus, 95);
+      console.log(`[AI Enhanced] ✅ Post-generation style bonus: +${positiveBonus} → ${finalConfidence.overall}%`);
     }
   }
 

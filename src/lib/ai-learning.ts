@@ -153,6 +153,14 @@ export function analyzeMessage(content: string): {
   formalityScore: number;
   warmthScore: number;
   phrases: string[];
+  // Voice fingerprint signals
+  capsWords: string[];           // ALL CAPS words found (e.g., "SO", "LOVE")
+  wePronouns: number;            // Count of we/us/our
+  iPronouns: number;             // Count of I/me/my
+  exclamationPattern: 'none' | 'single' | 'double' | 'triple'; // Dominant ! pattern
+  usesGuestName: boolean;        // Whether guest name appears (detected by context)
+  forwardInvitations: string[];  // Future-looking phrases
+  isLikelyTemplate: boolean;     // Detected as automated template
 } {
   const words = content.split(/\s+/).filter(Boolean);
   const sentences = content.split(/[.!?]+/).filter(Boolean);
@@ -229,6 +237,48 @@ export function analyzeMessage(content: string): {
     }
   }
 
+  // === Voice fingerprint: CAPS emphasis ===
+  // Detect words written in ALL CAPS (min 2 chars, exclude common acronyms)
+  const COMMON_ACRONYMS = new Set(['AM', 'PM', 'US', 'OK', 'ID', 'TV', 'AC', 'PMS', 'WiFi', 'HVAC', 'BBQ', 'ETA', 'ASAP', 'FYI', 'VR', 'STR', 'URL']);
+  const capsWords = words
+    .filter(w => w.length >= 2 && w === w.toUpperCase() && /^[A-Z]+[!.,?]*$/.test(w) && !COMMON_ACRONYMS.has(w.replace(/[!.,?]/g, '')))
+    .map(w => w.replace(/[!.,?]/g, ''));
+
+  // === Voice fingerprint: Pronoun preference ===
+  const wePronouns = (content.match(/\b(we|us|our|we're|we've|we'd)\b/gi) || []).length;
+  const iPronouns = (content.match(/\b(I|me|my|I'm|I've|I'd|I'll)\b/g) || []).length; // Case-sensitive for "I"
+
+  // === Voice fingerprint: Exclamation pattern ===
+  const tripleExcl = (content.match(/!{3,}/g) || []).length;
+  const doubleExcl = (content.match(/!{2}(?!!)/g) || []).length;
+  const singleExcl = (content.match(/!(?!!)/g) || []).length;
+  const exclamationPattern: 'none' | 'single' | 'double' | 'triple' =
+    tripleExcl > 0 ? 'triple' :
+    doubleExcl > 0 ? 'double' :
+    singleExcl > 0 ? 'single' : 'none';
+
+  // === Voice fingerprint: Forward invitations ===
+  const forwardInvitations: string[] = [];
+  const invitationPatterns = [
+    /welcome\s+(?:you|y'all|everyone)\s+back/i,
+    /looking\s+forward\s+to/i,
+    /can't\s+wait/i,
+    /hope\s+to\s+(?:see|have|welcome)/i,
+    /love\s+to\s+(?:have|see|welcome|host)/i,
+    /come\s+(?:back|visit)\s+(?:anytime|again|soon)/i,
+    /anytime!!?!?/i,
+  ];
+  for (const pat of invitationPatterns) {
+    const match = content.match(pat);
+    if (match) forwardInvitations.push(match[0].toLowerCase());
+  }
+
+  // === Template detection ===
+  // Messages with "– Name" or "- Name & Name" signoffs are Hostaway automated templates
+  const hasNameSignoff = /[–—-]\s*[A-Z][a-z]+[\s&]*[A-Z]?[a-z]*\s*$/.test(content);
+  // Very short cookie-cutter responses that look auto-generated
+  const isLikelyTemplate = hasNameSignoff || /^\s*Thank you.*\n.*[–—-]\s*\w+/m.test(content);
+
   return {
     greeting,
     signoff,
@@ -238,6 +288,13 @@ export function analyzeMessage(content: string): {
     formalityScore,
     warmthScore,
     phrases: [...new Set(phrases)], // Remove duplicates
+    capsWords,
+    wePronouns,
+    iPronouns,
+    exclamationPattern,
+    usesGuestName: false, // Set at conversation level where guest name is known
+    forwardInvitations,
+    isLikelyTemplate,
   };
 }
 
@@ -268,16 +325,27 @@ export function analyzeConversationsForStyle(
   // Analyze all messages
   const analyses = hostMessages.map((msg) => analyzeMessage(msg.content));
 
-  // Aggregate results
-  const allGreetings = analyses.map((a) => a.greeting).filter(Boolean) as string[];
-  const allSignoffs = analyses.map((a) => a.signoff).filter(Boolean) as string[];
-  const allPhrases = analyses.flatMap((a) => a.phrases);
+  // Filter OUT template/automated messages from voice training
+  // Templates (with "– Sawyer & David" signoffs) are Hostaway auto-messages, not the host's real voice
+  const realAnalyses = analyses.filter((a) => !a.isLikelyTemplate);
+  const templateCount = analyses.length - realAnalyses.length;
+  if (templateCount > 0) {
+    console.log(`[AI Learning] Filtered ${templateCount} template messages from voice training (${realAnalyses.length} real messages remain)`);
+  }
 
-  const emojiMessages = analyses.filter((a) => a.hasEmojis).length;
-  const totalEmojis = analyses.reduce((sum, a) => sum + a.emojiCount, 0);
-  const avgLength = analyses.reduce((sum, a) => sum + a.wordCount, 0) / analyses.length;
-  const avgFormality = analyses.reduce((sum, a) => sum + a.formalityScore, 0) / analyses.length;
-  const avgWarmth = analyses.reduce((sum, a) => sum + a.warmthScore, 0) / analyses.length;
+  // Use real (non-template) analyses for voice profiling
+  const activeAnalyses = realAnalyses.length > 0 ? realAnalyses : analyses; // Fallback to all if everything looks like templates
+
+  // Aggregate results
+  const allGreetings = activeAnalyses.map((a) => a.greeting).filter(Boolean) as string[];
+  const allSignoffs = activeAnalyses.map((a) => a.signoff).filter(Boolean) as string[];
+  const allPhrases = activeAnalyses.flatMap((a) => a.phrases);
+
+  const emojiMessages = activeAnalyses.filter((a) => a.hasEmojis).length;
+  const totalEmojis = activeAnalyses.reduce((sum, a) => sum + a.emojiCount, 0);
+  const avgLength = activeAnalyses.reduce((sum, a) => sum + a.wordCount, 0) / activeAnalyses.length;
+  const avgFormality = activeAnalyses.reduce((sum, a) => sum + a.formalityScore, 0) / activeAnalyses.length;
+  const avgWarmth = activeAnalyses.reduce((sum, a) => sum + a.warmthScore, 0) / activeAnalyses.length;
 
   // Count phrase frequencies
   const phraseCounts = new Map<string, number>();
@@ -313,17 +381,79 @@ export function analyzeConversationsForStyle(
     .slice(0, 5)
     .map(([signoff]) => signoff);
 
+  // === Aggregate new voice fingerprint signals ===
+
+  // CAPS emphasis: collect all CAPS words across messages, rank by frequency
+  const capsWordCounts = new Map<string, number>();
+  for (const a of activeAnalyses) {
+    for (const w of a.capsWords) {
+      capsWordCounts.set(w, (capsWordCounts.get(w) || 0) + 1);
+    }
+  }
+  const capsEmphasisWords = [...capsWordCounts.entries()]
+    .filter(([_, count]) => count > 1) // Appears in more than one message
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([word]) => word);
+
+  // Pronoun preference: we/us/our vs I/me/my
+  const totalWe = activeAnalyses.reduce((sum, a) => sum + a.wePronouns, 0);
+  const totalI = activeAnalyses.reduce((sum, a) => sum + a.iPronouns, 0);
+  const totalPronouns = totalWe + totalI;
+  const pronounWeRatio = totalPronouns > 0 ? Math.round((totalWe / totalPronouns) * 100) : 50;
+  const pronounPreference: 'we' | 'i' | 'mixed' =
+    pronounWeRatio > 65 ? 'we' :
+    pronounWeRatio < 35 ? 'i' : 'mixed';
+
+  // Exclamation style: what's the dominant pattern?
+  const exclCounts = { single: 0, double: 0, triple: 0 };
+  for (const a of activeAnalyses) {
+    if (a.exclamationPattern === 'triple') exclCounts.triple++;
+    else if (a.exclamationPattern === 'double') exclCounts.double++;
+    else if (a.exclamationPattern === 'single') exclCounts.single++;
+  }
+  const exclamationStyle: 'single' | 'double' | 'triple' | 'mixed' =
+    exclCounts.triple > exclCounts.double && exclCounts.triple > exclCounts.single ? 'triple' :
+    exclCounts.double > exclCounts.single ? 'double' :
+    exclCounts.single > 0 ? 'single' : 'mixed';
+
+  // Forward invitations: collect patterns
+  const invitationCounts = new Map<string, number>();
+  for (const a of activeAnalyses) {
+    for (const inv of a.forwardInvitations) {
+      invitationCounts.set(inv, (invitationCounts.get(inv) || 0) + 1);
+    }
+  }
+  const forwardInvitations = [...invitationCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([phrase]) => phrase);
+
+  // Guest name usage: approximate from how often messages reference proper nouns
+  // (This is a heuristic — real detection happens at conversation level)
+  const nameUsingMessages = activeAnalyses.filter(a => a.usesGuestName).length;
+  const guestNameFrequency = activeAnalyses.length > 0 ? Math.round((nameUsingMessages / activeAnalyses.length) * 100) : 0;
+
   return {
     propertyId: propertyId || 'global',
     formalityLevel: Math.round(avgFormality),
     warmthLevel: Math.round(avgWarmth),
     commonGreetings,
     commonSignoffs,
-    usesEmojis: emojiMessages / hostMessages.length > 0.2, // Uses emojis if >20% of messages have them
-    emojiFrequency: Math.round((totalEmojis / hostMessages.length) * 100),
+    usesEmojis: emojiMessages / activeAnalyses.length > 0.2, // Uses emojis if >20% of messages have them
+    emojiFrequency: Math.round((totalEmojis / activeAnalyses.length) * 100),
     averageResponseLength: Math.round(avgLength),
     commonPhrases,
-    samplesAnalyzed: hostMessages.length,
+    // New voice fingerprint fields
+    capsEmphasisWords,
+    pronounPreference,
+    pronounWeRatio,
+    exclamationStyle,
+    usesGuestNames: guestNameFrequency > 30, // Uses names if in 30%+ of messages
+    guestNameFrequency,
+    forwardInvitations,
+    isTemplateMessage: false, // Profile-level flag, not per-message
+    samplesAnalyzed: activeAnalyses.length, // Count REAL messages, not templates
     lastUpdated: new Date(),
   };
 }

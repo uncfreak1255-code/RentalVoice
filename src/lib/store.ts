@@ -168,6 +168,15 @@ export interface HostStyleProfile {
   avoidedWords: string[];
   // Response patterns by intent
   intentPatterns: Record<string, string[]>; // intent -> sample responses
+  // Voice fingerprint signals
+  capsEmphasisWords: string[];       // Words host writes in ALL CAPS: "SO", "LOVE", "AMAZING"
+  pronounPreference: 'we' | 'i' | 'mixed'; // "we/us/our" vs "I/me/my" dominant pronoun
+  pronounWeRatio: number;            // 0-100, percentage of pronouns that are "we/us/our"
+  exclamationStyle: 'single' | 'double' | 'triple' | 'mixed'; // Dominant exclamation pattern
+  usesGuestNames: boolean;           // Whether host typically uses guest's first name
+  guestNameFrequency: number;        // 0-100, how often guest names appear
+  forwardInvitations: string[];      // Patterns like "welcome you back", "looking forward to"
+  isTemplateMessage: boolean;        // Whether this message came from an automated template
   // Training stats
   samplesAnalyzed: number;
   lastUpdated: Date;
