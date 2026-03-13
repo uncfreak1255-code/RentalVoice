@@ -1567,17 +1567,23 @@ ADDRESS: ${propertyAddress}
 YOUR VOICE DNA (learned from ${hostStyleProfile!.samplesAnalyzed} of your real messages — this is WHO YOU ARE):
 ${styleInstructions}
 ${(() => {
-  const weightedProfile = temporalWeightManager.getWeightedStyleProfile();
-  if (!weightedProfile) return '';
-  const evolution = temporalWeightManager.getWeights().styleEvolution;
-  const latest = evolution.length > 0 ? evolution[evolution.length - 1] : null;
-  let block = '\nRECENT STYLE TREND (your writing has evolved — weight recent patterns most):\n';
-  if (weightedProfile.formalityLevel !== undefined) block += `- Current weighted formality: ${weightedProfile.formalityLevel}/100\n`;
-  if (weightedProfile.warmthLevel !== undefined) block += `- Current weighted warmth: ${weightedProfile.warmthLevel}/100\n`;
-  if (weightedProfile.averageResponseLength !== undefined) block += `- Recent avg response length: ${weightedProfile.averageResponseLength} words\n`;
-  if (latest) block += `- Latest period (${latest.period}): formality ${Math.round(latest.formality)}, warmth ${Math.round(latest.warmth)}, emoji usage ${Math.round(latest.emojiUsage)}%\n`;
-  block += '- When Voice DNA above conflicts with these recent numbers, favor the recent patterns.\n';
-  return block;
+  try {
+    const weightedProfile = temporalWeightManager.getWeightedStyleProfile();
+    if (!weightedProfile) return '';
+    const weights = temporalWeightManager.getWeights();
+    const evolution = weights?.styleEvolution;
+    if (!evolution) return '';
+    const latest = evolution.length > 0 ? evolution[evolution.length - 1] : null;
+    let block = '\nRECENT STYLE TREND (your writing has evolved — weight recent patterns most):\n';
+    if (weightedProfile.formalityLevel !== undefined) block += `- Current weighted formality: ${weightedProfile.formalityLevel}/100\n`;
+    if (weightedProfile.warmthLevel !== undefined) block += `- Current weighted warmth: ${weightedProfile.warmthLevel}/100\n`;
+    if (weightedProfile.averageResponseLength !== undefined) block += `- Recent avg response length: ${weightedProfile.averageResponseLength} words\n`;
+    if (latest) block += `- Latest period (${latest.period}): formality ${Math.round(latest.formality)}, warmth ${Math.round(latest.warmth)}, emoji usage ${Math.round(latest.emojiUsage)}%\n`;
+    block += '- When Voice DNA above conflicts with these recent numbers, favor the recent patterns.\n';
+    return block;
+  } catch {
+    return '';
+  }
 })()}
 These style rules are MANDATORY. They define your voice. Do NOT deviate from them.
 
