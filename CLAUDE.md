@@ -133,6 +133,10 @@ Additional live-founder rule:
 - do not recreate, rotate, or overwrite the live founder account casually
 - future founder work should focus on app-side login/recovery and durable learning migration, not redoing backend bootstrap
 
+## Architecture decisions
+
+Non-obvious decisions and their reasoning live in `docs/decisions/`. Read relevant ADRs before making changes that touch pricing, PMS integrations, or app mode. When making a non-obvious decision, capture it there.
+
 ## Voice accuracy and agent gating
 
 - Voice draft accuracy is ~40-50% for founder profile; all agent/automation features gate on 80%+
