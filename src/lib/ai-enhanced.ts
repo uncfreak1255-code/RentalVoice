@@ -2880,12 +2880,15 @@ Your response should:
   }
 
   prompt += `Generate a response that:
-1. Addresses ONLY the new topics/questions from the most recent guest message
-2. Does NOT repeat information you already provided in earlier messages
-3. NEVER contradicts anything you (the host) already said in this conversation — if you already answered, stay consistent
-4. Matches the appropriate tone for their emotional state
-5. Provides specific, accurate information from property knowledge when available
-6. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
+1. DIRECTLY ACKNOWLEDGES what the guest just said — reference their specific details, numbers, names, or situation before anything else
+2. Addresses ONLY the new topics/questions from the most recent guest message
+3. Does NOT repeat information you already provided in earlier messages
+4. NEVER contradicts anything you (the host) already said in this conversation — if you already answered, stay consistent
+5. Matches the appropriate tone for their emotional state
+6. Provides specific, accurate information from property knowledge when available
+7. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
+
+GROUNDING RULE: Read the guest's last message carefully. If they mention specific facts (guest count, dates, names, questions, situations), your FIRST sentence must acknowledge or respond to those facts directly. Never open with a generic greeting or statement that could apply to any conversation.
 
 CRITICAL: Review the conversation history above. If the host (you) already responded to this topic, your new message MUST align with that response. Do NOT give a different or contradictory answer.
 
