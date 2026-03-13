@@ -83,12 +83,15 @@ import {
   type HostawayHistorySyncJob,
 } from '@/lib/api-client';
 import { isCommercial } from '@/lib/config';
+import { useRouter } from 'expo-router';
+import { ConfidenceDashboard } from './ConfidenceDashboard';
 
 interface AILearningScreenProps {
   onBack: () => void;
 }
 
 export function AILearningScreen({ onBack }: AILearningScreenProps) {
+  const router = useRouter();
   const learningEntries = useAppStore((s) => s.learningEntries);
   const conversations = useAppStore((s) => s.conversations);
   const properties = useAppStore((s) => s.properties);
@@ -1035,6 +1038,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
         </Animated.View>
 
         <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} showsVerticalScrollIndicator={false}>
+          {/* Voice Confidence Dashboard */}
+          <View style={{ marginHorizontal: -16, marginBottom: 8 }}>
+            <ConfidenceDashboard onPress={() => router.push('/settings/voice-confidence')} />
+          </View>
+
           {/* Learning Status Card */}
           <Animated.View
             entering={FadeInDown.delay(100).duration(400)}
