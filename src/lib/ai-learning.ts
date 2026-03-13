@@ -12,6 +12,7 @@ import type {
   HistorySyncStatus,
 } from './store';
 import type { HostawayMessage, HostawayConversation } from './hostaway';
+import { detectIntent } from './intent-detection';
 
 // Anonymized pattern structure for privacy-compliant storage
 export interface AnonymizedPattern {
@@ -665,7 +666,7 @@ export function buildRecurringIntentCoverage({
     for (const message of messages) {
       const isGuestMessage = Number(message.isIncoming) === 1;
       if (!isGuestMessage || !message.body?.trim()) continue;
-      const intent = detectIntent(message.body);
+      const intent = detectIntent(message.body).intent;
       guestIntentCounts.set(intent, (guestIntentCounts.get(intent) || 0) + 1);
     }
   }
@@ -770,34 +771,7 @@ export function generateStyleInstructions(profile: HostStyleProfile): string {
   return instructions.join('\n');
 }
 
-// Intent detection patterns for response categorization
-const INTENT_PATTERNS: Record<string, RegExp[]> = {
-  early_checkin: [/early.*check.?in/i, /check.?in.*early/i, /earlier.*arriv/i, /arriv.*early/i],
-  late_checkout: [/late.*check.?out/i, /later.*leave/i, /stay.*longer/i],
-  check_in: [/check.?in/i, /arrival/i, /key|access|door|lock/i, /when.*arrive/i],
-  check_out: [/check.?out/i, /departure/i, /leaving/i, /late.*check.*out/i],
-  wifi: [/wi.?fi/i, /internet|password|network/i],
-  parking: [/park|parking|car|garage|driveway/i],
-  issue: [/broken|not working|problem|issue|fix/i, /doesn't work|dirty|noise/i],
-  amenity: [/pool|gym|parking|tv|kitchen|bathroom/i],
-  booking: [/book|reservation|extend|cancel/i, /dates|availability/i],
-  thanks: [/thank|appreciate|great stay|wonderful/i],
-  question: [/where|how|what|when|can I|is there/i],
-};
-
-/**
- * Detect guest intent from message content
- */
-function detectIntent(content: string): string {
-  for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
-    for (const pattern of patterns) {
-      if (pattern.test(content)) {
-        return intent;
-      }
-    }
-  }
-  return 'general';
-}
+// detectIntent is imported from ./intent-detection (canonical)
 
 /**
  * Anonymize message content by removing personal identifiable information
@@ -880,7 +854,7 @@ export function analyzeHostawayHistory(
   // Analyze all host messages
   const analyses = allHostMessages.map((msg) => ({
     ...analyzeMessage(msg.content),
-    intent: msg.prevGuestMessage ? detectIntent(msg.prevGuestMessage) : 'general',
+    intent: msg.prevGuestMessage ? detectIntent(msg.prevGuestMessage).intent : 'general',
     anonymizedContent: anonymizeContent(msg.content),
   }));
 

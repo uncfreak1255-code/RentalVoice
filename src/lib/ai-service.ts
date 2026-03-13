@@ -6,6 +6,7 @@ import type { Conversation, Message, Property, HostStyleProfile, QuickReplyTempl
 import { generateStyleInstructions, findMatchingTemplates, generateTemplateBasedPrompt, type TemplateMatchResult } from './ai-learning';
 import { generateCulturalToneInstructions, getCulturalAdaptationSummary } from './cultural-tone';
 import { detectLanguage as detectLanguageEnhanced } from './language-detect';
+import { detectIntent } from './intent-detection';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -317,68 +318,7 @@ function analyzeMessage(content: string): { sentiment: 'positive' | 'neutral' | 
   return { sentiment: 'neutral', confidence: 60 };
 }
 
-/**
- * Detect common intents — supports both STR (guest) and LTR (tenant) messages
- */
-function detectIntent(content: string): string {
-  const lowerContent = content.toLowerCase();
-
-  // ── LTR Intents ──
-  if (lowerContent.includes('rent') || lowerContent.includes('payment') || lowerContent.includes('due') || lowerContent.includes('late fee') || lowerContent.includes('pay')) {
-    return 'rent_inquiry';
-  }
-  if (lowerContent.includes('lease') || lowerContent.includes('contract') || lowerContent.includes('renew') || lowerContent.includes('renewal') || lowerContent.includes('term')) {
-    return 'lease_inquiry';
-  }
-  if (lowerContent.includes('noise') || lowerContent.includes('loud') || lowerContent.includes('party') || lowerContent.includes('neighbor') || lowerContent.includes('quiet hours')) {
-    return 'noise_complaint';
-  }
-  if (lowerContent.includes('move in') || lowerContent.includes('move out') || lowerContent.includes('key return') || lowerContent.includes('walkthrough') || lowerContent.includes('moving')) {
-    return 'move_in_out';
-  }
-  if (lowerContent.includes('bug') || lowerContent.includes('pest') || lowerContent.includes('roach') || lowerContent.includes('mouse') || lowerContent.includes('ant') || lowerContent.includes('exterminator')) {
-    return 'pest_issue';
-  }
-  if (lowerContent.includes('utility') || lowerContent.includes('electric') || lowerContent.includes('water bill') || lowerContent.includes('gas bill') || lowerContent.includes('included')) {
-    return 'utility_inquiry';
-  }
-
-  // ── Shared Intents ──
-  if (lowerContent.includes('park') || lowerContent.includes('car') || lowerContent.includes('garage') || lowerContent.includes('towed') || lowerContent.includes('visitor parking')) {
-    return 'parking_inquiry';
-  }
-  if (lowerContent.includes('broken') || lowerContent.includes('not working') || lowerContent.includes('fix') || lowerContent.includes('repair') || lowerContent.includes('leak') || lowerContent.includes('plumbing') || lowerContent.includes('hvac')) {
-    return 'maintenance_issue';
-  }
-  if (lowerContent.includes('key') || lowerContent.includes('lock') || lowerContent.includes('door') || lowerContent.includes('access')) {
-    return 'access_inquiry';
-  }
-
-  // ── STR-specific Intents ──
-  if (lowerContent.includes('wifi') || lowerContent.includes('internet') || lowerContent.includes('password')) {
-    return 'wifi_inquiry';
-  }
-  if (lowerContent.includes('check-in') || lowerContent.includes('checkin') || lowerContent.includes('arrive') || lowerContent.includes('arrival')) {
-    return 'checkin_inquiry';
-  }
-  if (lowerContent.includes('check-out') || lowerContent.includes('checkout') || lowerContent.includes('leave') || lowerContent.includes('departure')) {
-    return 'checkout_inquiry';
-  }
-  if (lowerContent.includes('early') && (lowerContent.includes('check') || lowerContent.includes('arrive'))) {
-    return 'early_checkin_request';
-  }
-  if (lowerContent.includes('late') && (lowerContent.includes('check') || lowerContent.includes('stay'))) {
-    return 'late_checkout_request';
-  }
-  if (lowerContent.includes('clean') || lowerContent.includes('towel') || lowerContent.includes('sheet') || lowerContent.includes('trash')) {
-    return 'housekeeping_inquiry';
-  }
-  if (lowerContent.includes('restaurant') || lowerContent.includes('food') || lowerContent.includes('eat') || lowerContent.includes('recommend')) {
-    return 'local_recommendation';
-  }
-
-  return 'general_inquiry';
-}
+// detectIntent is imported from ./intent-detection (canonical)
 
 /**
  * Generate an AI response for a guest message
@@ -413,7 +353,7 @@ export async function generateAIResponse(options: AIGenerationOptions): Promise<
 
   // Analyze the message
   const { sentiment, confidence: sentimentConfidence } = analyzeMessage(lastGuestMessage.content);
-  const detectedIntent = detectIntent(lastGuestMessage.content);
+  const detectedIntent = detectIntent(lastGuestMessage.content).intent;
 
   // Detect guest language — use enhanced detector, fallback chain
   const guestLanguage = language ||
@@ -569,13 +509,13 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
     // Reduce confidence for complex situations
     if (sentiment === 'urgent') confidence = Math.min(confidence, 55);
     if (sentiment === 'negative') confidence = Math.min(confidence, 60);
-    if (detectedIntent === 'maintenance_issue') confidence = Math.min(confidence, 65);
+    if (detectedIntent === 'complaint') confidence = Math.min(confidence, 65);
 
     // Boost for straightforward queries with verified knowledge
     if (propertyKnowledge && hostStyleProfile && hostStyleProfile.samplesAnalyzed >= 10) {
-      if (detectedIntent === 'wifi_inquiry' && propertyKnowledge.wifiPassword) confidence = Math.min(88, confidence + 5);
-      if (detectedIntent === 'checkin_inquiry' && propertyKnowledge.checkInInstructions) confidence = Math.min(88, confidence + 5);
-      if (detectedIntent === 'parking_inquiry' && propertyKnowledge.parkingInfo) confidence = Math.min(88, confidence + 5);
+      if (detectedIntent === 'question' && propertyKnowledge.wifiPassword) confidence = Math.min(88, confidence + 5);
+      if (detectedIntent === 'check_in' && propertyKnowledge.checkInInstructions) confidence = Math.min(88, confidence + 5);
+      if (detectedIntent === 'question' && propertyKnowledge.parkingInfo) confidence = Math.min(88, confidence + 5);
     }
 
     console.log('[AI Service] Response generated with confidence:', confidence);
@@ -612,36 +552,21 @@ function getSuggestedActions(intent: string, sentiment: string): string[] {
     actions.push('Consider offering compensation');
   }
 
-  // STR actions
-  if (intent === 'maintenance_issue') {
+  if (intent === 'complaint') {
     actions.push('Create maintenance ticket');
     actions.push('Contact property manager');
   }
-  if (intent === 'early_checkin_request' || intent === 'late_checkout_request') {
+  if (intent === 'check_in' || intent === 'check_out') {
     actions.push('Check availability');
-    actions.push('Consider upsell opportunity');
+    actions.push('Confirm details with guest');
   }
-
-  // LTR actions
-  if (intent === 'rent_inquiry') {
-    actions.push('Verify payment status');
-    actions.push('Send payment portal link');
+  if (intent === 'booking_inquiry') {
+    actions.push('Review booking details');
+    actions.push('Confirm availability');
   }
-  if (intent === 'lease_inquiry') {
-    actions.push('Review lease terms');
-    actions.push('Schedule renewal discussion');
-  }
-  if (intent === 'noise_complaint') {
-    actions.push('Document complaint');
-    actions.push('Send quiet hours reminder to building');
-  }
-  if (intent === 'pest_issue') {
-    actions.push('Schedule exterminator');
-    actions.push('Create urgent maintenance ticket');
-  }
-  if (intent === 'move_in_out') {
-    actions.push('Schedule walkthrough');
-    actions.push('Prepare move-in/out checklist');
+  if (intent === 'emergency') {
+    actions.push('Call guest immediately');
+    actions.push('Contact emergency services if needed');
   }
 
   return actions;
@@ -660,13 +585,13 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
       content: "Thank you for reaching out! How can I help you with your stay?",
       confidence: 85,
       sentiment: 'neutral',
-      detectedIntent: 'general_inquiry',
+      detectedIntent: 'general',
       detectedLanguage: 'en',
     };
   }
 
   const { sentiment } = analyzeMessage(lastGuestMessage.content);
-  const intent = detectIntent(lastGuestMessage.content);
+  const intent = detectIntent(lastGuestMessage.content).intent;
   const detectedLanguage = conversation.guest.preferredLanguage ||
     conversation.guest.detectedLanguage ||
     detectLanguage(lastGuestMessage.content);
@@ -678,7 +603,7 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
 
   // Demo responses based on intent - with cultural variations
   const demoResponses: Record<string, Record<string, string>> = {
-    wifi_inquiry: {
+    question: {
       en: `Great question! The WiFi network is "PropertyGuest" and the password is "welcome2024". You should find the strongest signal in the living room. Let me know if you have any trouble connecting!`,
       es: `¡Excelente pregunta! La red WiFi es "PropertyGuest" y la contraseña es "welcome2024". Encontrarás la mejor señal en la sala de estar. ¡No dudes en escribirme si tienes problemas para conectarte!`,
       fr: `Très bonne question ! Le réseau WiFi est "PropertyGuest" et le mot de passe est "welcome2024". Vous trouverez le meilleur signal dans le salon. N'hésitez pas à me contacter si vous avez des difficultés à vous connecter.`,
@@ -686,7 +611,7 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
       it: `Ottima domanda! La rete WiFi è "PropertyGuest" e la password è "welcome2024". Troverai il segnale migliore in soggiorno. Non esitare a contattarmi se hai problemi a connetterti!`,
       ja: `ご質問ありがとうございます。WiFiネットワーク名は「PropertyGuest」、パスワードは「welcome2024」でございます。リビングルームで最も電波が良くなっております。接続に問題がございましたら、お気軽にお申し付けください。`,
     },
-    checkin_inquiry: {
+    check_in: {
       en: `Check-in is at 3:00 PM. You'll find a lockbox on the front door - the code will be sent to you the morning of your arrival. There's also a detailed check-in guide in the welcome book on the kitchen counter!`,
       es: `¡El check-in es a las 3:00 PM! Encontrarás una caja de seguridad en la puerta principal - te enviaré el código la mañana de tu llegada. También hay una guía detallada en el libro de bienvenida en la cocina. ¡Que tengas un buen viaje!`,
       fr: `L'enregistrement se fait à 15h00. Vous trouverez un boîtier à code sur la porte d'entrée - le code vous sera envoyé le matin de votre arrivée. Un guide détaillé vous attend également dans le livret d'accueil sur le comptoir de la cuisine.`,
@@ -694,7 +619,7 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
       it: `Il check-in è alle 15:00. Troverai una cassetta di sicurezza sulla porta d'ingresso - ti invierò il codice la mattina del tuo arrivo. C'è anche una guida dettagliata nel libro di benvenuto sul bancone della cucina!`,
       ja: `チェックインは午後3時でございます。玄関ドアにキーボックスがございます。暗証番号はご到着日の朝にお送りいたします。また、キッチンカウンターにあるウェルカムブックに詳しいチェックインガイドがございます。`,
     },
-    general_inquiry: {
+    general: {
       en: `Thanks for reaching out! I'm happy to help with anything you need during your stay. What can I assist you with?`,
       es: `¡Gracias por escribir! Estoy encantado de ayudarte con lo que necesites durante tu estancia. ¿En qué puedo asistirte?`,
       fr: `Merci de nous contacter ! Je suis ravi de pouvoir vous aider pendant votre séjour. Comment puis-je vous être utile ?`,
@@ -706,14 +631,11 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
 
   // Fallback responses for intents not in the cultural map
   const fallbackResponses: Record<string, string> = {
-    checkout_inquiry: `Check-out is at 11:00 AM. Please start the dishwasher, take out any trash, and leave the keys on the kitchen counter. No need to strip the beds - we've got that covered!`,
-    early_checkin_request: `I'd love to accommodate an early check-in for you! Let me check with our cleaning team. Typically, we can offer early check-in at 1 PM for a small fee of $25, subject to availability. Would that work for you?`,
-    late_checkout_request: `Thanks for asking about late checkout! I can often accommodate this. Our standard late checkout is until 1 PM for $30. Let me confirm availability for your dates and get back to you shortly.`,
-    parking_inquiry: `Parking is available right in the driveway - you can fit up to 2 cars. There's also free street parking if you have additional vehicles. The garage is for storage only, so please use the driveway.`,
-    access_inquiry: `Access to the property is via a keypad lock on the front door. Your unique entry code will be sent to you on the morning of check-in. If you ever get locked out, just give me a call and I can provide a backup code!`,
-    maintenance_issue: `I'm so sorry to hear you're experiencing an issue! I want to get this resolved for you right away. Can you tell me a bit more about what's happening? I'll contact our maintenance team immediately.`,
-    local_recommendation: `Great question! Some local favorites include The Harbor Grill for seafood, Sunrise Cafe for breakfast, and Bella Italia for dinner. For activities, the beach is just 5 minutes away and there's great hiking at Pine Ridge Trail!`,
-    housekeeping_inquiry: `I'd be happy to help with housekeeping needs! Fresh towels and linens can be found in the hallway closet. If you need anything else, just let me know!`,
+    check_out: `Check-out is at 11:00 AM. Please start the dishwasher, take out any trash, and leave the keys on the kitchen counter. No need to strip the beds - we've got that covered!`,
+    booking_inquiry: `Thanks for reaching out about your booking! Let me check on that for you and get back to you shortly.`,
+    complaint: `I'm so sorry to hear you're experiencing an issue! I want to get this resolved for you right away. Can you tell me a bit more about what's happening? I'll contact our maintenance team immediately.`,
+    thanks: `Thank you so much! We're glad you're enjoying your stay. Don't hesitate to reach out if you need anything!`,
+    emergency: `This sounds urgent — please call 911 if you're in immediate danger. I'm looking into this right now and will follow up as soon as possible.`,
   };
 
   // Get the response - prefer culturally adapted, fallback to English or generic
@@ -725,23 +647,20 @@ export function generateDemoResponse(conversation: Conversation, culturalToneEna
   } else if (intentResponses && intentResponses['en']) {
     content = intentResponses['en'];
   } else {
-    content = fallbackResponses[intent] || fallbackResponses['general_inquiry'] || demoResponses.general_inquiry.en;
+    content = fallbackResponses[intent] || demoResponses.general?.en || "Thank you for reaching out! How can I help you with your stay?";
   }
 
   // Demo confidence: realistic values based on intent, NOT inflated random
   // Without a real AI call and style profile, confidence should never be high enough to auto-send
   const intentConfidenceMap: Record<string, number> = {
-    wifi_inquiry: 72,
-    checkin_inquiry: 70,
-    checkout_inquiry: 68,
-    parking_inquiry: 70,
-    general_inquiry: 65,
-    local_recommendation: 68,
-    maintenance_issue: 55,
-    noise_complaint: 50,
-    refund_request: 45,
-    early_checkin_request: 60,
-    late_checkout_request: 60,
+    question: 72,
+    check_in: 70,
+    check_out: 68,
+    general: 65,
+    booking_inquiry: 68,
+    complaint: 55,
+    thanks: 75,
+    emergency: 40,
   };
 
   return {
