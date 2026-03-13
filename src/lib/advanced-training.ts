@@ -143,6 +143,30 @@ class IncrementalTrainer {
       // Notify: "Learned from 10 new messages"
       this.notifyCallbacks();
 
+      // Auto-trigger MultiPassTrainer if it hasn't run or results are stale
+      // This ensures phrase mining and style analysis stay current
+      try {
+        const mpState = multiPassTrainer.getState();
+        const hasResults = mpState.passesCompleted.length > 0;
+        const isStale = !hasResults || (mpState.passesCompleted.length < 5);
+        if (!mpState.isRunning && isStale && batch.length > 0) {
+          const hostMessages = batch
+            .filter(m => m.content && m.content.length > 10)
+            .map(m => ({
+              content: m.content,
+              prevGuestContent: m.guestMessage,
+              propertyId: m.propertyId,
+              timestamp: new Date(m.timestamp),
+            }));
+          if (hostMessages.length >= 5) {
+            console.log('[IncrementalTrainer] Auto-triggering MultiPassTrainer with batch data');
+            multiPassTrainer.runDeepTraining(hostMessages).catch(console.error);
+          }
+        }
+      } catch (e) {
+        console.warn('[IncrementalTrainer] MultiPass auto-trigger failed:', e);
+      }
+
       // Sync learning state to cloud (fire-and-forget, throttled internally)
       syncLearningToCloud().catch((err) =>
         console.error('[IncrementalTrainer] Cloud sync failed:', err)
@@ -1593,8 +1617,8 @@ class FewShotIndexer {
     for (let i = 0; i < examples.length; i++) {
       const ex = examples[i];
       prompt += `\nExample ${i + 1}:\n`;
-      prompt += `Guest: "${ex.guestMessage.substring(0, 400)}${ex.guestMessage.length > 400 ? '...' : ''}"\n`;
-      prompt += `Your response: "${ex.hostResponse.substring(0, 600)}${ex.hostResponse.length > 600 ? '...' : ''}"\n`;
+      prompt += `Guest: "${ex.guestMessage.substring(0, 800)}${ex.guestMessage.length > 800 ? '...' : ''}"\n`;
+      prompt += `Your response: "${ex.hostResponse.substring(0, 1200)}${ex.hostResponse.length > 1200 ? '...' : ''}"\n`;
     }
 
     prompt += '\nUse these examples to guide your tone, style, and level of detail.\n';

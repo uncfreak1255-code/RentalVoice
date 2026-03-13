@@ -57,8 +57,9 @@ function getCalibrationAdjustment(primaryIntent?: string): {
         // Overconfident on this intent → penalize by 5-15 based on frequency
         intentMap.set(pi.intent, -Math.min(15, pi.count * 2));
       } else {
-        // Underconfident → slight boost (up to +10)
-        intentMap.set(pi.intent, Math.min(10, pi.count));
+        // Underconfident → boost proportional to frequency (up to +20)
+        // High-frequency intents like early_checkin with consistent approvals deserve stronger lift
+        intentMap.set(pi.intent, Math.min(20, pi.count * 2));
       }
     }
 
@@ -2613,10 +2614,8 @@ function searchAndPrepareHistoricalContext(
       intent: m.guestIntent,
       score: m.matchScore || 0,
       responsePreview: m.hostResponse.substring(0, 100) + (m.hostResponse.length > 100 ? '...' : ''),
-      // Top 2 matches get full response (up to 800 chars), rest get 500 chars
-      fullResponse: i < 2
-        ? m.hostResponse.substring(0, 800) + (m.hostResponse.length > 800 ? '...' : '')
-        : m.hostResponse.substring(0, 500) + (m.hostResponse.length > 500 ? '...' : ''),
+      // All matches get full response up to 1200 chars to preserve voice signal
+      fullResponse: m.hostResponse.substring(0, 1200) + (m.hostResponse.length > 1200 ? '...' : ''),
     })),
   };
 }
