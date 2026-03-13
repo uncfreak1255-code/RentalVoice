@@ -276,6 +276,45 @@ class MultiPassTrainer {
     return this.state.results?.phrase_mining?.frequentPhrasesList || [];
   }
 
+  /**
+   * Returns a 0–10 confidence adjustment based on how much deep training has completed.
+   * Each of the 5 passes contributes up to 2 points when it has mined meaningful patterns.
+   * This rewards the system for having done thorough voice analysis — more training = higher floor.
+   */
+  getConfidenceAdjustment(): number {
+    const results = this.state.results;
+    if (!results || Object.keys(results).length === 0) return 0;
+
+    let adjustment = 0;
+
+    // style_tone: +2 if completed with patterns
+    if (results.style_tone?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.style_tone.patternsExtracted / 3);
+    }
+
+    // intent_mapping: +2 if completed with patterns
+    if (results.intent_mapping?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.intent_mapping.patternsExtracted / 5);
+    }
+
+    // phrase_mining: +2 if frequent phrases were extracted
+    if (results.phrase_mining?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.phrase_mining.patternsExtracted / 10);
+    }
+
+    // contextual: +2 if contextual patterns found
+    if (results.contextual?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.contextual.patternsExtracted / 3);
+    }
+
+    // edge_cases: +2 if edge case patterns found
+    if (results.edge_cases?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.edge_cases.patternsExtracted / 3);
+    }
+
+    return Math.round(adjustment);
+  }
+
   onStateChange(callback: (state: MultiPassState) => void): () => void {
     this.callbacks.push(callback);
     return () => {

@@ -2108,6 +2108,16 @@ export async function generateEnhancedAIResponse(options: {
     confidence.overall = 95; // Leave room for post-generation adjustment
   }
 
+  // MULTI-PASS TRAINING BONUS: Reward deep training completeness
+  const multiPassAdjustment = multiPassTrainer.getConfidenceAdjustment();
+  if (multiPassAdjustment > 0) {
+    confidence = {
+      ...confidence,
+      overall: Math.min(95, confidence.overall + multiPassAdjustment),
+    };
+    console.log(`[MultiPass] Applied confidence adjustment: +${multiPassAdjustment}, newConfidence=${confidence.overall}`);
+  }
+
   // Build prompts with historical context, context awareness, AND intra-thread learning
   const systemPrompt = buildEnhancedSystemPromptWithHistory(
     conversation.property.name,
