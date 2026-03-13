@@ -1169,7 +1169,11 @@ function determineThreadDirection(
 
   const isResolution = resolutionPatterns.some(p => p.test(currentGuestMessage));
 
-  if (isResolution && !isClarification) {
+  // A message with a question mark is NOT purely a resolution — even if it says "thanks"
+  // e.g. "how are you from Anna Maria Island? thank you!" is a question, not a closure
+  const hasQuestion = /\?/.test(currentGuestMessage);
+
+  if (isResolution && !isClarification && !hasQuestion) {
     return 'resolution';
   }
   if (isClarification) {
@@ -1615,21 +1619,23 @@ GUIDELINES:
 - For urgent issues, express immediate concern and offer solutions
 
 SAFETY RULES (NEVER VIOLATE — these protect your business):
-- NEVER promise refunds, discounts, compensation, or any financial action. If a guest asks for money back, say: "I need to look into this and I'll get back to you shortly with a resolution."
-- NEVER fabricate property details. If you don't have specific information about an amenity, rule, or feature, say: "Let me confirm that and get back to you" instead of guessing.
+- NEVER promise refunds, discounts, compensation, or any financial action. Tell the guest you need to look into it and will follow up.
+- NEVER fabricate property details. If you don't have specific info, tell the guest you'll confirm and get back to them.
 - NEVER share other guests' personal information, check-in codes, or booking details.
-- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, respond: "If this is an emergency, please call 911 immediately. I'm on it right now."
-- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For early check-in or late checkout requests, respond helpfully: "Let me check availability for that and I'll let you know!"
+- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, tell them to call 911 and that you're on it.
+- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For schedule change requests, first acknowledge WHY they're asking (e.g. short stay, late flight), then tell them you'll check on it. Write this in YOUR voice — do NOT use a generic template.
 - NEVER offer free nights, upgrades, early check-in, or late check-out as confirmed — always say you'll check.
 - NEVER make promises about future bookings, availability, or pricing.
-- When uncertain about ANY fact, clearly state uncertainty rather than guessing. "I'll check on that" is better than a wrong answer that damages trust.
+- When uncertain about ANY fact, tell the guest you'll check rather than guessing.
 - NEVER refer to yourself in the third person or say "the host" — YOU ARE the host.
+
+IMPORTANT: The safety rules above describe BEHAVIOR, not exact words. Write safety-compliant responses in YOUR natural voice. Never copy template phrases from these rules — rephrase them in the warm, casual style shown in your Voice DNA.
 
 BANNED PHRASES (these are AI artifacts — no real person writes like this, remove if you catch yourself using them):
 - "I understand this is stressful" / "I understand your frustration" / "I completely understand"
 - "I'd be happy to help" / "Happy to assist" / "Please don't hesitate to reach out"
 - "Rest assured" / "I want to assure you" / "Let me assure you" / "I appreciate your patience"
-- "It's important to note" / "It's worth noting" / "I need to look into this and I'll get back to you shortly with a resolution"
+- "It's important to note" / "It's worth noting" / "Let me check availability for that and I'll let you know"
 - "Delve" / "Leverage" / "Utilize" / "Harness" / "Robust" / "Landscape" / "Realm"
 - "Furthermore" / "Additionally" / "Moreover" / "Moving forward" / "Straightforward"
 - "Absolutely" as a sentence starter / "reach out at anytime"
@@ -1670,14 +1676,14 @@ GUIDELINES:
 - For urgent issues, express immediate concern and offer solutions
 
 SAFETY RULES (NEVER VIOLATE — these protect your business):
-- NEVER promise refunds, discounts, compensation, or any financial action. Say: "I need to look into this and I'll get back to you shortly."
-- NEVER fabricate property details. Say: "Let me confirm that and get back to you" instead of guessing.
+- NEVER promise refunds, discounts, compensation, or any financial action. Tell the guest you need to look into it.
+- NEVER fabricate property details. If unsure, tell the guest you'll confirm and follow up.
 - NEVER share other guests' personal information, check-in codes, or booking details.
-- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies: "If this is an emergency, please call 911 immediately. I'm on it."
-- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For late checkout or early check-in requests, say: "Let me check availability for that and I'll let you know!"
+- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, tell them to call 911.
+- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For schedule change requests, first acknowledge their reason for asking, then tell them you'll check on it.
 - NEVER offer free nights, upgrades, or confirmed schedule changes — always say you'll check.
 - NEVER make promises about future bookings, availability, or pricing.
-- When uncertain, say "I'll check on that" rather than guessing.
+- When uncertain, tell the guest you'll check rather than guessing.
 - NEVER refer to yourself in the third person or say "the host" — YOU ARE the host.
 
 BANNED PHRASES (these are AI artifacts — no real person writes like this):
@@ -2124,6 +2130,39 @@ export async function generateEnhancedAIResponse(options: {
     console.log(`[MultiPass] Applied confidence adjustment: +${multiPassAdjustment}, newConfidence=${confidence.overall}`);
   }
 
+  // Build conversation context with chronological ordering (needed for both system and user prompts)
+  const recentMessages = conversation.messages.slice(-10);
+  const conversationContext = recentMessages
+    .filter((m) => m.sender !== 'ai_draft')
+    .map((m, idx) => {
+      const role = m.sender === 'guest' ? 'Guest' : 'Host';
+      const time = m.timestamp
+        ? new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : '';
+      return `[${idx + 1}] [${time}] ${role}: ${m.content}`;
+    })
+    .join('\n');
+
+  // Build a concise conversation digest for the system prompt
+  // This ensures Gemini's instruction layer knows WHAT to respond to, not just HOW
+  const lastGuestMsg = [...conversation.messages].reverse().find(m => m.sender === 'guest');
+  const lastHostMsg = [...conversation.messages].reverse().find(m => m.sender === 'host');
+  let conversationDigest = '';
+  if (lastGuestMsg) {
+    conversationDigest += `Guest's latest message: "${lastGuestMsg.content}"\n`;
+    if (lastHostMsg) {
+      conversationDigest += `Your most recent reply before this: "${lastHostMsg.content.length > 200 ? lastHostMsg.content.substring(0, 200) + '...' : lastHostMsg.content}"\n`;
+    }
+    conversationDigest += `Thread direction: ${contextAnalysis?.threadDirection || 'unknown'}`;
+    // Add booking context if available
+    if (conversation.guest?.name) conversationDigest += `\nGuest name: ${conversation.guest.name}`;
+    if (conversation.numberOfGuests) conversationDigest += `\nGuest count: ${conversation.numberOfGuests}`;
+    if (conversation.checkInDate) conversationDigest += `\nCheck-in: ${new Date(conversation.checkInDate).toLocaleDateString()}`;
+    if (conversation.checkOutDate) conversationDigest += `\nCheck-out: ${new Date(conversation.checkOutDate).toLocaleDateString()}`;
+    if (conversation.isInquiry) conversationDigest += `\nBooking status: Pre-booking inquiry (no reservation yet)`;
+    if (conversation.platform) conversationDigest += `\nPlatform: ${conversation.platform}`;
+  }
+
   // Build prompts with historical context, context awareness, AND intra-thread learning
   const systemPrompt = buildEnhancedSystemPromptWithHistory(
     conversation.property.name,
@@ -2137,21 +2176,9 @@ export async function generateEnhancedAIResponse(options: {
     historicalMatches,
     skippedTopics,
     contextAnalysis,
-    intraThreadLearning
+    intraThreadLearning,
+    conversationDigest
   );
-
-  // Build conversation context with chronological ordering
-  const recentMessages = conversation.messages.slice(-10);
-  const conversationContext = recentMessages
-    .filter((m) => m.sender !== 'ai_draft')
-    .map((m, idx) => {
-      const role = m.sender === 'guest' ? 'Guest' : 'Host';
-      const time = m.timestamp
-        ? new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-        : '';
-      return `[${idx + 1}] [${time}] ${role}: ${m.content}`;
-    })
-    .join('\n');
 
   const topicsText = topics.map(t => t.topic).join(', ');
 
@@ -2424,6 +2451,23 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
       finalConfidence.warnings.push('Style mismatch: response is more enthusiastic than your typical tone');
     }
 
+    // Check for banned phrases that leaked through despite system prompt rules
+    const bannedPhrases = [
+      'i understand this is stressful', 'i understand your frustration', 'i completely understand',
+      "i'd be happy to help", 'happy to assist', "please don't hesitate to reach out",
+      'rest assured', 'i want to assure you', 'let me assure you', 'i appreciate your patience',
+      "it's important to note", "it's worth noting",
+      'reach out at anytime', 'reach out anytime',
+      'furthermore', 'additionally', 'moreover', 'moving forward',
+    ];
+    const lowerResponse = generatedContent.toLowerCase();
+    const foundBanned = bannedPhrases.filter(phrase => lowerResponse.includes(phrase));
+    if (foundBanned.length > 0) {
+      console.log('[AI Enhanced] ⚠️ BANNED PHRASES detected:', foundBanned.join(', '));
+      finalConfidence.overall = Math.min(finalConfidence.overall, 55);
+      finalConfidence.warnings.push(`Contains AI-sounding phrases: "${foundBanned[0]}"`);
+    }
+
     // ── POSITIVE POST-GENERATION ADJUSTMENTS ──
     // Reward drafts that match the host's style — not just penalize mismatches
     let positiveBonus = 0;
@@ -2608,7 +2652,8 @@ function buildEnhancedSystemPromptWithHistory(
   historicalMatches?: HistoricalMatchInfo,
   skippedTopics?: SkippedTopicInfo[],
   contextAnalysis?: ConversationContextAnalysis,
-  intraThreadLearning?: IntraThreadLearning
+  intraThreadLearning?: IntraThreadLearning,
+  conversationDigest?: string
 ): string {
   // Get base prompt
   let prompt = buildEnhancedSystemPrompt(
@@ -2621,6 +2666,16 @@ function buildEnhancedSystemPromptWithHistory(
     hostStyleProfile,
     regenerationModifier
   );
+
+  // CONVERSATION GROUNDING: Inject what the guest actually said into the system prompt
+  // so Gemini's instruction layer knows the specifics, not just the user prompt
+  if (conversationDigest) {
+    prompt += `\n\nCONVERSATION GROUNDING (what you are responding to RIGHT NOW):
+${conversationDigest}
+
+YOUR RESPONSE MUST directly address the content above. If the guest asked a question, answer it. If they made a statement, acknowledge the specific thing they said. If they're just being friendly, respond naturally to THEIR specific words — not with a generic placeholder. Never generate a response that could work for any conversation.
+`;
+  }
 
   // INTRA-THREAD LEARNING: Add style anchoring instructions
   if (intraThreadLearning?.styleAnchor.hasAnchor) {

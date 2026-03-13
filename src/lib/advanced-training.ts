@@ -1522,10 +1522,17 @@ class FewShotIndexer {
       this.keywordIndex.get(keyword)!.push(example.id);
     }
 
-    // Save periodically
-    if (this.examples.length % 10 === 0) {
-      await this.saveIndex();
-    }
+    // Save after every example — previously only saved every 10th, causing data loss on restart
+    // Debounce to 1s to handle bulk imports without thrashing AsyncStorage
+    this.scheduleSave();
+  }
+
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private scheduleSave(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      this.saveIndex().catch(console.error);
+    }, 1000);
   }
 
   // Find most relevant examples for a guest message

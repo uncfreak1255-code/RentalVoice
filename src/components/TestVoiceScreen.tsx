@@ -11,7 +11,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore, type Property, type Conversation, type Message } from '@/lib/store';
-import { generateEnhancedAIResponse, type EnhancedAIResponse } from '@/lib/ai-enhanced';
+import { generateEnhancedAIResponse, learnFromSentMessage, type EnhancedAIResponse } from '@/lib/ai-enhanced';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -265,6 +265,7 @@ export function TestVoiceScreen({ onBack }: TestVoiceScreenProps) {
 
   const saveSandboxTrainingExample = useCallback(async (hostResponse: string, guestMessage: string) => {
     try {
+      // Save to store for persistence
       const addLearningEntry = useAppStore.getState().addLearningEntry;
       if (addLearningEntry) {
         addLearningEntry({
@@ -277,8 +278,19 @@ export function TestVoiceScreen({ onBack }: TestVoiceScreenProps) {
           timestamp: new Date(),
           originType: 'host_written',
         });
-        console.log('[TestVoice] Saved sandbox training example as host_written');
       }
+
+      // CRITICAL: Also feed into the actual learning pipeline (few-shot indexer + incremental trainer)
+      // Without this, Test My Voice examples are stored but never used for draft generation
+      await learnFromSentMessage(
+        hostResponse,
+        guestMessage,
+        selectedPropertyId || undefined,
+        false,  // wasEdited
+        true,   // wasApproved
+        'host_written'
+      );
+      console.log('[TestVoice] Saved training example to store AND few-shot indexer');
     } catch (error) {
       console.error('[TestVoice] Failed to save training example:', error);
     }

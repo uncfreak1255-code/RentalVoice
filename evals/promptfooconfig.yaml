@@ -1,0 +1,26 @@
+# Rental Voice — Overnight Prompt Evaluation
+# Tests AI draft quality against Sawyer's voice profile
+# Run from project root: GOOGLE_API_KEY=<key> promptfoo eval --config evals/promptfooconfig.yaml
+
+description: "Rental Voice Draft Quality Eval"
+
+prompts:
+  - id: file://prompts/combined.txt
+    label: "rental-voice-v1"
+
+providers:
+  - id: google:gemini-2.0-flash
+    config:
+      generationConfig:
+        maxOutputTokens: 600
+        temperature: 0.7
+
+tests: file://test-cases.yaml
+
+defaultTest:
+  options:
+    provider:
+      text:
+        id: google:gemini-2.0-flash
+
+outputPath: results/eval-latest.json
