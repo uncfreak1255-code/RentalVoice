@@ -25,6 +25,7 @@ import {
   calculateConfidence,
 
   getRegenerationOptions,
+  learnFromSentMessage,
   type RegenerationOption,
   type EnhancedAIResponse,
   type ActionItem,
@@ -938,12 +939,13 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       }
 
       if (lastGuestMessage) {
-        aiTrainingService.learnFromReply(
-          lastGuestMessage.content,
+        learnFromSentMessage(
           content,
-          true,
+          lastGuestMessage.content,
           conversation?.property?.id,
-          'host_written' // User composed this independently — ground truth for voice learning
+          false,  // wasEdited
+          true,   // wasApproved
+          'host_written'
         ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
         updateAILearningProgress({
@@ -1057,11 +1059,12 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         }
 
         if (lastGuestMessage) {
-          aiTrainingService.learnFromReply(
-            lastGuestMessage.content,
+          learnFromSentMessage(
             contentToSend,
-            wasEditedByUser,
+            lastGuestMessage.content,
             conversation?.property?.id,
+            wasEditedByUser,
+            true,  // wasApproved
             wasEditedByUser ? 'ai_edited' : 'ai_approved'
           ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 

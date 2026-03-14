@@ -1603,7 +1603,7 @@ REVIEW/FEEDBACK RESPONSE RULES:
 - Do NOT create bullet-point lists of property improvements or to-do items
 - NEVER say "I will look into adding..." or promise specific property changes
 - Simply thank them by first name, acknowledge their feedback generally, and warmly invite them back
-- Match this style EXACTLY: "Hi [guest first name], thank you so much for the feedback as that truly helps us improve the home! We're always striving to improve our home for our guests! We are so glad we had the opportunity to have you and your wonderful family, and would love to have you back anytime! We wish you safe travels, and thank you again for everything!"
+- Your review responses should feel like a personal note — thank them by name, mention something specific if possible, and warmly invite them back. Write it in YOUR voice, not a template.
 - Keep it warm, genuine, and personal — never corporate or list-like
 
 MULTI-TOPIC HANDLING:
@@ -1661,7 +1661,7 @@ REVIEW/FEEDBACK RESPONSE RULES:
 - Do NOT create bullet-point lists of property improvements or to-do items
 - NEVER say "I will look into adding..." or promise specific property changes
 - Simply thank them by first name, acknowledge their feedback generally, and warmly invite them back
-- Match this style EXACTLY: "Hi [guest first name], thank you so much for the feedback as that truly helps us improve the home! We're always striving to improve our home for our guests! We are so glad we had the opportunity to have you and your wonderful family, and would love to have you back anytime! We wish you safe travels, and thank you again for everything!"
+- Your review responses should feel like a personal note — thank them by name, mention something specific if possible, and warmly invite them back. Write it in YOUR voice, not a template.
 - Keep it warm, genuine, and personal — never corporate or list-like
 
 MULTI-TOPIC HANDLING:
@@ -2114,11 +2114,9 @@ export async function generateEnhancedAIResponse(options: {
     console.log(`[Calibration] Applied adjustment: global=${calibration.globalAdj}, intent=${calibration.intentAdj}, newConfidence=${confidence.overall}`);
   }
 
-  // HARD SAFETY CAP: Never allow auto-sendable confidence above 85%
-  // Pre-generation confidence is uncapped — post-generation validation adjusts based on actual output quality
-  // Safety is handled by blockedForAutoSend flags, not artificial confidence ceilings
+  // HARD SAFETY CAP: Never exceed 95% pre-generation confidence
   if (confidence.overall > 95) {
-    confidence.overall = 95; // Leave room for post-generation adjustment
+    confidence.overall = 95;
   }
 
   // MULTI-PASS TRAINING BONUS: Reward deep training completeness
@@ -2129,6 +2127,26 @@ export async function generateEnhancedAIResponse(options: {
       overall: Math.min(95, confidence.overall + multiPassAdjustment),
     };
     console.log(`[MultiPass] Applied confidence adjustment: +${multiPassAdjustment}, newConfidence=${confidence.overall}`);
+  }
+
+  // TEMPORAL DATA BONUS: More temporal analyses = better voice model = higher confidence
+  try {
+    const temporalWeights = temporalWeightManager.getWeights();
+    const temporalAnalyses = temporalWeights.styleEvolution?.length || 0;
+    const weightedProfile = temporalWeightManager.getWeightedStyleProfile();
+    let temporalBoost = 0;
+    // Modest boost for having enough temporal data to track style evolution
+    if (weightedProfile && temporalAnalyses >= 2) temporalBoost += 3;
+    if (temporalAnalyses >= 4) temporalBoost += 2; // Multiple quarters of data
+    if (temporalBoost > 0) {
+      confidence = {
+        ...confidence,
+        overall: Math.min(95, confidence.overall + temporalBoost),
+      };
+      console.log(`[Temporal] Applied confidence boost: +${temporalBoost} (${temporalAnalyses} evolution periods), newConfidence=${confidence.overall}`);
+    }
+  } catch {
+    // Temporal data unavailable — no boost, no harm
   }
 
   // Build conversation context with chronological ordering (needed for both system and user prompts)
