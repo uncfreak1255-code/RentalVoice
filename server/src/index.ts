@@ -26,6 +26,7 @@ import { entitlementsRouter } from './routes/entitlements.js';
 import { webhooksRouter } from './routes/webhooks.js';
 import { migrationRouter } from './routes/migration.js';
 import { learningSyncRouter } from './routes/learning-sync.js';
+import { voiceRouter } from './routes/voice.js';
 import { guestyRouter } from './routes/guesty.js';
 import './adapters/guesty-adapter.js'; // Self-registers Guesty adapter
 import { lodgifyRouter } from './routes/lodgify.js';
@@ -84,6 +85,7 @@ app.route('/billing', billingRouter);
 app.route('/entitlements', entitlementsRouter);
 app.route('/migration', migrationRouter);
 app.route('/learning', learningSyncRouter);
+app.route('/voice', voiceRouter);
 app.route('/webhooks', webhooksRouter);
 app.route('/guesty', guestyRouter);
 app.route('/lodgify', lodgifyRouter);
