@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { scopedKey } from './account-scoped-storage';
 import {
   buildAdvancedAIPrompt,
+  buildAdvancedAIPromptWithSemantic,
   incrementalTrainer,
   fewShotIndexer,
   conversationFlowLearner,
@@ -22,6 +23,7 @@ import {
   multiPassTrainer,
   temporalWeightManager,
 } from './advanced-training';
+import * as semanticVoiceIndex from './semantic-voice-index';
 import { getAIKey, getProviderOrder, isProviderEnabled, getSelectedModel, getGoogleAuthMethod, AI_MODELS } from './ai-keys';
 import { canGenerateDraft, recordDraftGeneration } from './ai-usage-limiter';
 
@@ -2880,13 +2882,29 @@ async function buildSystemPromptWithEditLearning(
     }
 
     // ADVANCED TRAINING: Add property lexicon, few-shot examples, negative examples, guest memory
+    // When a founder session exists, use server-side semantic matching for higher-quality examples.
     if (guestMessage) {
-      const advancedPrompt = buildAdvancedAIPrompt(
-        guestMessage,
-        propertyId,
-        guestEmail,
-        guestPhone
-      );
+      let advancedPrompt = '';
+      const founderSessionForPrompt = useAppStore.getState().founderSession;
+      if (founderSessionForPrompt?.orgId) {
+        try {
+          const semanticExamples = await semanticVoiceIndex.query(guestMessage, propertyId || '');
+          advancedPrompt = buildAdvancedAIPromptWithSemantic(
+            guestMessage,
+            semanticExamples,
+            semanticVoiceIndex.formatAsPrompt,
+            propertyId,
+            guestEmail,
+            guestPhone,
+          );
+        } catch (e) {
+          // Semantic query failed — fall back to local keyword matching
+          console.warn('[AI Enhanced] Semantic voice query failed, falling back to keyword matching:', e);
+          advancedPrompt = buildAdvancedAIPrompt(guestMessage, propertyId, guestEmail, guestPhone);
+        }
+      } else {
+        advancedPrompt = buildAdvancedAIPrompt(guestMessage, propertyId, guestEmail, guestPhone);
+      }
       if (advancedPrompt) {
         prompt += advancedPrompt;
       }
@@ -3063,6 +3081,14 @@ export async function learnFromSentMessage(
 
     // Add to few-shot index with origin tracking
     await fewShotIndexer.addExample(guestMessage, hostResponse, propertyId, originType);
+
+    // Fire-and-forget: sync to server semantic voice index (requires founder session)
+    const founderSession = useAppStore.getState().founderSession;
+    if (founderSession?.orgId) {
+      semanticVoiceIndex
+        .learn(guestMessage, hostResponse, propertyId || '', originType)
+        .catch((e) => console.warn('[Learning] Semantic voice learn failed (non-blocking):', e));
+    }
 
     console.log('[Learning] Message queued for incremental training, origin:', originType || 'legacy');
   } catch (error) {

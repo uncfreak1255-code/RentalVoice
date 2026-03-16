@@ -1584,17 +1584,18 @@ class FewShotIndexer {
         score += 20;
       }
 
-      // Recency bonus
-      const ageInDays = (Date.now() - example.timestamp) / (1000 * 60 * 60 * 24);
-      if (ageInDays < 30) score += 10;
-      else if (ageInDays < 90) score += 5;
+      // Recency bonus using temporal weight system (3x recent, 2x medium, 1x older, 0.5x ancient)
+      const temporalMultiplier = temporalWeightManager.getWeightForTimestamp(example.timestamp);
+      score += Math.round(temporalMultiplier * 5); // 15 for recent, 10 for medium, 5 for older, 2 for ancient
 
       // Origin quality bonus — prefer host-written ground truth over AI-generated
       if (example.originType === 'host_written') score += 30;
       else if (example.originType === 'ai_edited') score += 15;
       // ai_approved and legacy (undefined) get no bonus
 
-      if (score > 0) {
+      // Minimum quality threshold: require meaningful match (intent match=50, property=20, keyword=10)
+      // score >= 30 filters noise from single-keyword-only matches
+      if (score >= 30) {
         scored.push({ example, score });
       }
     }
@@ -1617,8 +1618,8 @@ class FewShotIndexer {
     for (let i = 0; i < examples.length; i++) {
       const ex = examples[i];
       prompt += `\nExample ${i + 1}:\n`;
-      prompt += `Guest: "${ex.guestMessage.substring(0, 800)}${ex.guestMessage.length > 800 ? '...' : ''}"\n`;
-      prompt += `Your response: "${ex.hostResponse.substring(0, 1200)}${ex.hostResponse.length > 1200 ? '...' : ''}"\n`;
+      prompt += `Guest: "${ex.guestMessage}"\n`;
+      prompt += `Your response: "${ex.hostResponse}"\n`;
     }
 
     prompt += '\nUse these examples to guide your tone, style, and level of detail.\n';
@@ -2163,6 +2164,48 @@ export function buildAdvancedAIPrompt(
 
   // 2. Few-shot examples
   additionalPrompt += fewShotIndexer.getFewShotPrompt(guestMessage, propertyId);
+
+  // 3. Negative examples (what to avoid)
+  additionalPrompt += negativeExampleManager.getNegativeExamplesPrompt();
+
+  // 4. Guest memory (returning guests)
+  additionalPrompt += guestMemoryManager.getGuestMemoryPrompt(guestEmail, guestPhone);
+
+  // 5. Per-property conversation knowledge (learned from past host replies)
+  if (propertyId) {
+    additionalPrompt += propertyConversationKnowledge.getKnowledgePrompt(propertyId);
+  }
+
+  return additionalPrompt;
+}
+
+/**
+ * Variant of buildAdvancedAIPrompt that uses semantic voice examples from the
+ * server-side vector index instead of local keyword-based few-shot matching.
+ * Falls back to the keyword-based examples if semanticExamples is empty.
+ *
+ * All other prompt components (lexicon, negatives, guest memory, property
+ * knowledge) are identical to buildAdvancedAIPrompt.
+ */
+export function buildAdvancedAIPromptWithSemantic(
+  guestMessage: string,
+  semanticExamples: import('./semantic-voice-index').VoiceExample[],
+  formatAsPrompt: (examples: import('./semantic-voice-index').VoiceExample[]) => string,
+  propertyId?: string,
+  guestEmail?: string,
+  guestPhone?: string
+): string {
+  let additionalPrompt = '';
+
+  // 1. Property-specific lexicon
+  additionalPrompt += propertyLexiconManager.getLexiconPrompt(propertyId || '');
+
+  // 2. Semantic few-shot examples (server-matched) — fall back to keyword matching if empty
+  if (semanticExamples.length > 0) {
+    additionalPrompt += formatAsPrompt(semanticExamples);
+  } else {
+    additionalPrompt += fewShotIndexer.getFewShotPrompt(guestMessage, propertyId);
+  }
 
   // 3. Negative examples (what to avoid)
   additionalPrompt += negativeExampleManager.getNegativeExamplesPrompt();
