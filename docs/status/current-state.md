@@ -1,6 +1,6 @@
 # Rental Voice current state
 
-Last updated: 2026-03-14
+Last updated: 2026-03-16
 
 ## Canonical source of truth
 
@@ -84,6 +84,22 @@ All 6 pipeline bugs from the 2026-03-12 audit are now resolved:
 - Calibration bucketing confirmed already fixed (41-69% approved = underconfident)
 - Server confidence confirmed correct (returns null, client scores)
 - MultiPass results confirmed consumed (phrases injected into prompts, confidence adjustment applied)
+
+## Instant Voice Match (2026-03-16)
+
+Semantic voice matching implemented on branch `feat/instant-voice-match`:
+
+- **Database:** `voice_examples` table with pgvector HNSW index, dedup index, RLS policy, `match_voice_examples` RPC — applied to both Test and Live Supabase
+- **Server:** Gemini embedding service (`server/src/services/embedding.ts`), voice routes (`/api/voice/query`, `/api/voice/import`, `/api/voice/learn`) in `server/src/routes/voice.ts`
+- **Client:** `src/lib/semantic-voice-index.ts` — query, learn, local LRU cache, offline fallback to FewShotIndexer
+- **Integration:** `buildSystemPromptWithEditLearning()` tries semantic first, falls back to keyword. `learnFromSentMessage()` dual-writes to both indexes.
+- **Bulk import:** 1,154 voice examples imported to Live from 6 months of Hostaway conversations via `server/scripts/direct-bulk-import-voice.ts`
+- **Pending:** Evaluation blocked on expired Google AI API key. Need fresh key before promptfoo eval or semantic query will work.
+
+## Sync banner fix (2026-03-16)
+
+- Fixed stuck "Background sync is running" banner (3+ days) — `onError` callback in `auto-import.ts` now clears `isSyncing` flag and shows "Sync paused" with error message
+- OTA update deployed to phone
 
 ## Current engineering rule
 
