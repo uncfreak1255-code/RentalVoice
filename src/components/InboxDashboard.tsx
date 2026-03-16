@@ -820,6 +820,19 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                     View Sync
                   </Text>
                 </Pressable>
+                <Pressable
+                  onPress={() => {
+                    useAppStore.getState().updateHistorySyncStatus({
+                      isSyncing: false,
+                      syncPhase: 'idle',
+                      syncError: null,
+                    });
+                  }}
+                  hitSlop={12}
+                  style={{ padding: 4 }}
+                >
+                  <X size={16} color="#94A3B8" />
+                </Pressable>
               </View>
             </View>
           </View>
