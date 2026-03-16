@@ -1458,6 +1458,18 @@ export const useAppStore = create<AppState>()(
         // calibrationEntries, replyDeltas, conversationFlows,
         // issues, favoriteMessages, autoPilotLogs
       }),
+      onRehydrateStorage: () => (state) => {
+        // Clear stale sync state on app startup — if isSyncing was persisted
+        // as true, the app crashed or was killed mid-sync. Reset it.
+        if (state?.historySyncStatus?.isSyncing) {
+          console.log('[Store] Clearing stale isSyncing flag from previous session');
+          state.updateHistorySyncStatus({
+            isSyncing: false,
+            syncPhase: 'idle',
+            syncError: null,
+          });
+        }
+      },
     }
   )
 );
