@@ -1,6 +1,6 @@
 # Rental Voice current state
 
-Last updated: 2026-03-09
+Last updated: 2026-03-14
 
 ## Canonical source of truth
 
@@ -73,6 +73,17 @@ Last updated: 2026-03-09
 - Founder bootstrap, live preflight, rehearsal preflight, and live-readiness checklist tooling exist
 - Founder bootstrap packet generator exists
 - Dedicated live founder project exists and now contains the real founder backend account
+
+## Voice pipeline bug resolution (2026-03-14)
+
+All 6 pipeline bugs from the 2026-03-12 audit are now resolved:
+
+- Few-shot truncation removed (was 800/1200 chars, now full examples)
+- Minimum quality threshold added to few-shot selection (score >= 30)
+- Temporal weights integrated into few-shot scoring
+- Calibration bucketing confirmed already fixed (41-69% approved = underconfident)
+- Server confidence confirmed correct (returns null, client scores)
+- MultiPass results confirmed consumed (phrases injected into prompts, confidence adjustment applied)
 
 ## Current engineering rule
 

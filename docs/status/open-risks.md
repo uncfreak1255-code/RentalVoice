@@ -48,6 +48,10 @@ Last updated: 2026-03-09
 - dedicated Supabase environment workflow runbook
 - fresh protected baseline `protected-local-baseline-20260309-founder-live-execute`
 
+## Resolved risks
+
+- **(2026-03-14)** Voice pipeline bugs from 2026-03-12 audit — all 6 resolved (few-shot truncation, quality threshold, temporal weights, calibration bucketing, server confidence, MultiPass consumption)
+
 ## What remains blocked
 
 - durable app identity layer for founder and future users
