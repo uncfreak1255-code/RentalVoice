@@ -1458,16 +1458,26 @@ export const useAppStore = create<AppState>()(
         // calibrationEntries, replyDeltas, conversationFlows,
         // issues, favoriteMessages, autoPilotLogs
       }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) {
+          console.error('[Store] Rehydration error:', error);
+          return;
+        }
         // Clear stale sync state on app startup — if isSyncing was persisted
         // as true, the app crashed or was killed mid-sync. Reset it.
-        if (state?.historySyncStatus?.isSyncing) {
-          console.log('[Store] Clearing stale isSyncing flag from previous session');
-          state.updateHistorySyncStatus({
-            isSyncing: false,
-            syncPhase: 'idle',
-            syncError: null,
-          });
+        // Use useAppStore.getState() since _state may not have methods.
+        try {
+          const store = useAppStore.getState();
+          if (store.historySyncStatus?.isSyncing) {
+            console.log('[Store] Clearing stale isSyncing flag from previous session');
+            store.updateHistorySyncStatus({
+              isSyncing: false,
+              syncPhase: 'idle',
+              syncError: null,
+            });
+          }
+        } catch (e) {
+          console.warn('[Store] Failed to clear stale sync state:', e);
         }
       },
     }
