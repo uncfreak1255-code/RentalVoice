@@ -668,18 +668,21 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
   const showSyncBanner = !isDemoMode && (
     historySyncStatus.isSyncing
+    || historySyncStatus.syncPhase === 'error'
     || ((features.serverProxiedAI || (!!accountId && !!apiKey))
       && !historySyncStatus.lastFullSync
       && conversations.length === 0)
   );
 
-  const syncBannerText = historySyncStatus.isSyncing
-    ? historySyncStatus.syncPhase === 'messages'
-      ? `Syncing guest history in the background • ${historySyncStatus.processedMessages} messages fetched`
-      : historySyncStatus.syncPhase === 'conversations'
-        ? `Connecting your inbox • ${historySyncStatus.processedConversations} conversations indexed`
-        : 'Training your workspace in the background'
-    : 'Your workspace is connected. Background sync will finish inside the app.';
+  const syncBannerText = historySyncStatus.syncPhase === 'error'
+    ? `Sync stopped — ${historySyncStatus.syncError || 'an error occurred'}. Reopen the app to retry.`
+    : historySyncStatus.isSyncing
+      ? historySyncStatus.syncPhase === 'messages'
+        ? `Syncing guest history in the background • ${historySyncStatus.processedMessages} messages fetched`
+        : historySyncStatus.syncPhase === 'conversations'
+          ? `Connecting your inbox • ${historySyncStatus.processedConversations} conversations indexed`
+          : 'Training your workspace in the background'
+      : 'Your workspace is connected. Background sync will finish inside the app.';
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
@@ -794,7 +797,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#0F172A', fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>
-                    Background sync is running
+                    {historySyncStatus.syncPhase === 'error' ? 'Sync paused' : 'Background sync is running'}
                   </Text>
                   <Text style={{ color: '#64748B', fontSize: 13, lineHeight: 18, marginTop: 4 }}>
                     {syncBannerText}

@@ -84,9 +84,17 @@ export async function startAutoImportAfterConnect(
       });
     });
 
-    // Track errors silently
+    // Track errors — clear syncing state so banner doesn't get stuck
     historySyncManager.onError((error) => {
       console.warn('[AutoImport] Sync error:', error.message);
+      isAutoImportRunning = false;
+
+      const store = useAppStore.getState();
+      store.updateHistorySyncStatus({
+        isSyncing: false,
+        syncPhase: 'error',
+        syncError: error.message,
+      });
     });
 
     // Track progress
@@ -121,6 +129,13 @@ export async function startAutoImportAfterConnect(
   } catch (error) {
     console.error('[AutoImport] Failed to start sync:', error);
     isAutoImportRunning = false;
+
+    const store = useAppStore.getState();
+    store.updateHistorySyncStatus({
+      isSyncing: false,
+      syncPhase: 'error',
+      syncError: error instanceof Error ? error.message : 'Sync failed',
+    });
   }
 }
 
