@@ -1,6 +1,6 @@
 # Rental Voice open risks
 
-Last updated: 2026-03-09
+Last updated: 2026-03-16
 
 ## Highest risks
 
@@ -48,8 +48,14 @@ Last updated: 2026-03-09
 - dedicated Supabase environment workflow runbook
 - fresh protected baseline `protected-local-baseline-20260309-founder-live-execute`
 
+## Resolved risks
+
+- **(2026-03-16)** Stuck sync banner — `onError` in auto-import.ts now clears `isSyncing` flag. OTA deployed.
+- **(2026-03-14)** Voice pipeline bugs from 2026-03-12 audit — all 6 resolved (few-shot truncation, quality threshold, temporal weights, calibration bucketing, server confidence, MultiPass consumption)
+
 ## What remains blocked
 
+- **Google AI API key expired** — blocks Gemini draft generation, semantic voice queries, and promptfoo eval suite. Need fresh key from Google AI Studio.
 - durable app identity layer for founder and future users
 - app-side founder login/recovery path
 - durable learning migration into the founder account

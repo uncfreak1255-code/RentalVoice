@@ -25,6 +25,7 @@ import {
   calculateConfidence,
 
   getRegenerationOptions,
+  learnFromSentMessage,
   type RegenerationOption,
   type EnhancedAIResponse,
   type ActionItem,
@@ -631,11 +632,12 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         });
       }
 
-      // Show escalation alert for urgent items
-      if (item.type === 'escalation' || item.type === 'emergency') {
-        setShowEscalationAlert(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      }
+      // Escalation banner disabled — too aggressive for current UX
+      // TODO: re-enable with better inline treatment (not a fullscreen overlay)
+      // if (item.type === 'escalation' || item.type === 'emergency') {
+      //   setShowEscalationAlert(true);
+      //   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      // }
     }
   }, [conversation, addIssue]);
 
@@ -937,12 +939,13 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       }
 
       if (lastGuestMessage) {
-        aiTrainingService.learnFromReply(
-          lastGuestMessage.content,
+        learnFromSentMessage(
           content,
-          true,
+          lastGuestMessage.content,
           conversation?.property?.id,
-          'host_written' // User composed this independently — ground truth for voice learning
+          false,  // wasEdited
+          true,   // wasApproved
+          'host_written'
         ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
         updateAILearningProgress({
@@ -972,7 +975,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
     // Capture context BEFORE updating UI
     const contentToSend = contentOverride || currentEnhancedDraft.content;
-    const wasEditedByUser = !!contentOverride || currentEnhancedDraft.isEdited === true;
+    const wasEditedByUser = (contentOverride != null && contentOverride !== currentEnhancedDraft.content) || currentEnhancedDraft.isEdited === true;
     const lastGuestMessage = [...messages].reverse().find(m => m.sender === 'guest');
     const draftMessage = messages.find((m) => m.sender === 'ai_draft');
     const savedDraft = { ...currentEnhancedDraft }; // Snapshot before clearing
@@ -1056,11 +1059,12 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         }
 
         if (lastGuestMessage) {
-          aiTrainingService.learnFromReply(
-            lastGuestMessage.content,
+          learnFromSentMessage(
             contentToSend,
-            wasEditedByUser,
+            lastGuestMessage.content,
             conversation?.property?.id,
+            wasEditedByUser,
+            true,  // wasApproved
             wasEditedByUser ? 'ai_edited' : 'ai_approved'
           ).catch(err => console.error('[ChatScreen] Incremental learning error:', err));
 
@@ -1497,28 +1501,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             />
           </View>
 
-          {/* Smart Reply Bar */}
-          {lastGuestMessage && !currentEnhancedDraft && !isGeneratingDraft && !isKeyboardVisible && (
-            <SmartReplyBar
-              guestMessage={lastGuestMessage.content}
-              propertyKnowledge={currentPropertyKnowledge}
-              onSelect={(reply: SmartReply) => {
-                if (reply.isDirect && reply.content) {
-                  // Direct reply — set as draft content
-                  setCurrentEnhancedDraft({
-                    content: reply.content,
-                    confidence: 90,
-                  });
-                } else if (reply.content) {
-                  // AI prompt modifier — regenerate with context
-                  generateDraftForConversation();
-                } else {
-                  // Custom reply — just open composer
-                  generateDraftForConversation();
-                }
-              }}
-            />
-          )}
+          {/* Smart Reply Bar — disabled, reclaiming space for composer */}
 
           {/* Composer with enhanced draft */}
           <MessageComposer

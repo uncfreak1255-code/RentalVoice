@@ -133,6 +133,17 @@ Additional live-founder rule:
 - do not recreate, rotate, or overwrite the live founder account casually
 - future founder work should focus on app-side login/recovery and durable learning migration, not redoing backend bootstrap
 
+## Architecture decisions
+
+Non-obvious decisions and their reasoning live in `docs/decisions/`. Read relevant ADRs before making changes that touch pricing, PMS integrations, or app mode. When making a non-obvious decision, capture it there.
+
+## Voice accuracy and agent gating
+
+- Voice draft accuracy is ~40-50% for founder profile; all agent/automation features gate on 80%+
+- Origin tagging, voice anchoring, Supabase learning sync plan: `.claude/plans/goofy-jingling-hippo.md`
+- Agent vision doc (NOT for implementation): `docs/plans/2026-03-10-agent-vision.md`
+- Agent is an operations layer (briefing, issues, pricing); does NOT handle guest messages
+
 ## Start here
 
 Read these in order:
@@ -146,3 +157,9 @@ Read these in order:
 7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
 8. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
 9. task-specific files
+
+## Known patterns and gotchas
+
+- `PremiumPressable` (Reanimated AnimatedPressable) causes layout collapse in flex; use plain `Pressable` + `Haptics.impactAsync()`
+- Expo simulator: use deep links for navigation (`exp+rental-voice:///settings`); tap automation requires assistive access
+- Vision/strategy docs: `docs/plans/` — read before starting related implementation work

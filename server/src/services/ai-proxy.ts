@@ -182,7 +182,7 @@ If the guest message contains inappropriate content, respond professionally and 
 
 interface ProviderResult {
   content: string;
-  confidence: number;
+  confidence: number | null;
   detectedLanguage: string;
   tokensUsed: { input: number; output: number };
 }
@@ -243,7 +243,7 @@ async function callOpenAI(
 
   return {
     content: data.choices[0].message.content,
-    confidence: 82,
+    confidence: null, // Let client-side confidence engine score based on actual output quality
     detectedLanguage: 'en',
     tokensUsed: { input: data.usage.prompt_tokens, output: data.usage.completion_tokens },
   };
@@ -284,7 +284,7 @@ async function callAnthropic(
 
   return {
     content: data.content[0].text,
-    confidence: 82,
+    confidence: null, // Let client-side confidence engine score based on actual output quality
     detectedLanguage: 'en',
     tokensUsed: { input: data.usage.input_tokens, output: data.usage.output_tokens },
   };
@@ -331,7 +331,7 @@ async function callGoogle(
 
   return {
     content: data.candidates[0].content.parts[0].text,
-    confidence: 82,
+    confidence: null, // Let client-side confidence engine score based on actual output quality
     detectedLanguage: 'en',
     tokensUsed: {
       input: data.usageMetadata?.promptTokenCount || 0,

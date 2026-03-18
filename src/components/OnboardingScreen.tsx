@@ -169,7 +169,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       />
-      <SafeAreaView style={ob.safeArea} edges={['top']}>
+      <SafeAreaView style={ob.safeArea} edges={['top', 'bottom']}>
         <View style={ob.progressWrap}>
           <View style={ob.progressBg}>
             <Animated.View style={[ob.progressBar, progressStyle]} />

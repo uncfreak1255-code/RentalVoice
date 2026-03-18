@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Pla
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useAppStore, PropertyKnowledge } from '@/lib/store';
-import { ArrowLeft, Wifi, DoorOpen, DoorClosed, Car, ScrollText, Wrench, MapPin, Phone, FileText, MessageSquare, ChevronDown, ChevronUp, Check, Clock, DollarSign, Download, Home, CheckCircle2 } from 'lucide-react-native';
+import { ArrowLeft, Wifi, DoorOpen, DoorClosed, Car, ScrollText, Wrench, MapPin, Phone, FileText, MessageSquare, ChevronDown, ChevronUp, Check, Clock, DollarSign, Download, Home, CheckCircle2, PawPrint } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
@@ -16,19 +16,27 @@ interface PropertyKnowledgeScreenProps { onBack: () => void; }
 type TonePreference = 'friendly' | 'professional' | 'casual';
 interface SectionProps { title: string; icon: React.ReactNode; children: React.ReactNode; isExpanded: boolean; onToggle: () => void; isFilled?: boolean; }
 
+function SectionGroupHeader({ label }: { label: string }) {
+  return (
+    <Text style={{ color: colors.text.muted, fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.5, textTransform: 'uppercase', marginLeft: 32, marginBottom: 8, marginTop: 8 }}>
+      {label}
+    </Text>
+  );
+}
+
 function CollapsibleSection({ title, icon, children, isExpanded, onToggle, isFilled }: SectionProps) {
   return (
-    <Animated.View entering={FadeInDown.duration(300).delay(100)} style={{ marginBottom: spacing['4'] }}>
-      <Pressable onPress={onToggle} style={({ pressed }) => [pk.sectionHeader, { opacity: pressed ? 0.8 : 1 }]}>
-        <View style={pk.row}>{icon}<Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['3'], flex: 1 }}>{title}</Text></View>
+    <View style={{ marginBottom: 2, marginHorizontal: 16, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' }}>
+      <Pressable onPress={onToggle} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: spacing['4'], opacity: pressed ? 0.7 : 1 }]}>
+        <View style={pk.row}>{icon}<Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['3'], flex: 1, fontSize: 16 }}>{title}</Text></View>
         <View style={pk.row}>
           {isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E', marginRight: 10 }} />}
           {!isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginRight: 10 }} />}
-          {isExpanded ? <ChevronUp size={20} color="#64748B" /> : <ChevronDown size={20} color="#64748B" />}
+          {isExpanded ? <ChevronUp size={18} color="#C7C7CC" /> : <ChevronDown size={18} color="#C7C7CC" />}
         </View>
       </Pressable>
-      {isExpanded && <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: spacing['2'], paddingHorizontal: spacing['2'] }}>{children}</Animated.View>}
-    </Animated.View>
+      {isExpanded && <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E7EB' }}>{children}</Animated.View>}
+    </View>
   );
 }
 
@@ -41,7 +49,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   const isCommercialMode = isCommercial;
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(properties[0]?.id || null);
   const [showPropertySelector, setShowPropertySelector] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ wifi: true, checkin: false, checkout: false, parking: false, rules: false, appliances: false, local: false, emergency: false, custom: false, tone: false, upsells: false });
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ wifi: true, checkin: false, checkout: false, parking: false, rules: false, pets: false, appliances: false, local: false, emergency: false, custom: false, tone: false, upsells: false });
   const [formData, setFormData] = useState<Partial<PropertyKnowledge>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState(false);
@@ -63,13 +71,14 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   }, [formData]);
 
   // Calculate completion percentage
-  const totalSections = 8;
+  const totalSections = 9;
   const filledSections = [
     isSectionFilled(['wifiName', 'wifiPassword']),
     isSectionFilled(['checkInTime', 'checkInInstructions']),
     isSectionFilled(['checkOutTime', 'checkOutInstructions']),
     isSectionFilled(['parkingInfo']),
     isSectionFilled(['houseRules']),
+    formData.petsAllowed !== undefined,
     isSectionFilled(['applianceGuide']),
     isSectionFilled(['localRecommendations']),
     isSectionFilled(['emergencyContacts']),
@@ -170,86 +179,77 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   return (
     <View style={pk.root}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], borderBottomWidth: 1, borderBottomColor: colors.border.DEFAULT }}>
-          <View style={[pk.row, { justifyContent: 'space-between' }]}>
+        <View style={{ backgroundColor: '#FFFFFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#C6C6C8' }}>
+          {/* Nav row */}
+          <View style={[pk.row, { justifyContent: 'space-between', paddingHorizontal: spacing['4'], paddingTop: spacing['2'], paddingBottom: spacing['2'] }]}>
             <View style={pk.row}>
-              <Pressable onPress={onBack} style={({ pressed }) => [pk.backBtn, { opacity: pressed ? 0.7 : 1 }]}><ArrowLeft size={20} color={colors.text.primary} /></Pressable>
-              <View>
-                <Text style={pk.title}>Property Knowledge</Text>
-                <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 2 }}>{completionPercent}% configured</Text>
-              </View>
+              <Pressable onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, marginRight: spacing['2'] })}><ArrowLeft size={22} color={colors.text.primary} /></Pressable>
+              <Text style={pk.title}>Property Knowledge</Text>
             </View>
-            <Pressable onPress={handleSave} style={({ pressed }) => ({ backgroundColor: colors.primary.DEFAULT, paddingHorizontal: spacing['4'], paddingVertical: spacing['2'], borderRadius: radius.full, opacity: pressed ? 0.8 : 1 })}>
-              <Text style={{ color: '#FFF', fontFamily: typography.fontFamily.semibold }}>Save</Text>
+            <Pressable onPress={handleSave} style={({ pressed }) => ({ backgroundColor: colors.primary.DEFAULT, paddingHorizontal: 18, paddingVertical: 7, borderRadius: radius.full, opacity: pressed ? 0.8 : 1 })}>
+              <Text style={{ color: '#FFF', fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>Save</Text>
             </Pressable>
           </View>
           {/* Completion bar */}
-          <View style={{ height: 3, backgroundColor: colors.border.DEFAULT, borderRadius: 2, marginTop: spacing['3'] }}>
+          <View style={{ height: 3, backgroundColor: colors.border.DEFAULT, borderRadius: 2, marginHorizontal: spacing['4'] }}>
             <View style={{ height: 3, backgroundColor: colors.primary.DEFAULT, borderRadius: 2, width: `${completionPercent}%` }} />
           </View>
-          {/* Property selector */}
-          <Pressable onPress={() => { setShowPropertySelector(!showPropertySelector); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} style={({ pressed }) => [pk.propSelector, { opacity: pressed ? 0.8 : 1 }]}>
-            {selectedProperty?.image && <Image source={{ uri: selectedProperty.image }} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />}
+          {/* Property selector — compact single row */}
+          <Pressable onPress={() => { setShowPropertySelector(!showPropertySelector); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing['4'], paddingVertical: 10, opacity: pressed ? 0.7 : 1 }]}>
+            {selectedProperty?.image && <Image source={{ uri: selectedProperty.image }} style={{ width: 36, height: 36, borderRadius: 8 }} contentFit="cover" />}
             <View style={{ marginLeft: spacing['3'], flex: 1 }}>
-              <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold }}>{selectedProperty?.name || 'Select Property'}</Text>
-              <Text style={{ color: colors.text.muted, fontSize: 12 }} numberOfLines={1}>{selectedProperty?.address || 'Choose a property'}</Text>
+              <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>{selectedProperty?.name || 'Select Property'}</Text>
+              <Text style={{ color: colors.text.muted, fontSize: 12 }} numberOfLines={1}>{completionPercent}% configured</Text>
             </View>
-            {showPropertySelector ? <ChevronUp size={20} color="#64748B" /> : <ChevronDown size={20} color="#64748B" />}
+            {showPropertySelector ? <ChevronUp size={18} color="#64748B" /> : <ChevronDown size={18} color="#64748B" />}
           </Pressable>
           {showPropertySelector && (
-            <Animated.View entering={FadeIn.duration(200)} style={{ marginTop: spacing['2'] }}>
+            <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['2'] }}>
               {properties.map((property) => (
                 <Pressable key={property.id} onPress={() => { setSelectedPropertyId(property.id); setShowPropertySelector(false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                  style={[pk.row, { padding: spacing['3'], borderRadius: radius.xl, marginBottom: 4, backgroundColor: property.id === selectedPropertyId ? colors.primary.muted : colors.bg.elevated }]}>
-                  {property.image && <Image source={{ uri: property.image }} style={{ width: 40, height: 40, borderRadius: 6 }} contentFit="cover" />}
+                  style={[pk.row, { padding: spacing['3'], borderRadius: radius.md, marginBottom: 4, backgroundColor: property.id === selectedPropertyId ? colors.primary.muted : colors.bg.elevated }]}>
+                  {property.image && <Image source={{ uri: property.image }} style={{ width: 32, height: 32, borderRadius: 6 }} contentFit="cover" />}
                   <View style={{ marginLeft: spacing['3'], flex: 1 }}>
-                    <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>{property.name}</Text>
-                    <Text style={{ color: colors.text.muted, fontSize: 12 }} numberOfLines={1}>{property.address}</Text>
+                    <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium, fontSize: 14 }}>{property.name}</Text>
                   </View>
-                  {property.id === selectedPropertyId && <Check size={18} color={colors.primary.DEFAULT} />}
+                  {property.id === selectedPropertyId && <Check size={16} color={colors.primary.DEFAULT} />}
                 </Pressable>
               ))}
             </Animated.View>
           )}
-        </Animated.View>
+          {/* Auto-Import — always visible in header */}
+          {selectedProperty && (
+            <Pressable
+              onPress={handleAutoImport}
+              disabled={isImporting}
+              style={({ pressed }) => ({
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                marginHorizontal: spacing['4'], marginBottom: 10,
+                backgroundColor: importSuccess ? '#22C55E' : colors.primary.DEFAULT,
+                borderRadius: 10,
+                paddingVertical: 11, paddingHorizontal: spacing['4'],
+                opacity: pressed ? 0.85 : isImporting ? 0.7 : 1,
+                gap: spacing['2'],
+              })}
+            >
+              {isImporting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : importSuccess ? (
+                <CheckCircle2 size={18} color="#FFFFFF" />
+              ) : (
+                <Download size={18} color="#FFFFFF" />
+              )}
+              <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.semibold, fontSize: 14 }}>
+                {isImporting ? 'Importing...' : importSuccess ? 'Imported!' : 'Auto-Import from Hostaway'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <ScrollView style={{ flex: 1, paddingHorizontal: spacing['4'], paddingTop: spacing['4'] }} showsVerticalScrollIndicator={false}>
-            {/* Auto-Import Button — Option A: Solid Teal Banner */}
-            {selectedProperty && (
-              <Animated.View entering={FadeInDown.duration(300)} style={{ marginBottom: spacing['4'] }}>
-                <Pressable
-                  onPress={handleAutoImport}
-                  disabled={isImporting}
-                  style={({ pressed }) => ({
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: importSuccess ? '#22C55E' : colors.primary.DEFAULT,
-                    borderRadius: 14,
-                    paddingVertical: 14, paddingHorizontal: spacing['4'],
-                    opacity: pressed ? 0.85 : isImporting ? 0.7 : 1,
-                    shadowColor: importSuccess ? '#22C55E' : colors.primary.DEFAULT,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 8,
-                    elevation: 4,
-                    gap: spacing['2'],
-                  })}
-                >
-                  {isImporting ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : importSuccess ? (
-                    <CheckCircle2 size={20} color="#FFFFFF" />
-                  ) : (
-                    <Download size={20} color="#FFFFFF" />
-                  )}
-                  <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.bold, fontSize: 15 }}>
-                    {isImporting ? 'Importing...' : importSuccess ? 'Imported Successfully' : 'Auto-Import from Hostaway'}
-                  </Text>
-                </Pressable>
-              </Animated.View>
-            )}
-
-            {/* Sections — vacation rental only */}
+          <ScrollView style={{ flex: 1, paddingTop: spacing['3'] }} showsVerticalScrollIndicator={false}>
+            {/* Section Groups with Apple-style headers */}
+            <SectionGroupHeader label="Property Details" />
             <CollapsibleSection title="WiFi Information" icon={<Wifi size={20} color={colors.primary.DEFAULT} />} isExpanded={expandedSections.wifi} onToggle={() => toggleSection('wifi')} isFilled={isSectionFilled(['wifiName', 'wifiPassword'])}>
               {renderInput('Network Name', 'wifiName', 'e.g., PropertyGuest')}{renderInput('Password', 'wifiPassword', 'e.g., welcome2024')}
             </CollapsibleSection>
@@ -263,8 +263,32 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               {renderInput('Parking Details', 'parkingInfo', 'Where can guests park?', true)}
             </CollapsibleSection>
             <CollapsibleSection title="House Rules" icon={<ScrollText size={20} color="#EAB308" />} isExpanded={expandedSections.rules} onToggle={() => toggleSection('rules')} isFilled={isSectionFilled(['houseRules'])}>
-              {renderInput('House Rules', 'houseRules', 'Key rules: quiet hours, smoking, pets...', true)}
+              {renderInput('House Rules', 'houseRules', 'Key rules: quiet hours, smoking...', true)}
             </CollapsibleSection>
+            <View style={{ height: 20 }} />
+            <SectionGroupHeader label="Policies" />
+            <CollapsibleSection title="Pet Policy" icon={<PawPrint size={20} color="#F97316" />} isExpanded={expandedSections.pets} onToggle={() => toggleSection('pets')} isFilled={formData.petsAllowed !== undefined}>
+              <View style={[pk.row, { justifyContent: 'space-between', marginBottom: spacing['4'], backgroundColor: colors.bg.elevated, borderRadius: radius.lg, padding: spacing['4'] }]}>
+                <View style={pk.row}><PawPrint size={18} color="#F97316" /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Pets Allowed</Text></View>
+                <Pressable onPress={() => { updateField('petsAllowed', !formData.petsAllowed); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                  style={[pk.toggle, { backgroundColor: formData.petsAllowed ? '#22C55E' : colors.border.DEFAULT }]}>
+                  <View style={[pk.toggleThumb, { marginLeft: formData.petsAllowed ? 'auto' : 0 }]} />
+                </Pressable>
+              </View>
+              {formData.petsAllowed && (
+                <View style={{ gap: spacing['3'] }}>
+                  {renderInput('Pet Fee ($)', 'petFee' as any, 'e.g., 200')}
+                  {renderInput('Fee Structure', 'petFeeStructure', 'e.g., per pet, per pet per night, flat fee')}
+                  {renderInput('Restrictions', 'petRestrictions', 'e.g., Max 2 pets, 50lb limit, no aggressive breeds', true)}
+                  {renderInput('Additional Pet Policy', 'petPolicy', 'Any other pet-related info...', true)}
+                </View>
+              )}
+              {formData.petsAllowed === false && (
+                <Text style={{ color: colors.text.muted, fontSize: 13, marginTop: 4 }}>When guests ask about pets, the AI will let them know pets are not allowed at this property.</Text>
+              )}
+            </CollapsibleSection>
+            <View style={{ height: 20 }} />
+            <SectionGroupHeader label="Property Info" />
             <CollapsibleSection title="Appliances & Amenities" icon={<Wrench size={20} color="#06B6D4" />} isExpanded={expandedSections.appliances} onToggle={() => toggleSection('appliances')} isFilled={isSectionFilled(['applianceGuide'])}>
               {renderInput('Appliance Guide', 'applianceGuide', 'Instructions for TV, thermostat...', true)}
             </CollapsibleSection>
@@ -277,6 +301,8 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
             <CollapsibleSection title="Additional Notes" icon={<FileText size={20} color="#A855F7" />} isExpanded={expandedSections.custom} onToggle={() => toggleSection('custom')} isFilled={isSectionFilled(['customNotes'])}>
               {renderInput('Custom Notes', 'customNotes', 'Any other property-specific info...', true)}
             </CollapsibleSection>
+            <View style={{ height: 20 }} />
+            <SectionGroupHeader label="AI Settings" />
             <CollapsibleSection title="Communication Style" icon={<MessageSquare size={20} color={colors.primary.DEFAULT} />} isExpanded={expandedSections.tone} onToggle={() => toggleSection('tone')} isFilled={!!formData.tonePreference}>
               <Text style={{ color: colors.text.muted, fontSize: 14, marginBottom: spacing['4'] }}>Choose how the AI should communicate with guests:</Text>
               {renderToneSelector()}
@@ -309,14 +335,14 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
 }
 
 const pk = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg.base },
+  root: { flex: 1, backgroundColor: '#F2F2F7' },
   row: { flexDirection: 'row', alignItems: 'center' },
   title: { color: colors.text.primary, fontSize: 20, fontFamily: typography.fontFamily.bold },
-  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
-  propSelector: { marginTop: spacing['4'], backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: spacing['3'], flexDirection: 'row', alignItems: 'center' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.xl, padding: spacing['4'] },
+  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
+  propSelector: { marginTop: spacing['4'], backgroundColor: '#F2F2F7', borderRadius: radius.md, padding: spacing['3'], flexDirection: 'row', alignItems: 'center' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.md, padding: spacing['4'], marginHorizontal: 16 },
   input: { backgroundColor: colors.bg.elevated, borderRadius: radius.lg, paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], color: colors.text.primary },
-  toneCard: { flex: 1, minWidth: 100, padding: spacing['3'], borderRadius: radius.xl, borderWidth: 1 },
+  toneCard: { flex: 1, minWidth: 100, padding: spacing['3'], borderRadius: radius.md, borderWidth: 1 },
   toggle: { width: 48, height: 28, borderRadius: radius.full, padding: 4, flexDirection: 'row' },
   toggleThumb: { width: 20, height: 20, borderRadius: radius.full, backgroundColor: '#FFFFFF' },
 });

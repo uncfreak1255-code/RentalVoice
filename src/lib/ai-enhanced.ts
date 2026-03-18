@@ -14,12 +14,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { scopedKey } from './account-scoped-storage';
 import {
   buildAdvancedAIPrompt,
+  buildAdvancedAIPromptWithSemantic,
   incrementalTrainer,
   fewShotIndexer,
   conversationFlowLearner,
   guestMemoryManager,
   negativeExampleManager,
+  multiPassTrainer,
+  temporalWeightManager,
 } from './advanced-training';
+import * as semanticVoiceIndex from './semantic-voice-index';
 import { getAIKey, getProviderOrder, isProviderEnabled, getSelectedModel, getGoogleAuthMethod, AI_MODELS } from './ai-keys';
 import { canGenerateDraft, recordDraftGeneration } from './ai-usage-limiter';
 
@@ -55,8 +59,9 @@ function getCalibrationAdjustment(primaryIntent?: string): {
         // Overconfident on this intent → penalize by 5-15 based on frequency
         intentMap.set(pi.intent, -Math.min(15, pi.count * 2));
       } else {
-        // Underconfident → slight boost (up to +10)
-        intentMap.set(pi.intent, Math.min(10, pi.count));
+        // Underconfident → boost proportional to frequency (up to +20)
+        // High-frequency intents like early_checkin with consistent approvals deserve stronger lift
+        intentMap.set(pi.intent, Math.min(20, pi.count * 2));
       }
     }
 
@@ -431,6 +436,8 @@ export function detectTopics(content: string, knowledge?: PropertyKnowledge, opt
     { pattern: /\b(extend|extension|stay longer|more nights|additional night)\b/i, topic: 'Stay Extension', intent: 'extension_request', priority: 2 },
     // Refund
     { pattern: /\b(refund|money back|reimburse|compensation|discount)\b/i, topic: 'Refund', intent: 'refund_request', priority: 1 },
+    // Emergency
+    { pattern: /\b(emergency|urgent|fire|flood|ambulance|police|danger|safety|911)\b/i, topic: 'Emergency', intent: 'emergency_inquiry', priority: 0 },
   ];
 
   for (const { pattern, topic, intent, priority } of topicPatterns) {
@@ -472,10 +479,32 @@ function checkKnowledgeAvailable(intent: string, knowledge?: PropertyKnowledge):
     'parking_inquiry': 'parkingInfo',
     'appliance_inquiry': 'applianceGuide',
     'local_recommendation': 'localRecommendations',
+    'pet_inquiry': 'petPolicy',
+    'housekeeping_inquiry': 'houseRules',
+    'early_checkin_request': 'earlyCheckInAvailable',
+    'late_checkout_request': 'lateCheckOutAvailable',
+    'emergency_inquiry': 'emergencyContacts',
   };
 
   const field = knowledgeMap[intent];
-  return field ? !!knowledge[field] : false;
+  if (field && knowledge[field]) return true;
+
+  // Pet inquiry has multiple possible knowledge sources
+  if (intent === 'pet_inquiry') {
+    return !!(knowledge.petPolicy || knowledge.petFee || knowledge.petsAllowed !== undefined);
+  }
+
+  // Early check-in has fee + availability as separate fields
+  if (intent === 'early_checkin_request') {
+    return !!(knowledge.earlyCheckInAvailable || knowledge.earlyCheckInFee);
+  }
+
+  // Late check-out has fee + availability as separate fields
+  if (intent === 'late_checkout_request') {
+    return !!(knowledge.lateCheckOutAvailable || knowledge.lateCheckOutFee);
+  }
+
+  return false;
 }
 
 /**
@@ -550,8 +579,38 @@ Adapt naturally but keep this warm, exclamation-heavy, family-friendly tone.`);
       case 'housekeeping_inquiry':
         if (knowledge.houseRules) {
           answers.push(`House Rules — ${knowledge.houseRules}`);
+          answers.push(`IMPORTANT: Include the relevant house rule details in your response. Guests asking about trash, cleaning, towels, or housekeeping need specific actionable answers.`);
         }
         break;
+      case 'emergency_inquiry':
+        if (knowledge.emergencyContacts) {
+          answers.push(`Emergency Contacts — ${knowledge.emergencyContacts}`);
+          answers.push(`IMPORTANT: For emergency or safety questions, always provide the emergency contact information immediately. Guest safety is the top priority.`);
+        }
+        break;
+      case 'pet_inquiry': {
+        const petParts: string[] = [];
+        if (knowledge.petsAllowed === true) {
+          petParts.push('Pets ARE allowed at this property');
+        } else if (knowledge.petsAllowed === false) {
+          petParts.push('Pets are NOT allowed at this property');
+        }
+        if (knowledge.petFee) {
+          const structure = knowledge.petFeeStructure || 'per pet';
+          petParts.push(`Pet fee: $${knowledge.petFee} + tax ${structure}`);
+        }
+        if (knowledge.petRestrictions) {
+          petParts.push(`Restrictions: ${knowledge.petRestrictions}`);
+        }
+        if (knowledge.petPolicy) {
+          petParts.push(`Pet Policy: ${knowledge.petPolicy}`);
+        }
+        if (petParts.length > 0) {
+          answers.push(`Pet Policy — ${petParts.join('. ')}`);
+          answers.push(`IMPORTANT: When a guest mentions bringing pets, you MUST mention the pet fee and any restrictions in your response. This is a financial detail the guest needs before booking.`);
+        }
+        break;
+      }
     }
   }
 
@@ -621,12 +680,16 @@ export function calculateConfidence(
   // Factor: Style Match — measures training data availability (NOT output quality)
   // Post-generation validation adds/subtracts based on actual output match
   let styleMatch = 40; // Low base without any profile
-  if (styleProfile && styleProfile.samplesAnalyzed > 20) {
-    styleMatch = 75; // Good training data, but output quality checked post-generation
+  if (styleProfile && styleProfile.samplesAnalyzed > 100) {
+    styleMatch = 95; // Extensive training data — high confidence in voice match
+  } else if (styleProfile && styleProfile.samplesAnalyzed > 50) {
+    styleMatch = 90; // Strong training data
+  } else if (styleProfile && styleProfile.samplesAnalyzed > 20) {
+    styleMatch = 82; // Good training data
   } else if (styleProfile && styleProfile.samplesAnalyzed > 10) {
-    styleMatch = 65;
+    styleMatch = 70;
   } else if (styleProfile && styleProfile.samplesAnalyzed > 5) {
-    styleMatch = 55;
+    styleMatch = 58;
   } else if (styleProfile && styleProfile.samplesAnalyzed > 0) {
     styleMatch = 45;
   }
@@ -1109,7 +1172,11 @@ function determineThreadDirection(
 
   const isResolution = resolutionPatterns.some(p => p.test(currentGuestMessage));
 
-  if (isResolution && !isClarification) {
+  // A message with a question mark is NOT purely a resolution — even if it says "thanks"
+  // e.g. "how are you from Anna Maria Island? thank you!" is a question, not a closure
+  const hasQuestion = /\?/.test(currentGuestMessage);
+
+  if (isResolution && !isClarification && !hasQuestion) {
     return 'resolution';
   }
   if (isClarification) {
@@ -1481,6 +1548,11 @@ export function buildEnhancedSystemPrompt(
     }
   }
 
+  // Apply per-property tone preference if set
+  if (knowledge?.tonePreference) {
+    toneGuidance += `\n\nPROPERTY-SPECIFIC TONE: ${knowledge.tonePreference}`;
+  }
+
   // Build identity based on whether we have a learned style profile
   const hasLearnedStyle = hostStyleProfile && hostStyleProfile.samplesAnalyzed > 5;
   // Use Voice DNA (richer ~200-word portrait) when enough data, fall back to basic instructions
@@ -1501,7 +1573,25 @@ ADDRESS: ${propertyAddress}
 
 YOUR VOICE DNA (learned from ${hostStyleProfile!.samplesAnalyzed} of your real messages — this is WHO YOU ARE):
 ${styleInstructions}
-
+${(() => {
+  try {
+    const weightedProfile = temporalWeightManager.getWeightedStyleProfile();
+    if (!weightedProfile) return '';
+    const weights = temporalWeightManager.getWeights();
+    const evolution = weights?.styleEvolution;
+    if (!evolution) return '';
+    const latest = evolution.length > 0 ? evolution[evolution.length - 1] : null;
+    let block = '\nRECENT STYLE TREND (your writing has evolved — weight recent patterns most):\n';
+    if (weightedProfile.formalityLevel !== undefined) block += `- Current weighted formality: ${weightedProfile.formalityLevel}/100\n`;
+    if (weightedProfile.warmthLevel !== undefined) block += `- Current weighted warmth: ${weightedProfile.warmthLevel}/100\n`;
+    if (weightedProfile.averageResponseLength !== undefined) block += `- Recent avg response length: ${weightedProfile.averageResponseLength} words\n`;
+    if (latest) block += `- Latest period (${latest.period}): formality ${Math.round(latest.formality)}, warmth ${Math.round(latest.warmth)}, emoji usage ${Math.round(latest.emojiUsage)}%\n`;
+    block += '- When Voice DNA above conflicts with these recent numbers, favor the recent patterns.\n';
+    return block;
+  } catch {
+    return '';
+  }
+})()}
 These style rules are MANDATORY. They define your voice. Do NOT deviate from them.
 
 TONE GUIDANCE FOR THIS MESSAGE:
@@ -1515,14 +1605,18 @@ REVIEW/FEEDBACK RESPONSE RULES:
 - Do NOT create bullet-point lists of property improvements or to-do items
 - NEVER say "I will look into adding..." or promise specific property changes
 - Simply thank them by first name, acknowledge their feedback generally, and warmly invite them back
-- Match this style EXACTLY: "Hi [guest first name], thank you so much for the feedback as that truly helps us improve the home! We're always striving to improve our home for our guests! We are so glad we had the opportunity to have you and your wonderful family, and would love to have you back anytime! We wish you safe travels, and thank you again for everything!"
+- Your review responses should feel like a personal note — thank them by name, mention something specific if possible, and warmly invite them back. Write it in YOUR voice, not a template.
 - Keep it warm, genuine, and personal — never corporate or list-like
 
 MULTI-TOPIC HANDLING:
 If the guest asked multiple questions, address EACH one clearly. Use paragraph breaks or numbered points for clarity. Don't skip any topic.
 
+DETAIL MIRRORING (critical for sounding human):
+Mirror back specific details the guest mentioned — names, dates, times, pet breeds, number of guests, ages of kids, arrival plans, etc. A real host reads the message and responds to the SPECIFIC situation, not a generic version of it. If a guest says "arriving at 5:30 with our 15lb yorkie", your response must acknowledge the 5:30 time AND the yorkie — not just "your pet".
+
 GUIDELINES:
 - Write as yourself (${hostName || 'the host'}), not as an AI
+- ALWAYS address the guest by their first name at least once in your response
 - Answer questions directly and proactively offer relevant information
 - If you don't have specific information, be honest but offer to help find it
 - Never make up information about the property that isn't provided
@@ -1531,21 +1625,23 @@ GUIDELINES:
 - For urgent issues, express immediate concern and offer solutions
 
 SAFETY RULES (NEVER VIOLATE — these protect your business):
-- NEVER promise refunds, discounts, compensation, or any financial action. If a guest asks for money back, say: "I need to look into this and I'll get back to you shortly with a resolution."
-- NEVER fabricate property details. If you don't have specific information about an amenity, rule, or feature, say: "Let me confirm that and get back to you" instead of guessing.
+- NEVER promise refunds, discounts, compensation, or any financial action. Tell the guest you need to look into it and will follow up.
+- NEVER fabricate property details. If you don't have specific info, tell the guest you'll confirm and get back to them.
 - NEVER share other guests' personal information, check-in codes, or booking details.
-- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, respond: "If this is an emergency, please call 911 immediately. I'm on it right now."
-- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For early check-in or late checkout requests, respond helpfully: "Let me check availability for that and I'll let you know!"
+- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, tell them to call 911 and that you're on it.
+- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For schedule change requests, first acknowledge WHY they're asking (e.g. short stay, late flight), then tell them you'll check on it. Write this in YOUR voice — do NOT use a generic template.
 - NEVER offer free nights, upgrades, early check-in, or late check-out as confirmed — always say you'll check.
 - NEVER make promises about future bookings, availability, or pricing.
-- When uncertain about ANY fact, clearly state uncertainty rather than guessing. "I'll check on that" is better than a wrong answer that damages trust.
+- When uncertain about ANY fact, tell the guest you'll check rather than guessing.
 - NEVER refer to yourself in the third person or say "the host" — YOU ARE the host.
+
+IMPORTANT: The safety rules above describe BEHAVIOR, not exact words. Write safety-compliant responses in YOUR natural voice. Never copy template phrases from these rules — rephrase them in the warm, casual style shown in your Voice DNA.
 
 BANNED PHRASES (these are AI artifacts — no real person writes like this, remove if you catch yourself using them):
 - "I understand this is stressful" / "I understand your frustration" / "I completely understand"
 - "I'd be happy to help" / "Happy to assist" / "Please don't hesitate to reach out"
 - "Rest assured" / "I want to assure you" / "Let me assure you" / "I appreciate your patience"
-- "It's important to note" / "It's worth noting" / "I need to look into this and I'll get back to you shortly with a resolution"
+- "It's important to note" / "It's worth noting" / "Let me check availability for that and I'll let you know"
 - "Delve" / "Leverage" / "Utilize" / "Harness" / "Robust" / "Landscape" / "Realm"
 - "Furthermore" / "Additionally" / "Moreover" / "Moving forward" / "Straightforward"
 - "Absolutely" as a sentence starter / "reach out at anytime"
@@ -1570,11 +1666,14 @@ REVIEW/FEEDBACK RESPONSE RULES:
 - Do NOT create bullet-point lists of property improvements or to-do items
 - NEVER say "I will look into adding..." or promise specific property changes
 - Simply thank them by first name, acknowledge their feedback generally, and warmly invite them back
-- Match this style EXACTLY: "Hi [guest first name], thank you so much for the feedback as that truly helps us improve the home! We're always striving to improve our home for our guests! We are so glad we had the opportunity to have you and your wonderful family, and would love to have you back anytime! We wish you safe travels, and thank you again for everything!"
+- Your review responses should feel like a personal note — thank them by name, mention something specific if possible, and warmly invite them back. Write it in YOUR voice, not a template.
 - Keep it warm, genuine, and personal — never corporate or list-like
 
 MULTI-TOPIC HANDLING:
 If the guest asked multiple questions, address EACH one clearly. Use paragraph breaks or numbered points for clarity. Don't skip any topic.
+
+DETAIL MIRRORING (critical for sounding human):
+Mirror back specific details the guest mentioned — names, dates, times, pet breeds, number of guests, ages of kids, arrival plans, etc. A real host reads the message and responds to the SPECIFIC situation, not a generic version of it. If a guest says "arriving at 5:30 with our 15lb yorkie", your response must acknowledge the 5:30 time AND the yorkie — not just "your pet".
 
 GUIDELINES:
 - Write as yourself (${hostName || 'the host'}), in first person
@@ -1586,14 +1685,14 @@ GUIDELINES:
 - For urgent issues, express immediate concern and offer solutions
 
 SAFETY RULES (NEVER VIOLATE — these protect your business):
-- NEVER promise refunds, discounts, compensation, or any financial action. Say: "I need to look into this and I'll get back to you shortly."
-- NEVER fabricate property details. Say: "Let me confirm that and get back to you" instead of guessing.
+- NEVER promise refunds, discounts, compensation, or any financial action. Tell the guest you need to look into it.
+- NEVER fabricate property details. If unsure, tell the guest you'll confirm and follow up.
 - NEVER share other guests' personal information, check-in codes, or booking details.
-- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies: "If this is an emergency, please call 911 immediately. I'm on it."
-- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For late checkout or early check-in requests, say: "Let me check availability for that and I'll let you know!"
+- NEVER handle legal threats, medical emergencies, or safety hazards. For emergencies, tell them to call 911.
+- NEVER guarantee specific check-in/check-out times unless explicitly stated in the property knowledge. For schedule change requests, first acknowledge their reason for asking, then tell them you'll check on it.
 - NEVER offer free nights, upgrades, or confirmed schedule changes — always say you'll check.
 - NEVER make promises about future bookings, availability, or pricing.
-- When uncertain, say "I'll check on that" rather than guessing.
+- When uncertain, tell the guest you'll check rather than guessing.
 - NEVER refer to yourself in the third person or say "the host" — YOU ARE the host.
 
 BANNED PHRASES (these are AI artifacts — no real person writes like this):
@@ -1654,6 +1753,23 @@ BANNED PHRASES (these are AI artifacts — no real person writes like this):
     if (knowledge.lateCheckOutAvailable && knowledge.lateCheckOutFee) {
       prompt += `- Late Check-out: Available for $${knowledge.lateCheckOutFee}\n`;
     }
+    if (knowledge.petsAllowed !== undefined) {
+      if (knowledge.petsAllowed) {
+        let petLine = '- Pets: Allowed';
+        if (knowledge.petFee) {
+          const structure = knowledge.petFeeStructure || 'per pet';
+          petLine += ` ($${knowledge.petFee} + tax ${structure})`;
+        }
+        if (knowledge.petRestrictions) {
+          petLine += ` — ${knowledge.petRestrictions}`;
+        }
+        prompt += petLine + '\n';
+      } else {
+        prompt += '- Pets: NOT allowed at this property\n';
+      }
+    } else if (knowledge.petPolicy) {
+      prompt += `- Pet Policy: ${knowledge.petPolicy}\n`;
+    }
 
     // Add DIRECT ANSWER block for detected topics that have knowledge
     const directAnswerBlock = getDirectAnswerBlock(topics, knowledge);
@@ -1691,9 +1807,10 @@ async function callGeminiAPI(
       method: 'POST',
       headers,
       body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{
           parts: [{
-            text: `${systemPrompt}\n\n${userPrompt}`
+            text: userPrompt
           }]
         }],
         generationConfig: {
@@ -1999,17 +2116,78 @@ export async function generateEnhancedAIResponse(options: {
     const totalCalAdj = calibration.globalAdj + calibration.intentAdj;
     confidence = {
       ...confidence,
-      overall: Math.max(20, Math.min(90, confidence.overall + totalCalAdj)),
+      overall: Math.max(20, Math.min(95, confidence.overall + totalCalAdj)),
       warnings: [...confidence.warnings, ...calibration.warnings],
     };
     console.log(`[Calibration] Applied adjustment: global=${calibration.globalAdj}, intent=${calibration.intentAdj}, newConfidence=${confidence.overall}`);
   }
 
-  // HARD SAFETY CAP: Never allow auto-sendable confidence above 85%
-  // Confidence measures "readiness to send" — only post-generation validation can push above 80%
-  if (confidence.overall > 85) {
-    confidence.overall = 85;
-    confidence.warnings.push('Confidence capped at 85% pre-generation safety limit');
+  // HARD SAFETY CAP: Never exceed 95% pre-generation confidence
+  if (confidence.overall > 95) {
+    confidence.overall = 95;
+  }
+
+  // MULTI-PASS TRAINING BONUS: Reward deep training completeness
+  const multiPassAdjustment = multiPassTrainer.getConfidenceAdjustment();
+  if (multiPassAdjustment > 0) {
+    confidence = {
+      ...confidence,
+      overall: Math.min(95, confidence.overall + multiPassAdjustment),
+    };
+    console.log(`[MultiPass] Applied confidence adjustment: +${multiPassAdjustment}, newConfidence=${confidence.overall}`);
+  }
+
+  // TEMPORAL DATA BONUS: More temporal analyses = better voice model = higher confidence
+  try {
+    const temporalWeights = temporalWeightManager.getWeights();
+    const temporalAnalyses = temporalWeights.styleEvolution?.length || 0;
+    const weightedProfile = temporalWeightManager.getWeightedStyleProfile();
+    let temporalBoost = 0;
+    // Modest boost for having enough temporal data to track style evolution
+    if (weightedProfile && temporalAnalyses >= 2) temporalBoost += 3;
+    if (temporalAnalyses >= 4) temporalBoost += 2; // Multiple quarters of data
+    if (temporalBoost > 0) {
+      confidence = {
+        ...confidence,
+        overall: Math.min(95, confidence.overall + temporalBoost),
+      };
+      console.log(`[Temporal] Applied confidence boost: +${temporalBoost} (${temporalAnalyses} evolution periods), newConfidence=${confidence.overall}`);
+    }
+  } catch {
+    // Temporal data unavailable — no boost, no harm
+  }
+
+  // Build conversation context with chronological ordering (needed for both system and user prompts)
+  const recentMessages = conversation.messages.slice(-10);
+  const conversationContext = recentMessages
+    .filter((m) => m.sender !== 'ai_draft')
+    .map((m, idx) => {
+      const role = m.sender === 'guest' ? 'Guest' : 'Host';
+      const time = m.timestamp
+        ? new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : '';
+      return `[${idx + 1}] [${time}] ${role}: ${m.content}`;
+    })
+    .join('\n');
+
+  // Build a concise conversation digest for the system prompt
+  // This ensures Gemini's instruction layer knows WHAT to respond to, not just HOW
+  const lastGuestMsg = [...conversation.messages].reverse().find(m => m.sender === 'guest');
+  const lastHostMsg = [...conversation.messages].reverse().find(m => m.sender === 'host');
+  let conversationDigest = '';
+  if (lastGuestMsg) {
+    conversationDigest += `Guest's latest message: "${lastGuestMsg.content}"\n`;
+    if (lastHostMsg) {
+      conversationDigest += `Your most recent reply before this: "${lastHostMsg.content.length > 200 ? lastHostMsg.content.substring(0, 200) + '...' : lastHostMsg.content}"\n`;
+    }
+    conversationDigest += `Thread direction: ${contextAnalysis?.threadDirection || 'unknown'}`;
+    // Add booking context if available
+    if (conversation.guest?.name) conversationDigest += `\nGuest name: ${conversation.guest.name}`;
+    if (conversation.numberOfGuests) conversationDigest += `\nGuest count: ${conversation.numberOfGuests}`;
+    if (conversation.checkInDate) conversationDigest += `\nCheck-in: ${new Date(conversation.checkInDate).toLocaleDateString()}`;
+    if (conversation.checkOutDate) conversationDigest += `\nCheck-out: ${new Date(conversation.checkOutDate).toLocaleDateString()}`;
+    if (conversation.isInquiry) conversationDigest += `\nBooking status: Pre-booking inquiry (no reservation yet)`;
+    if (conversation.platform) conversationDigest += `\nPlatform: ${conversation.platform}`;
   }
 
   // Build prompts with historical context, context awareness, AND intra-thread learning
@@ -2025,21 +2203,9 @@ export async function generateEnhancedAIResponse(options: {
     historicalMatches,
     skippedTopics,
     contextAnalysis,
-    intraThreadLearning
+    intraThreadLearning,
+    conversationDigest
   );
-
-  // Build conversation context with chronological ordering
-  const recentMessages = conversation.messages.slice(-10);
-  const conversationContext = recentMessages
-    .filter((m) => m.sender !== 'ai_draft')
-    .map((m, idx) => {
-      const role = m.sender === 'guest' ? 'Guest' : 'Host';
-      const time = m.timestamp
-        ? new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-        : '';
-      return `[${idx + 1}] [${time}] ${role}: ${m.content}`;
-    })
-    .join('\n');
 
   const topicsText = topics.map(t => t.topic).join(', ');
 
@@ -2267,12 +2433,17 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
       finalConfidence.warnings.push('Response significantly longer than your typical messages');
     }
 
-    // Check excessive exclamation marks (more than host uses)
+    // Check excessive exclamation marks — but respect host's actual exclamation style
+    // Hosts who use !! and !!! naturally should not be penalized for that pattern
     const exclamationCount = (generatedContent.match(/!/g) || []).length;
-    if (exclamationCount > 4) {
-      console.log('[AI Enhanced] ⚠️ Excessive exclamation marks:', exclamationCount);
+    const hostExclamationStyle = hostStyleProfile.exclamationStyle || 'single';
+    const exclamationThreshold = hostExclamationStyle === 'triple' ? 15
+      : hostExclamationStyle === 'double' ? 10
+      : 5;
+    if (exclamationCount > exclamationThreshold) {
+      console.log('[AI Enhanced] ⚠️ Excessive exclamation marks:', exclamationCount, 'threshold:', exclamationThreshold);
       finalConfidence.overall = Math.min(finalConfidence.overall, 70);
-      finalConfidence.warnings.push('Response uses excessive exclamation marks');
+      finalConfidence.warnings.push('Response uses more exclamation marks than your typical style');
     }
 
     // Check formality mismatch
@@ -2305,6 +2476,116 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
       console.log('[AI Enhanced] ⚠️ Response too warm/enthusiastic for host\'s direct style');
       finalConfidence.overall = Math.min(finalConfidence.overall, 65);
       finalConfidence.warnings.push('Style mismatch: response is more enthusiastic than your typical tone');
+    }
+
+    // Check for banned phrases that leaked through despite system prompt rules
+    const bannedPhrases = [
+      'i understand this is stressful', 'i understand your frustration', 'i completely understand',
+      "i'd be happy to help", 'happy to assist', "please don't hesitate to reach out",
+      'rest assured', 'i want to assure you', 'let me assure you', 'i appreciate your patience',
+      "it's important to note", "it's worth noting",
+      'reach out at anytime', 'reach out anytime',
+      'furthermore', 'additionally', 'moreover', 'moving forward',
+    ];
+    const lowerResponse = generatedContent.toLowerCase();
+    const foundBanned = bannedPhrases.filter(phrase => lowerResponse.includes(phrase));
+    if (foundBanned.length > 0) {
+      console.log('[AI Enhanced] ⚠️ BANNED PHRASES detected:', foundBanned.join(', '));
+      finalConfidence.overall = Math.min(finalConfidence.overall, 55);
+      finalConfidence.warnings.push(`Contains AI-sounding phrases: "${foundBanned[0]}"`);
+    }
+
+    // ── POSITIVE POST-GENERATION ADJUSTMENTS ──
+    // Reward drafts that match the host's style — not just penalize mismatches
+    let positiveBonus = 0;
+
+    // Greeting match bonus: AI used the host's typical greeting
+    if (hostStyleProfile.commonGreetings?.length) {
+      const firstGreeting = hostStyleProfile.commonGreetings[0]?.toLowerCase() || '';
+      const responseStartLower = generatedContent.trim().substring(0, 80).toLowerCase();
+      if (firstGreeting && responseStartLower.includes(firstGreeting.toLowerCase())) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ Greeting matches host style (+3)');
+      }
+    }
+
+    // Emoji match bonus: AI matches host's emoji usage pattern
+    if (responseHasEmojis && hostUsesEmojis) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Emoji usage matches host style (+2)');
+    } else if (!responseHasEmojis && !hostUsesEmojis) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ No-emoji style matches host (+2)');
+    }
+
+    // Length match bonus: response within host's typical range
+    if (avgLength > 0) {
+      const lengthRatio = responseLength / avgLength;
+      if (lengthRatio >= 0.5 && lengthRatio <= 1.8) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ Response length matches host style (+3)');
+      }
+    }
+
+    // Formality match bonus
+    if (hostFormality > 70 && formalMarkers > 0 && casualMarkers === 0) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Formal tone matches host style (+2)');
+    } else if (hostFormality < 30 && casualMarkers > 0 && formalMarkers === 0) {
+      positiveBonus += 2;
+      console.log('[AI Enhanced] ✅ Casual tone matches host style (+2)');
+    }
+
+    // Exclamation match bonus: check against voice fingerprint exclamation style
+    if (hostExclamationStyle === 'triple' || hostExclamationStyle === 'double') {
+      const multiExclamations = (generatedContent.match(/!{2,}/g) || []).length;
+      if (multiExclamations > 0) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ Multi-exclamation style matches host voice (+3)');
+      }
+    } else if (exclamationCount > 0 && exclamationCount <= exclamationThreshold) {
+      positiveBonus += 1;
+    }
+
+    // CAPS emphasis match: host uses ALL CAPS for emphasis words
+    if (hostStyleProfile.capsEmphasisWords?.length > 0) {
+      const capsWordsInResponse = (generatedContent.match(/\b[A-Z]{2,}\b/g) || [])
+        .filter((w: string) => !['AM', 'PM', 'TV', 'WiFi', 'AC', 'OK', 'ID', 'US', 'UK', 'PO', 'A/C', 'HVAC', 'HOA'].includes(w));
+      if (capsWordsInResponse.length > 0) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ CAPS emphasis matches host voice (+3)');
+      }
+    }
+
+    // Pronoun match: host uses "we/us/our" voice
+    if (hostStyleProfile.pronounPreference === 'we') {
+      const wePronouns = (generatedContent.match(/\b(we|us|our)\b/gi) || []).length;
+      const iPronouns = (generatedContent.match(/\bI\b/g) || []).length;
+      if (wePronouns > iPronouns) {
+        positiveBonus += 3;
+        console.log('[AI Enhanced] ✅ "We" pronoun voice matches host (+3)');
+      } else if (iPronouns > wePronouns && wePronouns === 0) {
+        // AI used "I" when host always says "we" — penalty
+        finalConfidence.overall = Math.max(finalConfidence.overall - 5, 30);
+        finalConfidence.warnings.push('Voice mismatch: used "I/me" but host always says "we/us/our"');
+        console.log('[AI Enhanced] ⚠️ Pronoun mismatch: AI used "I" but host uses "we" (-5)');
+      }
+    }
+
+    // Guest name usage match
+    if (hostStyleProfile.usesGuestNames && conversation.guest?.name) {
+      const guestFirstName = conversation.guest.name.split(' ')[0];
+      if (guestFirstName && generatedContent.includes(guestFirstName)) {
+        positiveBonus += 2;
+        console.log('[AI Enhanced] ✅ Guest name used, matches host pattern (+2)');
+      }
+    }
+
+    // Cap positive bonus at +18 to allow voice fingerprint signals to have real impact
+    positiveBonus = Math.min(positiveBonus, 18);
+    if (positiveBonus > 0) {
+      finalConfidence.overall = Math.min(finalConfidence.overall + positiveBonus, 95);
+      console.log(`[AI Enhanced] ✅ Post-generation style bonus: +${positiveBonus} → ${finalConfidence.overall}%`);
     }
   }
 
@@ -2359,10 +2640,8 @@ function searchAndPrepareHistoricalContext(
       intent: m.guestIntent,
       score: m.matchScore || 0,
       responsePreview: m.hostResponse.substring(0, 100) + (m.hostResponse.length > 100 ? '...' : ''),
-      // Top 2 matches get full response (up to 800 chars), rest get 200 chars
-      fullResponse: i < 2
-        ? m.hostResponse.substring(0, 800) + (m.hostResponse.length > 800 ? '...' : '')
-        : m.hostResponse.substring(0, 200) + (m.hostResponse.length > 200 ? '...' : ''),
+      // All matches get full response up to 1200 chars to preserve voice signal
+      fullResponse: m.hostResponse.substring(0, 1200) + (m.hostResponse.length > 1200 ? '...' : ''),
     })),
   };
 }
@@ -2398,7 +2677,8 @@ function buildEnhancedSystemPromptWithHistory(
   historicalMatches?: HistoricalMatchInfo,
   skippedTopics?: SkippedTopicInfo[],
   contextAnalysis?: ConversationContextAnalysis,
-  intraThreadLearning?: IntraThreadLearning
+  intraThreadLearning?: IntraThreadLearning,
+  conversationDigest?: string
 ): string {
   // Get base prompt
   let prompt = buildEnhancedSystemPrompt(
@@ -2411,6 +2691,16 @@ function buildEnhancedSystemPromptWithHistory(
     hostStyleProfile,
     regenerationModifier
   );
+
+  // CONVERSATION GROUNDING: Inject what the guest actually said into the system prompt
+  // so Gemini's instruction layer knows the specifics, not just the user prompt
+  if (conversationDigest) {
+    prompt += `\n\nCONVERSATION GROUNDING (what you are responding to RIGHT NOW):
+${conversationDigest}
+
+YOUR RESPONSE MUST directly address the content above. If the guest asked a question, answer it. If they made a statement, acknowledge the specific thing they said. If they're just being friendly, respond naturally to THEIR specific words — not with a generic placeholder. Never generate a response that could work for any conversation.
+`;
+  }
 
   // INTRA-THREAD LEARNING: Add style anchoring instructions
   if (intraThreadLearning?.styleAnchor.hasAnchor) {
@@ -2469,7 +2759,7 @@ IMPORTANT: Focus ONLY on NEW topics or follow-up clarifications the guest is ask
         flowGuidance = 'The guest seems confused or needs clarification. Explain more clearly and offer additional help.';
         break;
       case 'resolution':
-        flowGuidance = 'The guest is acknowledging/thanking you for your previous reply. They do NOT need a substantive answer. Respond with ONLY a brief, warm closing (e.g. "You\'re welcome!", "Happy to help!", "Enjoy your stay!") — 1 sentence max, no more than 10 words. Do NOT re-explain anything or bring up new information.';
+        flowGuidance = 'The guest is acknowledging/thanking you. Do NOT re-explain previous topics or bring up new information. But DO respond in YOUR natural voice — if your style is warm and enthusiastic, write a warm 2-3 sentence reply. Use the guest\'s name, express genuine appreciation, and include a forward invitation (e.g. "we would LOVE to have you back!"). Match YOUR voice, not a robotic one-liner.';
         break;
       case 'new_topic':
         flowGuidance = 'This is a new topic. Provide a complete, helpful response.';
@@ -2528,7 +2818,12 @@ These are REAL messages the host wrote. Your response to this new question shoul
 
 `;
       voiceAnchors.forEach((anchor, i) => {
-        const truncated = anchor.hostResponse.substring(0, 200) + (anchor.hostResponse.length > 200 ? '...' : '');
+        // Truncate at sentence boundary before 400 chars to preserve complete thoughts
+        let truncated = anchor.hostResponse;
+        if (truncated.length > 800) {
+          const lastSentence = truncated.substring(0, 800).lastIndexOf('.');
+          truncated = lastSentence > 200 ? truncated.substring(0, lastSentence + 1) : truncated.substring(0, 800) + '...';
+        }
         prompt += `${i + 1}. "${truncated}"\n`;
       });
 
@@ -2593,16 +2888,47 @@ async function buildSystemPromptWithEditLearning(
     }
 
     // ADVANCED TRAINING: Add property lexicon, few-shot examples, negative examples, guest memory
+    // When a founder session exists, use server-side semantic matching for higher-quality examples.
     if (guestMessage) {
-      const advancedPrompt = buildAdvancedAIPrompt(
-        guestMessage,
-        propertyId,
-        guestEmail,
-        guestPhone
-      );
+      let advancedPrompt = '';
+      const founderSessionForPrompt = useAppStore.getState().founderSession;
+      if (founderSessionForPrompt?.orgId) {
+        try {
+          const semanticExamples = await semanticVoiceIndex.query(guestMessage, propertyId || '');
+          advancedPrompt = buildAdvancedAIPromptWithSemantic(
+            guestMessage,
+            semanticExamples,
+            semanticVoiceIndex.formatAsPrompt,
+            propertyId,
+            guestEmail,
+            guestPhone,
+          );
+        } catch (e) {
+          // Semantic query failed — fall back to local keyword matching
+          console.warn('[AI Enhanced] Semantic voice query failed, falling back to keyword matching:', e);
+          advancedPrompt = buildAdvancedAIPrompt(guestMessage, propertyId, guestEmail, guestPhone);
+        }
+      } else {
+        advancedPrompt = buildAdvancedAIPrompt(guestMessage, propertyId, guestEmail, guestPhone);
+      }
       if (advancedPrompt) {
         prompt += advancedPrompt;
       }
+    }
+
+    // MULTI-PASS TRAINING: Inject frequent phrases mined from host messages
+    try {
+      const frequentPhrases = multiPassTrainer.getFrequentPhrases();
+      if (frequentPhrases.length > 0) {
+        prompt += `\n\nHOST'S SIGNATURE PHRASES (phrases this host uses frequently — weave these naturally into your response):
+${frequentPhrases.slice(0, 15).map(p => `• "${p}"`).join('\n')}
+Use these exact phrases where they fit naturally. They are part of this host's authentic voice.
+`;
+        console.log(`[AI Enhanced] Injected ${Math.min(frequentPhrases.length, 15)} frequent phrases from MultiPassTrainer`);
+      }
+    } catch (e) {
+      // MultiPass phrases are optional — don't block generation
+      console.warn('[AI Enhanced] MultiPass phrases injection failed:', e);
     }
   } catch (error) {
     console.error('[AI Enhanced] Error getting learning adjustments:', error);
@@ -2656,12 +2982,15 @@ Your response should:
   }
 
   prompt += `Generate a response that:
-1. Addresses ONLY the new topics/questions from the most recent guest message
-2. Does NOT repeat information you already provided in earlier messages
-3. NEVER contradicts anything you (the host) already said in this conversation — if you already answered, stay consistent
-4. Matches the appropriate tone for their emotional state
-5. Provides specific, accurate information from property knowledge when available
-6. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
+1. DIRECTLY ACKNOWLEDGES what the guest just said — reference their specific details, numbers, names, or situation before anything else
+2. Addresses ONLY the new topics/questions from the most recent guest message
+3. Does NOT repeat information you already provided in earlier messages
+4. NEVER contradicts anything you (the host) already said in this conversation — if you already answered, stay consistent
+5. Matches the appropriate tone for their emotional state
+6. Provides specific, accurate information from property knowledge when available
+7. ${historicalMatches?.usedHistoricalBasis ? 'Primarily follows the style and content of historical examples' : 'Offers proactive help when appropriate'}
+
+GROUNDING RULE: Read the guest's last message carefully. If they mention specific facts (guest count, dates, names, questions, situations), your FIRST sentence must acknowledge or respond to those facts directly. Never open with a generic greeting or statement that could apply to any conversation.
 
 CRITICAL: Review the conversation history above. If the host (you) already responded to this topic, your new message MUST align with that response. Do NOT give a different or contradictory answer.
 
@@ -2758,6 +3087,14 @@ export async function learnFromSentMessage(
 
     // Add to few-shot index with origin tracking
     await fewShotIndexer.addExample(guestMessage, hostResponse, propertyId, originType);
+
+    // Fire-and-forget: sync to server semantic voice index (requires founder session)
+    const founderSession = useAppStore.getState().founderSession;
+    if (founderSession?.orgId) {
+      semanticVoiceIndex
+        .learn(guestMessage, hostResponse, propertyId || '', originType)
+        .catch((e) => console.warn('[Learning] Semantic voice learn failed (non-blocking):', e));
+    }
 
     console.log('[Learning] Message queued for incremental training, origin:', originType || 'legacy');
   } catch (error) {

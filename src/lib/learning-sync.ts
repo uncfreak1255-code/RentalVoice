@@ -244,6 +244,8 @@ export async function syncLearningToCloud(): Promise<SyncResult> {
   if (now - lastSyncTimestamp < MIN_SYNC_INTERVAL_MS) {
     return { success: true, profileSynced: false, examplesSynced: 0, error: 'Throttled' };
   }
+  // Set immediately to prevent concurrent calls from passing the throttle check
+  lastSyncTimestamp = now;
 
   const session = await canSync();
   if (!session) {
@@ -256,8 +258,7 @@ export async function syncLearningToCloud(): Promise<SyncResult> {
   if (queued) {
     console.log(`[LearningSync] Found offline queue from ${queued.queuedAt}, retrying...`);
     retriedFromQueue = true;
-    // Clear queue — we'll rebuild from fresh local state below
-    await saveOfflineQueue(null);
+    // Don't clear queue here — clear after successful sync below
   }
 
   try {
@@ -384,7 +385,10 @@ export async function syncLearningToCloud(): Promise<SyncResult> {
       lastSyncVersion: profilePayload.syncVersion,
     });
 
-    lastSyncTimestamp = Date.now();
+    // Clear offline queue now that sync succeeded
+    if (retriedFromQueue) {
+      await saveOfflineQueue(null);
+    }
     console.log(`[LearningSync] Synced profile=${profileSynced} examples=${examplesSynced} conflict=${conflict}`);
     return { success: true, profileSynced, examplesSynced, conflict, retriedFromQueue };
   } catch (err) {
@@ -456,7 +460,14 @@ async function queueForOfflineRetry(
  * Pull learning state from cloud and restore locally.
  * Called on app launch when local state is empty (fresh install/reset).
  */
-export async function restoreLearningFromCloud(): Promise<RestoreResult> {
+export async function restoreLearningFromCloud(force: boolean = false): Promise<RestoreResult> {
+  if (!force) {
+    const empty = await isLocalLearningEmpty();
+    if (!empty) {
+      return { success: true, profileRestored: false, examplesRestored: 0, error: 'Local data exists — skipped restore to avoid overwriting' };
+    }
+  }
+
   const session = await canSync();
   if (!session) {
     return { success: false, profileRestored: false, examplesRestored: 0, error: 'No auth session' };

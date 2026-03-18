@@ -448,7 +448,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
         }
 
         if (lastGuestMessage) {
-          aiTrainingService.learnFromReply(lastGuestMessage.content, draft.content, wasEdited, conversation?.property?.id).catch(console.error);
+          aiTrainingService.learnFromReply(lastGuestMessage.content, draft.content, wasEdited, conversation?.property?.id, wasEdited ? 'ai_edited' : 'ai_approved').catch(console.error);
           updateAILearningProgress({
             ...(wasEdited
               ? { realTimeEditsCount: aiLearningProgress.realTimeEditsCount + 1 }
@@ -549,7 +549,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
       }
 
       if (lastGuestMessage) {
-        aiTrainingService.learnFromReply(lastGuestMessage.content, content, true, conversation?.property?.id).catch(console.error);
+        aiTrainingService.learnFromReply(lastGuestMessage.content, content, true, conversation?.property?.id, 'host_written').catch(console.error);
         updateAILearningProgress({
           realTimeIndependentRepliesCount: aiLearningProgress.realTimeIndependentRepliesCount + 1,
           patternsIndexed: aiLearningProgress.patternsIndexed + 1,

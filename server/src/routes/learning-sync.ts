@@ -219,7 +219,8 @@ learningSyncRouter.get('/examples', async (c) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (originType) {
+    const VALID_ORIGIN_TYPES = ['host_written', 'ai_approved', 'ai_edited'];
+    if (originType && VALID_ORIGIN_TYPES.includes(originType)) {
       query = query.eq('origin_type', originType);
     }
 

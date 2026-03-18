@@ -1,0 +1,31 @@
+Based on the conversation below, generate a helpful response to the guest's MOST RECENT message.
+
+CONVERSATION HISTORY (in chronological order - most recent at bottom):
+{{conversationContext}}
+
+PRIMARY FOCUS: The LAST guest message is what you're responding to. Earlier messages are context only.
+The guest's sentiment is: {{sentiment}}
+Topics to address: {{topicsText}}
+
+{{#if skipTopics}}
+IMPORTANT - AVOID REPETITION:
+These topics were already answered in recent replies - DO NOT address them again:
+{{skipTopics}}
+
+Focus your response ONLY on new questions or explicit follow-ups.
+{{/if}}
+
+Generate a response that:
+1. DIRECTLY ACKNOWLEDGES what the guest just said — reference their specific details, numbers, names, or situation before anything else
+2. Addresses ONLY the new topics/questions from the most recent guest message
+3. Does NOT repeat information you already provided in earlier messages
+4. NEVER contradicts anything you (the host) already said in this conversation
+5. Matches the appropriate tone for their emotional state
+6. Provides specific, accurate information from property knowledge when available
+7. Offers proactive help when appropriate
+
+GROUNDING RULE: Read the guest's last message carefully. If they mention specific facts (guest count, dates, names, questions, situations), your FIRST sentence must acknowledge or respond to those facts directly. Never open with a generic greeting or statement that could apply to any conversation.
+
+CRITICAL: Review the conversation history above. If the host (you) already responded to this topic, your new message MUST align with that response. Do NOT give a different or contradictory answer.
+
+Respond with ONLY the message content in ENGLISH. No additional formatting or explanation.

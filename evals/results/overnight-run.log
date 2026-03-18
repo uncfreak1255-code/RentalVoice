@@ -1,0 +1,1078 @@
+Cache is disabled.
+Starting evaluation eval-OJ7-2026-03-13T02:44:11
+Running 48 test cases (up to 4 at a time)...
+
+┌────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┬────────┐
+│ consi… │ conve… │ conve… │ histo… │ prope… │ prope… │ prope… │ senti… │ skipT… │ toneG… │ topics │ topic… │ voice… │ [goog… │ [goog… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ renta… │ renta… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ /User… │ /User… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ You    │ Based  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ are    │ on the │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Sawye… │ conve… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ respo… │ below, │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to a   │ gener… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ guest  │ a      │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ at     │ helpf… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ your   │ respo… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ vacat… │ to the │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ rental │ guest… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ prope… │ MOST   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ You    │ RECENT │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ are    │ messa… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ NOT an │ CONVE… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ AI     │ HISTO… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ assis… │ (in    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ — you  │ chron… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ are    │ ord... │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ writi… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ as     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ yours… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ the    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ prope… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │        │ Seasc… │ posit… │        │ The    │ -      │ Booki… │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Gulf   │        │ Beach  │ (exci… │        │ guest  │ booki… │ inqui… │        │ Hey    │ Hi     │
+│        │ Isabe… │        │        │ Dr,    │        │ House  │        │        │ has a  │ (know… │ avail… │        │ Sarah! │ Isabe… │
+│        │ Hi!    │        │        │ Brade… │        │        │        │        │ posit… │ avail… │ check  │        │ Thanks │ Yes,   │
+│        │ We're  │        │        │ Beach, │        │        │        │        │ tone.  │        │        │        │ so     │ our    │
+│        │ a      │        │        │ FL     │        │        │        │        │ Be     │        │        │        │ much   │ place  │
+│        │ group  │        │        │        │        │        │        │        │ warm   │        │        │        │ for    │ is     │
+│        │ of 6   │        │        │        │        │        │        │        │ and    │        │        │        │ your   │ curre… │
+│        │ guests │        │        │        │        │        │        │        │ frien… │        │        │        │ kind   │ avail… │
+│        │ total  │        │        │        │        │        │        │        │        │        │        │        │ words, │ for    │
+│        │ — 4    │        │        │        │        │        │        │        │        │        │        │        │ we     │ the    │
+│        │ adults │        │        │        │        │        │        │        │        │        │        │        │ really │ week   │
+│        │ and 2  │        │        │        │        │        │        │        │        │        │        │        │ appre… │ of     │
+│        │ kids.  │        │        │        │        │        │        │        │        │        │        │        │ it! 🥰 │ March  │
+│        │ We're  │        │        │        │        │        │        │        │        │        │        │        │ I'm so │ 20-27  │
+│        │ looki… │        │        │        │        │        │        │        │        │        │        │        │ glad   │ for    │
+│        │ at     │        │        │        │        │        │        │        │        │        │        │        │ you    │ your   │
+│        │ your   │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ group  │
+│        │ place  │        │        │        │        │        │        │        │        │        │        │        │ your   │ of 6   │
+│        │ for    │        │        │        │        │        │        │        │        │        │        │        │ stay   │ (4     │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ at     │ adults │
+│        │ week   │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │ and 2  │
+│        │ of     │        │        │        │        │        │        │        │        │        │        │        │ Beach  │ kids). │
+│        │ March  │        │        │        │        │        │        │        │        │        │        │        │ House  │        │
+│        │ 20-27. │        │        │        │        │        │        │        │        │        │        │        │ and    │        │
+│        │ Is it  │        │        │        │        │        │        │        │        │        │        │        │ that   │        │
+│        │ avail… │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ had a  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ wonde… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ time   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ explo… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Brade… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Beach. │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ We'd   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ absol… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 🏖️     │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 456    │        │ Sunri… │ neutr… │        │ The    │ -      │ Avail… │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Manat… │        │ Retre… │ (dire… │        │ guest  │ avail… │ prici… │        │ Hi     │ Okay,  │
+│        │ Marcu… │        │        │ Ave,   │        │        │        │        │ has a  │ (know… │ ameni… │        │ Emily! │ regar… │
+│        │ Looki… │        │        │ Holmes │        │        │        │        │ strai… │ avail… │ (boat  │        │ 👋     │ April  │
+│        │ at     │        │        │ Beach, │        │        │        │        │ tone.  │ -      │ dock)  │        │ Absol… │ 5-12   │
+│        │ April  │        │        │ FL     │        │        │        │        │ Be     │ prici… │        │        │ Sunri… │ for    │
+│        │ 5-12   │        │        │        │        │        │        │        │ warm,  │ (know… │        │        │ Retre… │ your   │
+│        │ for a  │        │        │        │        │        │        │        │ frien… │ avail… │        │        │ is     │ fishi… │
+│        │ guys   │        │        │        │        │        │        │        │ profe… │        │        │        │ avail… │ trip,  │
+│        │ fishi… │        │        │        │        │        │        │        │        │        │        │        │ from   │ and    │
+│        │ trip.  │        │        │        │        │        │        │        │        │        │        │        │ July   │ your   │
+│        │ What's │        │        │        │        │        │        │        │        │        │        │        │ 6-13t… │ quest… │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ The    │ about  │
+│        │ night… │        │        │        │        │        │        │        │        │        │        │        │ rate   │ a boat │
+│        │ rate   │        │        │        │        │        │        │        │        │        │        │        │ for    │ dock,  │
+│        │ and do │        │        │        │        │        │        │        │        │        │        │        │ those  │ yes,   │
+│        │ you    │        │        │        │        │        │        │        │        │        │        │        │ dates  │ we do  │
+│        │ have a │        │        │        │        │        │        │        │        │        │        │        │ is     │ have a │
+│        │ boat   │        │        │        │        │        │        │        │        │        │        │        │ $275   │ priva… │
+│        │ dock?  │        │        │        │        │        │        │        │        │        │        │        │ per    │ boat   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ night, │ dock   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ plus   │ avail… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ taxes  │ for    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │ your   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ fees.  │ use.   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ We'd   │ Let me │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │ check  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ the    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │ rates  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you!   │ for    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ☀️     │ those  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Let me │ speci… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │ dates  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ if you │ and    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ need   │ I'll   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │ get    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ else!  │ back   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ to you │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ in     │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ just a │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ few    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ minut… │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 789    │        │ Palm   │ posit… │        │ The    │ -      │ Anniv… │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Gulf   │        │ Parad… │ (exci… │        │ guest  │ booki… │ celeb… │        │ Hey    │ Sarah, │
+│        │ Sarah… │        │        │ Blvd,  │        │ Villa  │ celeb… │        │ is     │ (no    │ resta… │        │ Jenni… │ congr… │
+│        │ OMG we │        │        │ Saras… │        │        │        │        │ excit… │ speci… │ recom… │        │ 🎉 I'm │ on     │
+│        │ just   │        │        │ FL     │        │        │        │        │ Match  │ knowl… │        │        │ so     │ your   │
+│        │ booked │        │        │        │        │        │        │        │ their  │        │        │        │ thril… │ 10th   │
+│        │ your   │        │        │        │        │        │        │        │ energy │        │        │        │ you're │ anniv… │
+│        │ place  │        │        │        │        │        │        │        │ with   │        │        │        │ excit… │ That's │
+│        │ for    │        │        │        │        │        │        │        │ enthu… │        │        │        │ about  │ wonde… │
+│        │ our    │        │        │        │        │        │        │        │        │        │        │        │ your   │ and    │
+│        │ anniv… │        │        │        │        │        │        │        │        │        │        │        │ upcom… │ I'm so │
+│        │ trip!! │        │        │        │        │        │        │        │        │        │        │        │ stay   │ glad   │
+│        │ 🎉     │        │        │        │        │        │        │        │        │        │        │        │ at     │ you    │
+│        │ We've  │        │        │        │        │        │        │        │        │        │        │        │ Palm   │ chose  │
+│        │ been   │        │        │        │        │        │        │        │        │        │        │        │ Parad… │ my     │
+│        │ marri… │        │        │        │        │        │        │        │        │        │        │        │ Villa! │ place  │
+│        │ 10     │        │        │        │        │        │        │        │        │        │        │        │ We'd   │ for    │
+│        │ years  │        │        │        │        │        │        │        │        │        │        │        │ absol… │ your   │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │ love   │ first  │
+│        │ this   │        │        │        │        │        │        │        │        │        │        │        │ to     │ kid-f… │
+│        │ is our │        │        │        │        │        │        │        │        │        │        │        │ have   │ vacat… │
+│        │ first  │        │        │        │        │        │        │        │        │        │        │        │ you,   │ in     │
+│        │ vacat… │        │        │        │        │        │        │        │        │        │        │        │ and    │ three  │
+│        │ witho… │        │        │        │        │        │        │        │        │        │        │        │ I'm    │ years! │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ here   │ For    │
+│        │ kids   │        │        │        │        │        │        │        │        │        │        │        │ to     │ roman… │
+│        │ in 3   │        │        │        │        │        │        │        │        │        │        │        │ help   │ dinne… │
+│        │ years! │        │        │        │        │        │        │        │        │        │        │        │ make   │ I      │
+│        │ Any    │        │        │        │        │        │        │        │        │        │        │        │ it     │ highly │
+│        │ recom… │        │        │        │        │        │        │        │        │        │        │        │ unfor… │ recom… │
+│        │ for    │        │        │        │        │        │        │        │        │        │        │        │ 😊 Let │ "The   │
+│        │ roman… │        │        │        │        │        │        │        │        │        │        │        │ me     │ Gilded │
+│        │ dinner │        │        │        │        │        │        │        │        │        │        │        │ know   │ Lily"  │
+│        │ spots  │        │        │        │        │        │        │        │        │        │        │        │ if you │ – it's │
+│        │ nearb… │        │        │        │        │        │        │        │        │        │        │        │ need   │ a bit  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │ upsca… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ at all │ with   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ as you │ amazi… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ plan   │ am...  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ your   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ trip!  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Thank… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Host  │        │        │ 321    │        │ Coast… │ neutr… │        │ The    │ -      │ Arriv… │        │ [PASS] │ [FAIL] │
+│        │ -      │        │        │ Beach  │        │ Breeze │ (conf… │        │ guest  │ check… │ time   │        │ Hi     │ Okay,  │
+│        │ Sawye… │        │        │ Rd,    │        │ Condo  │        │        │ has a  │ (know… │ confi… │        │ Jenni… │ great. │
+│        │ Hey    │        │        │ Anna   │        │        │        │        │ strai… │ avail… │ parki… │        │ Absol… │ Yes,   │
+│        │ Marcu… │        │        │ Maria, │        │        │        │        │ tone.  │        │        │        │ you    │ you'll │
+│        │ Great  │        │        │ FL     │        │        │        │        │ Be     │        │        │        │ can    │ be     │
+│        │ to     │        │        │        │        │        │        │        │ warm,  │        │        │        │ check  │ able   │
+│        │ hear   │        │        │        │        │        │        │        │ frien… │        │        │        │ in     │ to     │
+│        │ from   │        │        │        │        │        │        │        │ profe… │        │        │        │ anyti… │ park   │
+│        │ you.   │        │        │        │        │        │        │        │        │        │        │        │ after  │ two    │
+│        │ Check… │        │        │        │        │        │        │        │        │        │        │        │ 4 PM   │ cars   │
+│        │ is at  │        │        │        │        │        │        │        │        │        │        │        │ using  │ in the │
+│        │ 4pm    │        │        │        │        │        │        │        │        │        │        │        │ the    │ drive… │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │ keypa… │ with   │
+│        │ I'll   │        │        │        │        │        │        │        │        │        │        │        │ The    │ three  │
+│        │ send   │        │        │        │        │        │        │        │        │        │        │        │ code   │ of you │
+│        │ you    │        │        │        │        │        │        │        │        │        │        │        │ is     │ arriv… │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ 1234   │ around │
+│        │ door   │        │        │        │        │        │        │        │        │        │        │        │ 🎉.    │ 5:30p… │
+│        │ code   │        │        │        │        │        │        │        │        │        │        │        │ Let me │ See    │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ know   │ you    │
+│        │ day    │        │        │        │        │        │        │        │        │        │        │        │ if you │ then!  │
+│        │ befor… │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │ Let me │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │ know   │        │        │        │        │        │        │        │        │        │        │        │ at     │        │
+│        │ if you │        │        │        │        │        │        │        │        │        │        │        │ all!   │        │
+│        │ need   │        │        │        │        │        │        │        │        │        │        │        │ We'd   │        │
+│        │ anyth… │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │ else!  │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │ [Guest │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │ -      │        │        │        │        │        │        │        │        │        │        │        │ you.   │        │
+│        │ Marcu… │        │        │        │        │        │        │        │        │        │        │        │ Best,  │        │
+│        │ Perfe… │        │        │        │        │        │        │        │        │        │        │        │ Sawyer │        │
+│        │ we'll  │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ be     │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ arriv… │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ around │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ 5:30p… │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ There  │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ will   │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ be 3   │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ of us. │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ Can    │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ w...   │        │        │        │        │        │        │        │        │        │        │        │        │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │        │ Seasc… │ posit… │        │ The    │ -      │ Beach  │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Gulf   │        │ Beach  │ (frie… │        │ guest  │ gener… │ acces… │        │ Hi     │ Hi     │
+│        │ David… │        │        │ Dr,    │        │ House  │        │        │ has a  │ (no    │ proxi… │        │ Jenni… │ David! │
+│        │ Hey    │        │        │ Brade… │        │        │        │        │ posit… │ speci… │        │        │ Thanks │ Regar… │
+│        │ there! │        │        │ Beach, │        │        │        │        │ tone.  │ knowl… │        │        │ so     │ the    │
+│        │ Just   │        │        │ FL     │        │        │        │        │ Be     │        │        │        │ much   │ beach, │
+│        │ wanted │        │        │        │        │        │        │        │ warm   │        │        │        │ for    │ it's a │
+│        │ to ask │        │        │        │        │        │        │        │ and    │        │        │        │ the    │ public │
+│        │ about  │        │        │        │        │        │        │        │ frien… │        │        │        │ kind   │ beach. │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ words, │ The    │
+│        │ beach  │        │        │        │        │        │        │        │        │        │        │        │ we     │ walk   │
+│        │ access │        │        │        │        │        │        │        │        │        │        │        │ really │ is     │
+│        │ — is   │        │        │        │        │        │        │        │        │        │        │        │ appre… │ about  │
+│        │ it a   │        │        │        │        │        │        │        │        │        │        │        │ it! 😊 │ 5-7    │
+│        │ priva… │        │        │        │        │        │        │        │        │        │        │        │ I'm so │ minut… │
+│        │ beach  │        │        │        │        │        │        │        │        │        │        │        │ glad   │ mostly │
+│        │ or     │        │        │        │        │        │        │        │        │        │        │        │ you    │ along  │
+│        │ publi… │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ a      │
+│        │ And    │        │        │        │        │        │        │        │        │        │        │        │ your   │ paved  │
+│        │ how    │        │        │        │        │        │        │        │        │        │        │        │ stay   │ path.  │
+│        │ far is │        │        │        │        │        │        │        │        │        │        │        │ at     │ Let me │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │ know   │
+│        │ walk?  │        │        │        │        │        │        │        │        │        │        │        │ Beach  │ if you │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ House  │ have   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │ any    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that   │ other  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │ quest… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ had a  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ wonde… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ time.  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ We'd   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ absol… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 🏖️     │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 456    │ WiFi   │ Sunri… │ neutr… │        │ The    │ - wifi │ WiFi   │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Manat… │ Netwo… │ Retre… │ (dire… │        │ guest  │ (know… │ access │        │ Hi     │ The    │
+│        │ Lisa]: │        │        │ Ave,   │ Sunri… │        │        │        │ has a  │ avail… │        │        │ Karen, │ WiFi   │
+│        │ What's │        │        │ Holmes │ Passw… │        │        │        │ strai… │        │        │        │ Thanks │ passw… │
+│        │ the    │        │        │ Beach, │ beach… │        │        │        │ tone.  │        │        │        │ for    │ is     │
+│        │ wifi   │        │        │ FL     │        │        │        │        │        │        │        │        │ reach… │ "Seah… │
+│        │ passw… │        │        │        │        │        │        │        │        │        │        │        │ out!   │ - all  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ The    │ one    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ wifi   │ word,  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ netwo… │ case   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ is     │ sensi… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Sunri… │ Let me │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │ know   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ the    │ if you │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ passw… │ have   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ is     │ any    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ beach… │ troub… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Hope   │ conne… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ helps  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ get    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ conne… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ right  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ away!  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 😃 Let │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ me     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ else   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ at     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ all.   │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 789    │        │ Palm   │ posit… │        │ The    │ -      │ Pre-a… │        │ [PASS] │ [FAIL] │
+│        │ -      │        │        │ Gulf   │        │ Parad… │ (exci… │        │ guest  │ booki… │ excit… │        │ Hi     │ Hi     │
+│        │ Emma]: │        │        │ Blvd,  │        │ Villa  │        │        │ is     │ (no    │        │        │ Jenni… │ Emma,  │
+│        │ We are │        │        │ Saras… │        │        │        │        │ excit… │ speci… │        │        │ 🎉 I'm │ we're  │
+│        │ SO     │        │        │ FL     │        │        │        │        │ Match  │ knowl… │        │        │ so     │ so     │
+│        │ excit… │        │        │        │        │        │        │        │ their  │        │        │        │ thril… │ glad   │
+│        │ to     │        │        │        │        │        │        │        │ energ… │        │        │        │ to     │ you're │
+│        │ stay   │        │        │        │        │        │        │        │        │        │        │        │ hear   │ excit… │
+│        │ at     │        │        │        │        │        │        │        │        │        │        │        │ you're │ about  │
+│        │ your   │        │        │        │        │        │        │        │        │        │        │        │ excit… │ your   │
+│        │ place  │        │        │        │        │        │        │        │        │        │        │        │ about  │ beach  │
+│        │ next   │        │        │        │        │        │        │        │        │        │        │        │ your   │ trip   │
+│        │ week!! │        │        │        │        │        │        │        │        │        │        │        │ upcom… │ next   │
+│        │ Can't  │        │        │        │        │        │        │        │        │        │        │        │ stay   │ week!  │
+│        │ wait   │        │        │        │        │        │        │        │        │        │        │        │ at     │ Let us │
+│        │ to hit │        │        │        │        │        │        │        │        │        │        │        │ Palm   │ know   │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ Parad… │ if you │
+│        │ beach! │        │        │        │        │        │        │        │        │        │        │        │ Villa! │ need   │
+│        │ 🏖️☀️   │        │        │        │        │        │        │        │        │        │        │        │ We'd   │ any    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ absol… │ beach  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │ towel  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ recom… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │ or     │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you,   │ direc… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │ to our │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ I'm    │ favor… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ here   │ public │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ access │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ help   │ point. │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ make   │ Have a │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ sure   │ great  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │ trip!  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have a │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ fanta… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ vacat… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ at     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ all!   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 🌴     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Th...  │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │ Pool:  │ Seasc… │ posit… │ - pool │ The    │ - pool │ Grill… │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Gulf   │ Heated │ Beach  │ (sati… │ heati… │ guest  │ (know… │ access │        │ Hi     │ Yes,   │
+│        │ Tom]:  │        │        │ Dr,    │ pool   │ House  │        │ (alre… │ has a  │ avail… │        │        │ Ashle… │ you're │
+│        │ Is the │        │        │ Brade… │ avail… │        │        │ answe… │ posit… │        │        │        │ 😄     │ welco… │
+│        │ pool   │        │        │ Beach, │ Pool   │        │        │ with   │ tone.  │        │        │        │ Thanks │ to use │
+│        │ heate… │        │        │ FL     │ hours: │        │        │ detai… │        │        │        │        │ so     │ the    │
+│        │ [Host  │        │        │        │ 8am-1… │        │        │ about  │        │        │        │        │ much   │ grill  │
+│        │ -      │        │        │        │ Pool   │        │        │ $35/d… │        │        │        │        │ for    │ by the │
+│        │ Sawye… │        │        │        │ heat:  │        │        │ and    │        │        │        │        │ the    │ pool!  │
+│        │ Hey    │        │        │        │ $35/d… │        │        │ hours) │        │        │        │        │ aweso… │ It's   │
+│        │ Tom!   │        │        │        │ suppl… │        │        │        │        │        │        │        │ feedb… │ propa… │
+│        │ Yes    │        │        │        │        │        │        │        │        │        │        │        │ we     │ and    │
+│        │ absol… │        │        │        │        │        │        │        │        │        │        │        │ really │ there… │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ appre… │ a      │
+│        │ pool   │        │        │        │        │        │        │        │        │        │        │        │ you    │ spare  │
+│        │ is     │        │        │        │        │        │        │        │        │        │        │        │ taking │ tank   │
+│        │ heate… │        │        │        │        │        │        │        │        │        │        │        │ the    │ locat… │
+│        │ There… │        │        │        │        │        │        │        │        │        │        │        │ time   │ just   │
+│        │ a      │        │        │        │        │        │        │        │        │        │        │        │ to     │ inside │
+│        │ small  │        │        │        │        │        │        │        │        │        │        │        │ share! │ the    │
+│        │ suppl… │        │        │        │        │        │        │        │        │        │        │        │ I'm so │ pool   │
+│        │ of     │        │        │        │        │        │        │        │        │        │        │        │ happy  │ house  │
+│        │ $35/d… │        │        │        │        │        │        │        │        │        │        │        │ you    │ if you │
+│        │ for    │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ happen │
+│        │ pool   │        │        │        │        │        │        │        │        │        │        │        │ the    │ to run │
+│        │ heat.  │        │        │        │        │        │        │        │        │        │        │        │ pool   │ out.   │
+│        │ Pool   │        │        │        │        │        │        │        │        │        │        │        │ and    │        │
+│        │ hours  │        │        │        │        │        │        │        │        │        │        │        │ your   │        │
+│        │ are    │        │        │        │        │        │        │        │        │        │        │        │ overa… │        │
+│        │ 8am to │        │        │        │        │        │        │        │        │        │        │        │ stay   │        │
+│        │ 10pm.  │        │        │        │        │        │        │        │        │        │        │        │ at     │        │
+│        │ Let me │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │        │
+│        │ know   │        │        │        │        │        │        │        │        │        │        │        │ Beach  │        │
+│        │ if you │        │        │        │        │        │        │        │        │        │        │        │ House. │        │
+│        │ want   │        │        │        │        │        │        │        │        │        │        │        │ 🏖️     │        │
+│        │ me to  │        │        │        │        │        │        │        │        │        │        │        │ We'd   │        │
+│        │ turn   │        │        │        │        │        │        │        │        │        │        │        │ absol… │        │
+│        │ it on  │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │ for    │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │ your   │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │ stay!  │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │ 😊     │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │ [Guest │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+│        │ - T... │        │        │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ...    │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│ true   │ [Guest │        │        │ 321    │ Check… │ Coast… │ neutr… │        │ The    │ -      │ Late   │        │ [PASS] │ [PASS] │
+│        │ -      │        │        │ Beach  │ 4:00   │ Breeze │ (conf… │        │ guest  │ check… │ arriv… │        │ Hi     │ 7pm is │
+│        │ Rache… │        │        │ Rd,    │ PM.    │ Condo  │        │        │ has a  │ (know… │        │        │ Jenni… │ perfe… │
+│        │ What   │        │        │ Anna   │ Early  │        │        │        │ strai… │ avail… │        │        │ Absol… │ fine,  │
+│        │ time   │        │        │ Maria, │ check… │        │        │        │ tone.  │        │        │        │ check… │ Rache… │
+│        │ is     │        │        │ FL     │ avail… │        │        │        │        │        │        │        │ is at  │ Just   │
+│        │ check… │        │        │        │ upon   │        │        │        │        │        │        │        │ 4:00   │ let me │
+│        │ [Host  │        │        │        │ reque… │        │        │        │        │        │        │        │ PM. 🌴 │ know   │
+│        │ -      │        │        │        │ (subj… │        │        │        │        │        │        │        │ If     │ when   │
+│        │ Sawye… │        │        │        │ to     │        │        │        │        │        │        │        │ you'd  │ you're │
+│        │ Hey    │        │        │        │ avail… │        │        │        │        │        │        │        │ like   │ about  │
+│        │ Rache… │        │        │        │        │        │        │        │        │        │        │        │ to     │ 30     │
+│        │ Check… │        │        │        │        │        │        │        │        │        │        │        │ reque… │ minut… │
+│        │ is at  │        │        │        │        │        │        │        │        │        │        │        │ an     │ away   │
+│        │ 4pm!   │        │        │        │        │        │        │        │        │        │        │        │ early  │ and    │
+│        │ If you │        │        │        │        │        │        │        │        │        │        │        │ check… │ I'll   │
+│        │ need   │        │        │        │        │        │        │        │        │        │        │        │ just   │ make   │
+│        │ to     │        │        │        │        │        │        │        │        │        │        │        │ let me │ sure   │
+│        │ arrive │        │        │        │        │        │        │        │        │        │        │        │ know   │ the    │
+│        │ earli… │        │        │        │        │        │        │        │        │        │        │        │ and I  │ lights │
+│        │ just   │        │        │        │        │        │        │        │        │        │        │        │ can    │ are on │
+│        │ let me │        │        │        │        │        │        │        │        │        │        │        │ see if │ for    │
+│        │ know   │        │        │        │        │        │        │        │        │        │        │        │ it's   │ you.   │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │ possi… │        │
+│        │ I'll   │        │        │        │        │        │        │        │        │        │        │        │ closer │        │
+│        │ see    │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │ what I │        │        │        │        │        │        │        │        │        │        │        │ your   │        │
+│        │ can do │        │        │        │        │        │        │        │        │        │        │        │ arriv… │        │
+│        │ 😊     │        │        │        │        │        │        │        │        │        │        │        │ date – │        │
+│        │ [Guest │        │        │        │        │        │        │        │        │        │        │        │ it     │        │
+│        │ -      │        │        │        │        │        │        │        │        │        │        │        │ just   │        │
+│        │ Rache… │        │        │        │        │        │        │        │        │        │        │        │ depen… │        │
+│        │ Actua… │        │        │        │        │        │        │        │        │        │        │        │ on     │        │
+│        │ we     │        │        │        │        │        │        │        │        │        │        │        │ wheth… │        │
+│        │ won't  │        │        │        │        │        │        │        │        │        │        │        │ the    │        │
+│        │ get    │        │        │        │        │        │        │        │        │        │        │        │ clean… │        │
+│        │ there  │        │        │        │        │        │        │        │        │        │        │        │ crew   │        │
+│        │ until  │        │        │        │        │        │        │        │        │        │        │        │ is     │        │
+│        │ about  │        │        │        │        │        │        │        │        │        │        │        │ able   │        │
+│        │ 7pm,   │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │ is     │        │        │        │        │        │        │        │        │        │        │        │ finish │        │
+│        │ that   │        │        │        │        │        │        │        │        │        │        │        │ up     │        │
+│        │ ok?    │        │        │        │        │        │        │        │        │        │        │        │ earli… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │ The    │        │ 123    │        │ Seasc… │ posit… │        │ The    │ -      │ Arriv… │        │ [FAIL] │ [FAIL] │
+│        │ -      │ guest  │        │ Gulf   │        │ Beach  │ (grat… │        │ guest  │ resol… │ confi… │        │ Hey    │ Sounds │
+│        │ Mike]: │ is     │        │ Dr,    │        │ House  │        │        │ is     │ (no    │        │        │ Jenni… │ good,  │
+│        │ What's │ ackno… │        │ Brade… │        │        │        │        │ ackno… │ speci… │        │        │ So     │ Mike!  │
+│        │ the    │ you.   │        │ Beach, │        │        │        │        │ you.   │ knowl… │        │        │ glad   │ See    │
+│        │ door   │ Do NOT │        │ FL     │        │        │        │        │ Do NOT │        │        │        │ every… │ you in │
+│        │ code?  │ re-ex… │        │        │        │        │        │        │ re-ex… │        │        │        │ is     │ about  │
+│        │ [Host  │ previ… │        │        │        │        │        │        │ previ… │        │        │        │ worki… │ an     │
+│        │ -      │ topics │        │        │        │        │        │        │ topic… │        │        │        │ out    │ hour.  │
+│        │ Sawye… │ or     │        │        │        │        │        │        │        │        │        │        │ well   │ Drive  │
+│        │ Hey    │ bring  │        │        │        │        │        │        │        │        │        │        │ for    │ safe!  │
+│        │ Mike!  │ up new │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │ The    │ infor… │        │        │        │        │        │        │        │        │        │        │ all.   │        │
+│        │ door   │        │        │        │        │        │        │        │        │        │        │        │ 😊 We  │        │
+│        │ code   │        │        │        │        │        │        │        │        │        │        │        │ truly  │        │
+│        │ is     │        │        │        │        │        │        │        │        │        │        │        │ appre… │        │
+│        │ 4523.  │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │ Just   │        │        │        │        │        │        │        │        │        │        │        │ stayi… │        │
+│        │ punch  │        │        │        │        │        │        │        │        │        │        │        │ with   │        │
+│        │ it in  │        │        │        │        │        │        │        │        │        │        │        │ us and │        │
+│        │ on the │        │        │        │        │        │        │        │        │        │        │        │ hope   │        │
+│        │ keypad │        │        │        │        │        │        │        │        │        │        │        │ you're │        │
+│        │ by the │        │        │        │        │        │        │        │        │        │        │        │ making │        │
+│        │ front  │        │        │        │        │        │        │        │        │        │        │        │ some   │        │
+│        │ door.  │        │        │        │        │        │        │        │        │        │        │        │ amazi… │        │
+│        │ Let me │        │        │        │        │        │        │        │        │        │        │        │ memor… │        │
+│        │ know   │        │        │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │ when   │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │ you    │        │        │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │ arriv… │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │ 🏠     │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │ [Guest │        │        │        │        │        │        │        │        │        │        │        │ else   │        │
+│        │ -      │        │        │        │        │        │        │        │        │        │        │        │ at     │        │
+│        │ Mike]: │        │        │        │        │        │        │        │        │        │        │        │ all.   │        │
+│        │ Got    │        │        │        │        │        │        │        │        │        │        │        │ 🏖️     │        │
+│        │ it,    │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ thanks │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ so     │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ much!  │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ We     │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ just   │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ landed │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ will   │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ be     │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ there  │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ in     │        │        │        │        │        │        │        │        │        │        │        │        │        │
+│        │ a...   │        │        │        │        │        │        │        │        │        │        │        │        │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 789    │ Parki… │ Palm   │ neutr… │        │ The    │ -      │ Parki… │        │ [FAIL] │ [FAIL] │
+│        │ -      │        │        │ Gulf   │ 2-car  │ Parad… │ (orga… │        │ guest  │ parki… │ pets,  │        │ Hi     │ Hi     │
+│        │ Jenni… │        │        │ Blvd,  │ drive… │ Villa  │        │        │ has a  │ (know… │ check… │        │ Jenni… │ Jenni… │
+│        │ Hi     │        │        │ Saras… │ Pets:  │        │        │        │ strai… │ avail… │ time   │        │ Thanks │ great  │
+│        │ Sawye… │        │        │ FL     │ Small  │        │        │        │ tone.  │ - pets │        │        │ for    │ quest… │
+│        │ Three  │        │        │        │ dogs   │        │        │        │ Be     │ (know… │        │        │ reach… │ 1) You │
+│        │ quick  │        │        │        │ under  │        │        │        │ warm,  │ avail… │        │        │ out –  │ can    │
+│        │ quest… │        │        │        │ 25lbs  │        │        │        │ frien… │ -      │        │        │ absol… │ park   │
+│        │ 1) How │        │        │        │ allow… │        │        │        │ profe… │ check… │        │        │ happy  │ up to  │
+│        │ many   │        │        │        │ $50    │        │        │        │        │ (know… │        │        │ to     │ two    │
+│        │ cars   │        │        │        │ pet    │        │        │        │        │ avail… │        │        │ answer │ cars   │
+│        │ can we │        │        │        │ fee.   │        │        │        │        │        │        │        │ your   │ in the │
+│        │ park?  │        │        │        │ Check… │        │        │        │        │        │        │        │ quest… │ drive… │
+│        │ 2) We  │        │        │        │ 10:00  │        │        │        │        │        │        │        │ 😊 We  │ 2)     │
+│        │ have a │        │        │        │ AM.    │        │        │        │        │        │        │        │ have a │ Yes, a │
+│        │ small  │        │        │        │        │        │        │        │        │        │        │        │ two-c… │ 15lb   │
+│        │ dog    │        │        │        │        │        │        │        │        │        │        │        │ drive… │ Yorkie │
+│        │ (15lb  │        │        │        │        │        │        │        │        │        │        │        │ for    │ is     │
+│        │ yorki… │        │        │        │        │        │        │        │        │        │        │        │ parki… │ perfe… │
+│        │ — is   │        │        │        │        │        │        │        │        │        │        │        │ and we │ fine.  │
+│        │ that   │        │        │        │        │        │        │        │        │        │        │        │ do     │ 3)     │
+│        │ ok? 3) │        │        │        │        │        │        │        │        │        │        │        │ allow  │ Check… │
+│        │ What   │        │        │        │        │        │        │        │        │        │        │        │ small  │ time   │
+│        │ time   │        │        │        │        │        │        │        │        │        │        │        │ dogs   │ is     │
+│        │ is     │        │        │        │        │        │        │        │        │        │        │        │ under  │ 11:00  │
+│        │ check… │        │        │        │        │        │        │        │        │        │        │        │ 25lbs  │ AM.    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ with a │ Let me │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ $50    │ know   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ pet    │ if you │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ fee.   │ have   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Check… │ any    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ time   │ other  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ is at  │ quest… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 10:00  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ AM.    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │        │ Seasc… │ posit… │        │ The    │ -      │ Water  │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Gulf   │        │ Beach  │ (exci… │        │ guest  │ activ… │ sports │        │ Hi     │ Hi     │
+│        │ Alex]: │        │        │ Dr,    │        │ House  │ plann… │        │ has a  │ (no    │ renta… │        │ Sarah! │ Alex,  │
+│        │ Hey!   │        │        │ Brade… │        │        │        │        │ posit… │ speci… │ groce… │        │ Thanks │ great  │
+│        │ So     │        │        │ Beach, │        │        │        │        │ tone.  │ knowl… │ store… │        │ so     │ to     │
+│        │ we're  │        │        │ FL     │        │        │        │        │ Be     │ -      │ beach  │        │ much   │ hear   │
+│        │ coming │        │        │        │        │        │        │        │ warm   │ groce… │ gear   │        │ for    │ you're │
+│        │ down   │        │        │        │        │        │        │        │ and    │ (no    │        │        │ the    │ coming │
+│        │ next   │        │        │        │        │        │        │        │ frien… │ speci… │        │        │ kind   │ next   │
+│        │ Friday │        │        │        │        │        │        │        │        │ knowl… │        │        │ words, │ Friday │
+│        │ with   │        │        │        │        │        │        │        │        │ -      │        │        │ we're  │ with   │
+│        │ the    │        │        │        │        │        │        │        │        │ beach… │        │        │ so     │ the    │
+│        │ famil… │        │        │        │        │        │        │        │        │ (no    │        │        │ happy  │ famil… │
+│        │ The    │        │        │        │        │        │        │        │        │ speci… │        │        │ you    │ Yes,   │
+│        │ kids   │        │        │        │        │        │        │        │        │ knowl… │        │        │ enjoy… │ since  │
+│        │ are 8  │        │        │        │        │        │        │        │        │        │        │        │ your   │ the    │
+│        │ and 11 │        │        │        │        │        │        │        │        │        │        │        │ stay   │ kids   │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │ at     │ are 8  │
+│        │ love   │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │ and    │
+│        │ water  │        │        │        │        │        │        │        │        │        │        │        │ Beach  │ 11, I  │
+│        │ sports │        │        │        │        │        │        │        │        │        │        │        │ House! │ defin… │
+│        │ — any  │        │        │        │        │        │        │        │        │        │        │        │ 😊 It  │ have   │
+│        │ kayak  │        │        │        │        │        │        │        │        │        │        │        │ means  │ some   │
+│        │ or     │        │        │        │        │        │        │        │        │        │        │        │ the    │ good   │
+│        │ paddl… │        │        │        │        │        │        │        │        │        │        │        │ world  │ recom… │
+│        │ rental │        │        │        │        │        │        │        │        │        │        │        │ to us  │ for    │
+│        │ places │        │        │        │        │        │        │        │        │        │        │        │ that   │ kayak  │
+│        │ nearb… │        │        │        │        │        │        │        │        │        │        │        │ you    │ and    │
+│        │ Also   │        │        │        │        │        │        │        │        │        │        │        │ had    │ paddl… │
+│        │ wonde… │        │        │        │        │        │        │        │        │        │        │        │ such a │ renta… │
+│        │ if     │        │        │        │        │        │        │        │        │        │        │        │ great  │ [Name  │
+│        │ there… │        │        │        │        │        │        │        │        │        │        │        │ time,  │ of     │
+│        │ a      │        │        │        │        │        │        │        │        │        │        │        │ and we │ Rental │
+│        │ groce… │        │        │        │        │        │        │        │        │        │        │        │ truly  │ Compa… │
+│        │ store  │        │        │        │        │        │        │        │        │        │        │        │ appre… │ is     │
+│        │ close  │        │        │        │        │        │        │        │        │        │        │        │ you    │ just a │
+│        │ by for │        │        │        │        │        │        │        │        │        │        │        │ taking │ few    │
+│        │ stock… │        │        │        │        │        │        │        │        │        │        │        │ the    │ minut… │
+│        │ up     │        │        │        │        │        │        │        │        │        │        │        │ time   │ away   │
+│        │ when   │        │        │        │        │        │        │        │        │        │        │        │ to     │ and    │
+│        │ we     │        │        │        │        │        │        │        │        │        │        │        │ share  │ they   │
+│        │ arriv… │        │        │        │        │        │        │        │        │        │        │        │ your   │ offer  │
+│        │ ...    │        │        │        │        │        │        │        │        │        │        │        │ exper… │ r...   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Regar… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 321    │        │ Coast… │ urgent │        │ The    │ -      │ AC     │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Beach  │        │ Breeze │ (frus… │        │ guest  │ maint… │ malfu… │        │ Hi     │ Karen, │
+│        │ Karen… │        │        │ Rd,    │        │ Condo  │ conce… │        │ has an │ (no    │ urgent │        │ Barba… │ I      │
+│        │ The AC │        │        │ Anna   │        │        │        │        │ urgent │ speci… │ maint… │        │ Oh no, │ under… │
+│        │ isn't  │        │        │ Maria, │        │        │        │        │ issue. │ knowl… │        │        │ I'm so │ the AC │
+│        │ worki… │        │        │ FL     │        │        │        │        │ Be     │        │        │        │ sorry  │ isn't  │
+│        │ and    │        │        │        │        │        │        │        │ respo… │        │        │        │ to     │ worki… │
+│        │ it's   │        │        │        │        │        │        │        │ and    │        │        │        │ hear   │ and    │
+│        │ 95     │        │        │        │        │        │        │        │ solut… │        │        │        │ you're │ it's   │
+│        │ degre… │        │        │        │        │        │        │        │ Show   │        │        │        │ having │ 95     │
+│        │ in     │        │        │        │        │        │        │        │ you    │        │        │        │ troub… │ degre… │
+│        │ here!  │        │        │        │        │        │        │        │ take   │        │        │        │ with   │ in the │
+│        │ We     │        │        │        │        │        │        │        │ their  │        │        │        │ the    │ unit,  │
+│        │ have a │        │        │        │        │        │        │        │ conce… │        │        │        │ AC! 😩 │ and    │
+│        │ baby   │        │        │        │        │        │        │        │ serio… │        │        │        │ I'm on │ that   │
+│        │ with   │        │        │        │        │        │        │        │        │        │        │        │ it     │ you    │
+│        │ us and │        │        │        │        │        │        │        │        │        │        │        │ right  │ have a │
+│        │ this   │        │        │        │        │        │        │        │        │        │        │        │ away – │ baby   │
+│        │ is     │        │        │        │        │        │        │        │        │        │        │        │ I'll   │ with   │
+│        │ really │        │        │        │        │        │        │        │        │        │        │        │ call   │ you. I │
+│        │ not    │        │        │        │        │        │        │        │        │        │        │        │ my     │ since… │
+│        │ ok. We │        │        │        │        │        │        │        │        │        │        │        │ maint… │ apolo… │
+│        │ need   │        │        │        │        │        │        │        │        │        │        │        │ guy    │ for    │
+│        │ this   │        │        │        │        │        │        │        │        │        │        │        │ now    │ this!  │
+│        │ fixed  │        │        │        │        │        │        │        │        │        │        │        │ and    │ I'm    │
+│        │ ASAP.  │        │        │        │        │        │        │        │        │        │        │        │ see if │ conta… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ he can │ maint… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ head   │ right  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ over   │ now to │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ there  │ get    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ASAP   │ this   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ resol… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ take a │ ASAP.  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ look.  │ I will │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ I'll   │ update │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ keep   │ you    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │ with   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ posted │ their  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ on     │ estim… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ when   │ arr... │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ he's   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ expec… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 456    │        │ Sunri… │ negat… │        │ The    │ -      │ Clean… │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Manat… │        │ Retre… │ (frus… │        │ guest  │ clean… │ compl… │        │ Hi     │ Rober… │
+│        │ Rober… │        │        │ Ave,   │        │        │ angry) │        │ is     │ (no    │ unres… │        │ Linda, │ I      │
+│        │ I      │        │        │ Holmes │        │        │        │        │ frust… │ speci… │        │        │ Oh no, │ since… │
+│        │ alrea… │        │        │ Beach, │        │        │        │        │ Ackno… │ knowl… │        │        │ I'm so │ apolo… │
+│        │ messa… │        │        │ FL     │        │        │        │        │ their  │        │        │        │ sorry  │ that   │
+│        │ about  │        │        │        │        │        │        │        │ frust… │        │        │        │ to     │ you    │
+│        │ the    │        │        │        │        │        │        │        │ first, │        │        │        │ hear   │ haven… │
+│        │ dirty  │        │        │        │        │        │        │        │ apolo… │        │        │        │ you're │ recei… │
+│        │ towels │        │        │        │        │        │        │        │ if     │        │        │        │ not    │ a      │
+│        │ yeste… │        │        │        │        │        │        │        │ appro… │        │        │        │ compl… │ respo… │
+│        │ and    │        │        │        │        │        │        │        │ then   │        │        │        │ happy  │ about  │
+│        │ nobody │        │        │        │        │        │        │        │ focus  │        │        │        │ with   │ the    │
+│        │ respo… │        │        │        │        │        │        │        │ on     │        │        │        │ the    │ towels │
+│        │ This   │        │        │        │        │        │        │        │ solut… │        │        │        │ clean… │ since  │
+│        │ is     │        │        │        │        │        │        │        │        │        │        │        │ of the │ yeste… │
+│        │ unacc… │        │        │        │        │        │        │        │        │        │        │        │ place. │ espec… │
+│        │ We're  │        │        │        │        │        │        │        │        │        │        │        │ That's │ given  │
+│        │ paying │        │        │        │        │        │        │        │        │        │        │        │ defin… │ that   │
+│        │ $300/… │        │        │        │        │        │        │        │        │        │        │        │ not    │ you're │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │ the    │ paying │
+│        │ can't  │        │        │        │        │        │        │        │        │        │        │        │ exper… │ $300/… │
+│        │ even   │        │        │        │        │        │        │        │        │        │        │        │ I want │ I'm    │
+│        │ get    │        │        │        │        │        │        │        │        │        │        │        │ you to │ looki… │
+│        │ clean  │        │        │        │        │        │        │        │        │        │        │        │ have!  │ into   │
+│        │ towel… │        │        │        │        │        │        │        │        │        │        │        │ 🙁     │ why    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ I'll   │ your   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ reach  │ messa… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ out to │ was    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ the    │ missed │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ clean… │ and    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ crew   │ will   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ right  │ perso… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ away   │ ensure │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ fresh  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ discu… │ towels │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ this.  │ are    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ In the │ deliv… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ meant… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ is ... │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │ The    │        │ 123    │        │ Seasc… │ posit… │        │ The    │ -      │ Posit… │        │ [FAIL] │ [PASS] │
+│        │ -      │ guest  │        │ Gulf   │        │ Beach  │ (deli… │        │ guest  │ revie… │ revie… │        │ Hey    │ Miche… │
+│        │ Miche… │ is     │        │ Dr,    │        │ House  │ grate… │        │ has a  │ (no    │        │        │ Ashle… │ thank  │
+│        │ Just   │ ackno… │        │ Brade… │        │        │        │        │ posit… │ speci… │        │        │ 😊     │ you so │
+│        │ wanted │ you.   │        │ Beach, │        │        │        │        │ tone.  │ knowl… │        │        │ Thanks │ much   │
+│        │ to say │        │        │ FL     │        │        │        │        │ Be     │        │        │        │ so     │ for    │
+│        │ we had │        │        │        │        │        │        │        │ warm   │        │        │        │ much   │ the    │
+│        │ the    │        │        │        │        │        │        │        │ and    │        │        │        │ for    │ wonde… │
+│        │ BEST   │        │        │        │        │        │        │        │ frien… │        │        │        │ the    │ revie… │
+│        │ time   │        │        │        │        │        │        │        │ expre… │        │        │        │ kind   │ We're  │
+│        │ at     │        │        │        │        │        │        │        │ appre… │        │        │        │ words, │ so     │
+│        │ your   │        │        │        │        │        │        │        │        │        │        │        │ we     │ happy  │
+│        │ place! │        │        │        │        │        │        │        │        │        │        │        │ really │ to     │
+│        │ The    │        │        │        │        │        │        │        │        │        │        │        │ appre… │ hear   │
+│        │ kids   │        │        │        │        │        │        │        │        │        │        │        │ you    │ you    │
+│        │ loved  │        │        │        │        │        │        │        │        │        │        │        │ taking │ and    │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ the    │ the    │
+│        │ pool,  │        │        │        │        │        │        │        │        │        │        │        │ time   │ kids   │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │        │ to     │ enjoy… │
+│        │ beach  │        │        │        │        │        │        │        │        │        │        │        │ share  │ the    │
+│        │ was    │        │        │        │        │        │        │        │        │        │        │        │ your   │ pool   │
+│        │ amazi… │        │        │        │        │        │        │        │        │        │        │        │ exper… │ and    │
+│        │ and    │        │        │        │        │        │        │        │        │        │        │        │ I'm so │ beach, │
+│        │ every… │        │        │        │        │        │        │        │        │        │        │        │ glad   │ and    │
+│        │ was so │        │        │        │        │        │        │        │        │        │        │        │ you    │ that   │
+│        │ clean. │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ you    │
+│        │ Alrea… │        │        │        │        │        │        │        │        │        │        │        │ your   │ found  │
+│        │ plann… │        │        │        │        │        │        │        │        │        │        │        │ stay   │ every… │
+│        │ our    │        │        │        │        │        │        │        │        │        │        │        │ at     │ clean  │
+│        │ next   │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │ and    │
+│        │ trip   │        │        │        │        │        │        │        │        │        │        │        │ Beach  │ comfo… │
+│        │ back!  │        │        │        │        │        │        │        │        │        │        │        │ House. │ We're  │
+│        │ ⭐⭐…  │        │        │        │        │        │        │        │        │        │        │        │ We'd   │ alrea… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ absol… │ looki… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │ forwa… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ to     │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │ welco… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │ you    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │ back   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │ for    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 🏖️     │ your   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ next   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ trip!  │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │ Pool:  │ Seasc… │ neutr… │        │ The    │ - pool │ Pool   │        │ [FAIL] │ [FAIL] │
+│        │ -      │        │        │ Gulf   │ Heated │ Beach  │ (info… │        │ guest  │ (know… │ size,  │        │ Hi,    │ Regar… │
+│        │ Brian… │        │        │ Dr,    │ pool,  │ House  │        │        │ has a  │ avail… │ beach  │        │ Terry! │ the    │
+│        │ How    │        │        │ Brade… │ 12x24… │        │        │        │ strai… │ -      │ proxi… │        │ Thanks │ pool   │
+│        │ big is │        │        │ Beach, │ 4-6ft  │        │        │        │ tone.  │ beach… │        │        │ so     │ and    │
+│        │ the    │        │        │ FL     │ depth. │        │        │        │        │ (know… │        │        │ much   │ beach: │
+│        │ pool   │        │        │        │ Pool   │        │        │        │        │ avail… │        │        │ for    │ The    │
+│        │ and is │        │        │        │ heat:  │        │        │        │        │        │        │        │ the    │ pool   │
+│        │ the    │        │        │        │ $35/d… │        │        │        │        │        │        │        │ kind   │ is     │
+│        │ beach  │        │        │        │ Beach: │        │        │        │        │        │        │        │ words, │ 20ft   │
+│        │ walka… │        │        │        │ 2-min… │        │        │        │        │        │        │        │ we     │ long   │
+│        │        │        │        │        │ walk,  │        │        │        │        │        │        │        │ really │ by     │
+│        │        │        │        │        │ public │        │        │        │        │        │        │        │ appre… │ 10ft   │
+│        │        │        │        │        │ beach  │        │        │        │        │        │        │        │ you    │ wide.  │
+│        │        │        │        │        │ access │        │        │        │        │        │        │        │ taking │ The    │
+│        │        │        │        │        │ at end │        │        │        │        │        │        │        │ the    │ beach  │
+│        │        │        │        │        │ of     │        │        │        │        │        │        │        │ time   │ is     │
+│        │        │        │        │        │ stree… │        │        │        │        │        │        │        │ to     │ walka… │
+│        │        │        │        │        │ Beach  │        │        │        │        │        │        │        │ share  │ about  │
+│        │        │        │        │        │ chairs │        │        │        │        │        │        │        │ your   │ a      │
+│        │        │        │        │        │ and    │        │        │        │        │        │        │        │ exper… │ 10-15  │
+│        │        │        │        │        │ umbre… │        │        │        │        │        │        │        │ 😊 I'm │ minute │
+│        │        │        │        │        │ provi… │        │        │        │        │        │        │        │ so     │ walk   │
+│        │        │        │        │        │ in     │        │        │        │        │        │        │        │ glad   │ depen… │
+│        │        │        │        │        │ garag… │        │        │        │        │        │        │        │ you    │ on     │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ your   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │ pace.  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Beach  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ House  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ its    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ proxi… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to the │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ beach  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ pool.  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ We'd   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ absol… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 789    │        │ Palm   │ neutr… │        │ The    │ -      │ Fishi… │        │ [PASS] │ [FAIL] │
+│        │ -      │        │        │ Gulf   │        │ Parad… │ (plan… │        │ guest  │ fishi… │ chart… │        │ Hi     │ Okay,  │
+│        │ Steve… │        │        │ Blvd,  │        │ Villa  │        │        │ has a  │ (no    │ recom… │        │ Micha… │ Steve, │
+│        │ Do you │        │        │ Saras… │        │        │        │        │ strai… │ speci… │        │        │ I'm so │ I know │
+│        │ know   │        │        │ FL     │        │        │        │        │ tone.  │ knowl… │        │        │ glad   │ a few  │
+│        │ any    │        │        │        │        │        │        │        │        │        │        │        │ you    │ good   │
+│        │ good   │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ deep-… │
+│        │ deep-… │        │        │        │        │        │        │        │        │        │        │        │ your   │ fishi… │
+│        │ fishi… │        │        │        │        │        │        │        │        │        │        │        │ stay   │ chart… │
+│        │ chart… │        │        │        │        │        │        │        │        │        │        │        │ at     │ that   │
+│        │ that   │        │        │        │        │        │        │        │        │        │        │        │ Palm   │ opera… │
+│        │ leave  │        │        │        │        │        │        │        │        │        │        │        │ Parad… │ nearby │
+│        │ from   │        │        │        │        │        │        │        │        │        │        │        │ Villa. │ and    │
+│        │ nearb… │        │        │        │        │        │        │        │        │        │        │        │ We     │ offer  │
+│        │ Looki… │        │        │        │        │        │        │        │        │        │        │        │ really │ half-… │
+│        │ for a  │        │        │        │        │        │        │        │        │        │        │        │ appre… │ trips. │
+│        │ half-… │        │        │        │        │        │        │        │        │        │        │        │ you    │ For a  │
+│        │ trip   │        │        │        │        │        │        │        │        │        │        │        │ taking │ group  │
+│        │ for 4  │        │        │        │        │        │        │        │        │        │        │        │ the    │ of 4,  │
+│        │ peopl… │        │        │        │        │        │        │        │        │        │        │        │ time   │ I'd    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │ recom… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ leave  │ check… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ such a │ out    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ thoug… │ "Reel  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ revie… │ Deep   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 😊 It  │ Adven… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ means  │ or     │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ the    │ "Ocean │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ world  │ Hunter │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to us  │ Chart… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that   │ Both   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │ have   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ had a  │ excel… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ great  │ reput… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ exper… │ and    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │ offer  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ we'd   │ half-… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │        │ Seasc… │ posit… │        │ The    │ -      │ Booki… │        │ [PASS] │ [FAIL] │
+│        │ -      │        │        │ Gulf   │        │ Beach  │ (inte… │        │ guest  │ booki… │ inqui… │        │ Hi     │ Buong… │
+│        │ Marco… │        │        │ Dr,    │        │ House  │        │        │ has a  │ (know… │ prici… │        │ Jenni… │ Marco! │
+│        │ Buong… │        │        │ Brade… │        │        │        │        │ posit… │ avail… │        │        │ So     │ Grazie │
+│        │ Vorrei │        │        │ Beach, │        │        │        │        │ tone.  │        │        │        │ glad   │ per la │
+│        │ preno… │        │        │ FL     │        │        │        │        │ Be     │        │        │        │ you're │ tua    │
+│        │ la     │        │        │        │        │        │        │        │ warm   │        │        │        │ think… │ richi… │
+│        │ vostra │        │        │        │        │        │        │        │ and    │        │        │        │ of     │ Per la │
+│        │ casa   │        │        │        │        │        │        │        │ frien… │        │        │        │ stayi… │ setti… │
+│        │ per la │        │        │        │        │        │        │        │        │        │        │        │ at     │ del 15 │
+│        │ setti… │        │        │        │        │        │        │        │        │        │        │        │ Seasc… │ april… │
+│        │ del 15 │        │        │        │        │        │        │        │        │        │        │        │ Beach  │ per 4  │
+│        │ april… │        │        │        │        │        │        │        │        │        │        │        │ House, │ perso… │
+│        │ Siamo  │        │        │        │        │        │        │        │        │        │        │        │ we'd   │ il     │
+│        │ in 4   │        │        │        │        │        │        │        │        │        │        │        │ love   │ costo  │
+│        │ perso… │        │        │        │        │        │        │        │        │        │        │        │ to     │ è di   │
+│        │ Quanto │        │        │        │        │        │        │        │        │        │        │        │ have   │ [Pric… │
+│        │ costa  │        │        │        │        │        │        │        │        │        │        │        │ you!   │ a      │
+│        │ a      │        │        │        │        │        │        │        │        │        │        │        │ ☀️     │ notte. │
+│        │ notte? │        │        │        │        │        │        │        │        │        │        │        │ We do  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ allow  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ early  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ check… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ check… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ whene… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ possi… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ but it │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ depen… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ on     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ wheth… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ we     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ other  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ guests │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ arriv… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ or     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ depar… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ day. I │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ can    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ c...   │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │ The    │        │ 321    │        │ Coast… │ posit… │        │ The    │ -      │ Gener… │        │ [FAIL] │ [PASS] │
+│        │ -      │ guest  │        │ Beach  │        │ Breeze │ (brief │        │ guest  │ gener… │ ackno… │        │ Hi     │ You're │
+│        │ Dan]:  │ is     │        │ Rd,    │        │ Condo  │ ackno… │        │ has a  │ (no    │        │        │ Miche… │ welco… │
+│        │ Thanks │ ackno… │        │ Anna   │        │        │        │        │ strai… │ speci… │        │        │ You're │ Dan!   │
+│        │        │ you.   │        │ Maria, │        │        │        │        │ tone.  │ knowl… │        │        │ so     │ Let me │
+│        │        │        │        │ FL     │        │        │        │        │        │        │        │        │ welco… │ know   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 😊     │ if     │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ We're  │ there… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ really │ anyth… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ glad   │ else I │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │ can    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ enjoy… │ help   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ your   │ with.  │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ stay   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ at     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Coast… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Breeze │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Condo. │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ It     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ means  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ a lot  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to us  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ had a  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ great  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ time,  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ we'd   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ love   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ☀️     │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 456    │ Hot    │ Sunri… │ neutr… │        │ The    │ -      │ Hot    │        │ [PASS] │ [FAIL] │
+│        │ -      │        │        │ Manat… │ tub:   │ Retre… │ (info… │        │ guest  │ hot_t… │ tub    │        │ Hi     │ Yes,   │
+│        │ Amy]:  │        │        │ Ave,   │ No hot │        │        │        │ has a  │ (know… │ inqui… │        │ Jenni… │ the    │
+│        │ Does   │        │        │ Holmes │ tub at │        │        │        │ strai… │ avail… │        │        │ Thanks │ house  │
+│        │ the    │        │        │ Beach, │ this   │        │        │        │ tone.  │        │        │        │ for    │ does   │
+│        │ house  │        │        │ FL     │ prope… │        │        │        │        │        │        │        │ reach… │ have a │
+│        │ have a │        │        │        │ Pool:  │        │        │        │        │        │        │        │ out!   │ hot    │
+│        │ hot    │        │        │        │ Yes,   │        │        │        │        │        │        │        │ Just   │ tub!   │
+│        │ tub?   │        │        │        │ heated │        │        │        │        │        │        │        │ wanted │        │
+│        │        │        │        │        │ pool   │        │        │        │        │        │        │        │ to let │        │
+│        │        │        │        │        │ avail… │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Sunri… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Retre… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ doesn… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have a │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ hot    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ tub,   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ but we │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ do     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ have a │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ heated │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ pool   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ that I │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ think  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you'll │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ really │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ enjoy. │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ☀️     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ else!  │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │ Examp… │ 123    │ Check… │ Seasc… │ neutr… │        │ The    │ -      │ Check… │        │ [PASS] │ [FAIL] │
+│        │ -      │        │ 1      │ Gulf   │ 4:00   │ Beach  │ (info… │        │ guest  │ check… │ time   │        │ Hi     │ Hi     │
+│        │ Nicol… │        │ (chec… │ Dr,    │ PM.    │ House  │        │        │ has a  │ (know… │        │        │ [Guest │ Nicol… │
+│        │ Hi!    │        │ simil… │ Brade… │ Door   │        │        │        │ strai… │ avail… │        │        │ Name]! │ Check… │
+│        │ What   │        │ 92%):  │ Beach, │ code   │        │        │        │ tone.  │        │        │        │ Check… │ time   │
+│        │ time   │        │ "Hey!  │ FL     │ sent   │        │        │        │        │        │        │        │ is at  │ is at  │
+│        │ can we │        │ Check… │        │ day    │        │        │        │        │        │        │        │ 4:00   │ 4:00   │
+│        │ check  │        │ is at  │        │ before │        │        │        │        │        │        │        │ PM.    │ PM.    │
+│        │ in?    │        │ 4pm —  │        │ arriv… │        │        │        │        │        │        │        │ I'll   │ Let me │
+│        │        │        │ I'll   │        │        │        │        │        │        │        │        │        │ send   │ know   │
+│        │        │        │ shoot  │        │        │        │        │        │        │        │        │        │ over   │ if you │
+│        │        │        │ you    │        │        │        │        │        │        │        │        │        │ the    │ have   │
+│        │        │        │ the    │        │        │        │        │        │        │        │        │        │ door   │ any    │
+│        │        │        │ door   │        │        │        │        │        │        │        │        │        │ code   │ other  │
+│        │        │        │ code   │        │        │        │        │        │        │        │        │        │ the    │ quest… │
+│        │        │        │ the    │        │        │        │        │        │        │        │        │        │ day    │        │
+│        │        │        │ day    │        │        │        │        │        │        │        │        │        │ before │        │
+│        │        │        │ before │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │ you    │        │        │        │        │        │        │        │        │        │ arrive │        │
+│        │        │        │ arriv… │        │        │        │        │        │        │        │        │        │ so you │        │
+│        │        │        │ If you │        │        │        │        │        │        │        │        │        │ have   │        │
+│        │        │        │ need   │        │        │        │        │        │        │        │        │        │ every… │        │
+│        │        │        │ to get │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │ in     │        │        │        │        │        │        │        │        │        │ need.  │        │
+│        │        │        │ earli… │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │        │        │ just   │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │ let me │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │        │        │ know   │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │        │        │ and    │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │        │        │ I'll   │        │        │        │        │        │        │        │        │        │ else!  │        │
+│        │        │        │ see    │        │        │        │        │        │        │        │        │        │ 😎🌴   │        │
+│        │        │        │ what I │        │        │        │        │        │        │        │        │        │        │        │
+│        │        │        │ can    │        │        │        │        │        │        │        │        │        │        │        │
+│        │        │        │ work   │        │        │        │        │        │        │        │        │        │        │        │
+│        │        │        │ out    │        │        │        │        │        │        │        │        │        │        │        │
+│        │        │        │ 😊"    │        │        │        │        │        │        │        │        │        │        │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 789    │        │ Palm   │ neutr… │        │ The    │ -      │ Local  │ 1.     │ [PASS] │ [PASS] │
+│        │ -      │        │        │ Gulf   │        │ Parad… │ (curi… │        │ guest  │ local… │ event… │ "Hey   │ Hey    │ Yes,   │
+│        │ Tyler… │        │        │ Blvd,  │        │ Villa  │        │        │ has a  │ (no    │ farme… │ Sarah! │ Emily! │ Tyler, │
+│        │ Are    │        │        │ Saras… │        │        │        │        │ posit… │ speci… │ marke… │ Absol… │ So     │ there  │
+│        │ there  │        │        │ FL     │        │        │        │        │ tone.  │ knowl… │        │ the    │ happy  │ are a  │
+│        │ any    │        │        │        │        │        │        │        │        │        │        │ beach  │ to     │ couple │
+│        │ farme… │        │        │        │        │        │        │        │        │        │        │ is     │ hear   │ of     │
+│        │ marke… │        │        │        │        │        │        │        │        │        │        │ just a │ you    │ optio… │
+│        │ or     │        │        │        │        │        │        │        │        │        │        │ 2 min  │ enjoy… │ this   │
+│        │ local  │        │        │        │        │        │        │        │        │        │        │ walk — │ your   │ weeke… │
+│        │ events │        │        │        │        │        │        │        │        │        │        │ you're │ stay   │ The    │
+│        │ happe… │        │        │        │        │        │        │        │        │        │        │ gonna  │ at     │ local  │
+│        │ this   │        │        │        │        │        │        │        │        │        │        │ love   │ Palm   │ farme… │
+│        │ weeke… │        │        │        │        │        │        │        │        │        │        │ it!    │ Parad… │ market │
+│        │ near   │        │        │        │        │        │        │        │        │        │        │ The    │ Villa! │ at     │
+│        │ the    │        │        │        │        │        │        │        │        │        │        │ sunse… │ 🥰 It  │ Court… │
+│        │ prope… │        │        │        │        │        │        │        │        │        │        │ from   │ means  │ Square │
+│        │        │        │        │        │        │        │        │        │        │        │        │ the    │ the    │ is     │
+│        │        │        │        │        │        │        │        │        │        │        │        │ deck   │ world  │ Satur… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ are    │ to me  │ morni… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ incre… │ that   │ from   │
+│        │        │        │        │        │        │        │        │        │        │        │        │ too 🌅 │ you    │ 9am-1… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ Let me │ had    │ Also,  │
+│        │        │        │        │        │        │        │        │        │        │        │        │ know   │ such a │ the    │
+│        │        │        │        │        │        │        │        │        │        │        │        │ if you │ great  │ town   │
+│        │        │        │        │        │        │        │        │        │        │        │        │ need   │ time,  │ of     │
+│        │        │        │        │        │        │        │        │        │        │        │        │ resta… │ and I  │ Harmo… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ recs!" │ really │ is     │
+│        │        │        │        │        │        │        │        │        │        │        │        │ 2. "Hi │ appre… │ having │
+│        │        │        │        │        │        │        │        │        │        │        │        │ Mike!  │ you    │ its    │
+│        │        │        │        │        │        │        │        │        │        │        │        │ Pool   │ taking │ annual │
+│        │        │        │        │        │        │        │        │        │        │        │        │ heat   │ the    │ "Harm… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ is     │ time   │ Days"  │
+│        │        │        │        │        │        │        │        │        │        │        │        │ $35/d… │ to     │ festi… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ and    │ leave  │ with   │
+│        │        │        │        │        │        │        │        │        │        │        │        │ total… │ such a │ live   │
+│        │        │        │        │        │        │        │        │        │        │        │        │ worth  │ thoug… │ music, │
+│        │        │        │        │        │        │        │        │        │        │        │        │ it     │ revie… │ food   │
+│        │        │        │        │        │        │        │        │        │        │        │        │ hones… │ We'd   │ vendo… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ I'll   │ love   │ and    │
+│        │        │        │        │        │        │        │        │        │        │        │        │ get    │ to     │ craf.… │
+│        │        │        │        │        │        │        │        │        │        │        │        │ i...   │ have   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ back   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyti… │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 123    │ Check… │ Seasc… │ neutr… │        │ The    │ -      │ Check… │        │ [FAIL] │ [PASS] │
+│        │ -      │        │        │ Gulf   │ 10:00  │ Beach  │ (dire… │        │ guest  │ check… │ time   │        │ Hey    │ Check… │
+│        │ Chris… │        │        │ Dr,    │ AM.    │ House  │        │        │ has a  │ (know… │        │        │ Sarah! │ time   │
+│        │ Check… │        │        │ Brade… │        │        │        │        │ strai… │ avail… │        │        │ Thanks │ is at  │
+│        │ time?  │        │        │ Beach, │        │        │        │        │ tone.  │        │        │        │ so     │ 11:00  │
+│        │        │        │        │ FL     │        │        │        │        │        │        │        │        │ much   │ AM.    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ for    │ Let me │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ your   │ know   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ messa… │ if you │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Check… │ have   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ is at  │ any    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ 10:00  │ quest… │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ AM, so │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you'll │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ want   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to be  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ all    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ packed │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ up and │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ready  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ to     │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ head   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ out by │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ then.  │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ Let me │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ know   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ if you │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ need   │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ anyth… │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ at all │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ before │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ you    │        │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ go! ☀️ │        │
+├────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┼────────┤
+│        │ [Guest │        │        │ 789    │ Check… │ Palm   │ posit… │        │ The    │ -      │ Check… │        │ [PASS] │ [PASS] │
+│        │ -      │        │        │ Gulf   │ 4:00   │ Parad… │ (orga… │        │ guest  │ arriv… │ parki… │        │ Hey    │ Hi     │
+│        │ Amand… │        │        │ Blvd,  │ PM.    │ Villa  │ plann… │        │ has a  │ (know… │ kitch… │        │ Jenni… │ Amand… │
+│        │ Hi     │        │        │ Saras… │ Parki… │        │        │        │ posit… │ avail… │ beach  │        │ So     │ great  │
+│        │ Sawye… │        │        │ FL     │ 2-car  │        │        │        │ tone.  │ -      │ gear   │        │ glad   │ quest… │
+│        │ We're  │        │        │        │ drive… │        │        │        │        │ parki… │        │        │ you're │ Check… │
+│        │ arriv… │        │        │        │ +      │        │        │        │        │ (know… │        │        │ getti… │ is at  │
+│        │ Satur… │        │        │        │ street │        │        │        │        │ avail… │        │        │ excit… │ 3 PM.  │
+│        │ and    │        │        │        │ parki… │        │        │        │        │ -      │        │        │ for    │ For    │
+│        │ have a │        │        │        │ Kitch… │        │        │        │        │ kitch… │        │        │ your   │ parki… │
+│        │ bunch  │        │        │        │ Full   │        │        │        │        │ (know… │        │        │ trip,  │ there… │
+│        │ of     │        │        │        │ kitch… │        │        │        │        │ avail… │        │        │ we'd   │ space  │
+│        │ quest… │        │        │        │ with   │        │        │        │        │ -      │        │        │ love   │ for    │
+│        │ What   │        │        │        │ dishw… │        │        │        │        │ beach… │        │        │ to     │ one    │
+│        │ time   │        │        │        │ Keuri… │        │        │        │        │ (know… │        │        │ have   │ car in │
+│        │ can we │        │        │        │ basic  │        │        │        │        │ avail… │        │        │ you!   │ the    │
+│        │ check  │        │        │        │ spice… │        │        │        │        │        │        │        │ 🎉     │ drive… │
+│        │ in?    │        │        │        │ Beach  │        │        │        │        │        │        │        │ You'll │ and    │
+│        │ Where  │        │        │        │ gear:  │        │        │        │        │        │        │        │ find   │ anoth… │
+│        │ do we  │        │        │        │ Chair… │        │        │        │        │        │        │        │ parki… │ on the │
+│        │ park   │        │        │        │ umbre… │        │        │        │        │        │        │        │ for    │ street │
+│        │ (we    │        │        │        │ boogie │        │        │        │        │        │        │        │ two    │ right  │
+│        │ have 2 │        │        │        │ boards │        │        │        │        │        │        │        │ cars   │ in     │
+│        │ cars)? │        │        │        │ in     │        │        │        │        │        │        │        │ in the │ front  │
+│        │ Is the │        │        │        │ garag… │        │        │        │        │        │        │        │ drive… │ of the │
+│        │ kitch… │        │        │        │        │        │        │        │        │        │        │        │ and    │ house. │
+│        │ fully  │        │        │        │        │        │        │        │        │        │        │        │ there… │ The    │
+│        │ stock… │        │        │        │        │        │        │        │        │        │        │        │ usual… │ kitch… │
+│        │ or     │        │        │        │        │        │        │        │        │        │        │        │ street │ is     │
+│        │ should │        │        │        │        │        │        │        │        │        │        │        │ parki… │ fully  │
+│        │ we     │        │        │        │        │        │        │        │        │        │        │        │ avail… │ stock… │
+│        │ bring  │        │        │        │        │        │        │        │        │        │        │        │ too if │ with   │
+│        │ cookw… │        │        │        │        │        │        │        │        │        │        │        │ neede… │ cookw… │
+│        │ And    │        │        │        │        │        │        │        │        │        │        │        │ The    │ dishe… │
+│        │ are    │        │        │        │        │        │        │        │        │        │        │        │ kitch… │ and    │
+│        │ there  │        │        │        │        │        │        │        │        │        │        │        │ is     │ utens… │
+│        │ beach  │        │        │        │        │        │        │        │        │        │        │        │ fully  │ And    │
+│        │ chairs │        │        │        │        │        │        │        │        │        │        │        │ equip… │ yes,   │
+│        │ we can │        │        │        │        │        │        │        │        │        │        │        │ with a │ we     │
+│        │ use?   │        │        │        │        │        │        │        │        │        │        │        │ dishw… │ have   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ...    │ four   │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ ...    │
+└────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┘
+✓ Eval complete (ID: eval-OJ7-2026-03-13T02:44:11)
+
+» View results: promptfoo view
+» Share with your team: https://promptfoo.app
+» Feedback: https://promptfoo.dev/feedback
+
+Total Tokens: 52,478
+  Eval: 24,491 (21,630 prompt, 2,861 completion)
+  Grading: 27,987 (23,933 prompt, 4,054 completion)
+
+Results: ✓ 24 passed, ✗ 24 failed, 0 errors (50.00%)
+Duration: 30s (concurrency: 4)
+
+Writing output to results/eval-latest.json
+      │        │        │        │        │        │        │        │        │        │        │ dishw… │ beach  │
+│        │ use?   │        │        │        │        │        │        │        │        │        │        │        │ Keuri… │ chairs │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ and    │ for    │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │ ...    │ you to │
+│        │        │        │        │        │        │        │        │        │        │        │        │        │        │ use... │
+└────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┴────────┘
+✓ Eval complete (ID: eval-qlM-2026-03-13T02:44:05)
+
+» View results: promptfoo view
+» Share with your team: https://promptfoo.app
+» Feedback: https://promptfoo.dev/feedback
+
+Total Tokens: 51,963
+  Eval: 24,331 (21,630 prompt, 2,701 completion)
+  Grading: 27,632 (23,642 prompt, 3,990 completion)
+
+Results: ✓ 25 passed, ✗ 23 failed, 0 errors (52.08%)
+Duration: 29s (concurrency: 4)
+
+Writing output to results/eval-latest.json

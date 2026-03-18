@@ -58,6 +58,10 @@ export interface PropertyKnowledge {
   lateCheckOutFee?: number;
   earlyCheckInAvailable?: boolean;
   lateCheckOutAvailable?: boolean;
+  petsAllowed?: boolean;
+  petFee?: number;              // e.g. 200 ($200+tax per pet)
+  petFeeStructure?: string;     // e.g. "per pet", "per pet per night", "flat fee"
+  petRestrictions?: string;     // e.g. "Max 2 pets, 50lb limit, no aggressive breeds"
 
   // ── LTR-specific ──
   leaseStartDate?: string;
@@ -168,6 +172,15 @@ export interface HostStyleProfile {
   avoidedWords: string[];
   // Response patterns by intent
   intentPatterns: Record<string, string[]>; // intent -> sample responses
+  // Voice fingerprint signals
+  capsEmphasisWords: string[];       // Words host writes in ALL CAPS: "SO", "LOVE", "AMAZING"
+  pronounPreference: 'we' | 'i' | 'mixed'; // "we/us/our" vs "I/me/my" dominant pronoun
+  pronounWeRatio: number;            // 0-100, percentage of pronouns that are "we/us/our"
+  exclamationStyle: 'single' | 'double' | 'triple' | 'mixed'; // Dominant exclamation pattern
+  usesGuestNames: boolean;           // Whether host typically uses guest's first name
+  guestNameFrequency: number;        // 0-100, how often guest names appear
+  forwardInvitations: string[];      // Patterns like "welcome you back", "looking forward to"
+  isTemplateMessage: boolean;        // Whether this message came from an automated template
   // Training stats
   samplesAnalyzed: number;
   lastUpdated: Date;
@@ -1445,6 +1458,28 @@ export const useAppStore = create<AppState>()(
         // calibrationEntries, replyDeltas, conversationFlows,
         // issues, favoriteMessages, autoPilotLogs
       }),
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) {
+          console.error('[Store] Rehydration error:', error);
+          return;
+        }
+        // Clear stale sync state on app startup — if isSyncing was persisted
+        // as true, the app crashed or was killed mid-sync. Reset it.
+        // Use useAppStore.getState() since _state may not have methods.
+        try {
+          const store = useAppStore.getState();
+          if (store.historySyncStatus?.isSyncing) {
+            console.log('[Store] Clearing stale isSyncing flag from previous session');
+            store.updateHistorySyncStatus({
+              isSyncing: false,
+              syncPhase: 'idle',
+              syncError: null,
+            });
+          }
+        } catch (e) {
+          console.warn('[Store] Failed to clear stale sync state:', e);
+        }
+      },
     }
   )
 );

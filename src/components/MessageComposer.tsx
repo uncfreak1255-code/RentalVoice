@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Keyboard, Platform } from 'react-native';
 import { colors, typography, spacing, radius, elevation } from '@/lib/design-tokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PremiumPressable } from '@/components/ui';
 import {
   Send,
@@ -20,7 +21,6 @@ import * as Haptics from 'expo-haptics';
 import type { RegenerationOption, ConfidenceScore, SentimentAnalysis, ActionItem, KnowledgeConflict, HistoricalMatchInfo } from '@/lib/ai-enhanced';
 import { scanForSensitiveData, type ScanResult } from '@/lib/privacy-scanner';
 import { PrivacyAlertBanner, PrivacyIndicator } from './PrivacyAlertBanner';
-import { AIReasoningSection } from './AIReasoningSection';
 import { ModelPicker } from './ModelPicker';
 
 interface AiDraft {
@@ -121,7 +121,6 @@ export function MessageComposer({
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editedDraft, setEditedDraft] = useState('');
 
-  const [showReasoning, setShowReasoning] = useState(false);
   const [privacyScanResult, setPrivacyScanResult] = useState<ScanResult | null>(null);
   const [showPrivacyAlert, setShowPrivacyAlert] = useState(true);
   const [isDraftMinimized, setIsDraftMinimized] = useState(false);
@@ -182,6 +181,8 @@ export function MessageComposer({
     setShowPrivacyAlert(false);
   }, [privacyScanResult, isEditingDraft]);
 
+  const insets = useSafeAreaInsets();
+
   // Track keyboard visibility to collapse draft panel
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   useEffect(() => {
@@ -226,6 +227,14 @@ export function MessageComposer({
       setIsDraftMinimized(false);
     }
   }, [aiDraft]);
+
+  // Confidence-aware color theming for AI draft card
+  const draftConf = aiDraft?.confidence || 0;
+  const isLowConfidence = draftConf > 0 && draftConf < 70;
+  const isHighConfidence = draftConf >= 85;
+  const confColor = isLowConfidence ? '#D97706' : isHighConfidence ? '#059669' : '#6366F1'; // indigo default
+  const confColorLight = isLowConfidence ? '#D97706' : isHighConfidence ? '#059669' : '#818CF8'; // indigo-400
+  const sendBtnBg = isLowConfidence ? '#D97706' : '#6366F1'; // indigo send button
 
   const handleMessageChange = (text: string) => {
     setMessage(text);
@@ -285,7 +294,7 @@ export function MessageComposer({
   const isBlocked = confidenceDetails?.blockedForAutoSend;
 
   return (
-    <View style={mcStyles.root}>
+    <View style={[mcStyles.root, !isKeyboardVisible && { paddingBottom: insets.bottom }]}>
       {/* Privacy Alert Banner */}
       {privacyScanResult?.hasIssues && showPrivacyAlert && (
         <PrivacyAlertBanner
@@ -379,7 +388,7 @@ export function MessageComposer({
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={[mcStyles.v2GlassPanel, { maxHeight: 280 }]}
+          style={[mcStyles.v2GlassPanel, { maxHeight: 280 }, isLowConfidence && { borderColor: 'rgba(217, 119, 6, 0.15)', backgroundColor: '#FFFBF5' }]}
           testID="chat-ai-draft"
         >
           <ScrollView
@@ -401,12 +410,14 @@ export function MessageComposer({
               {/* 1. Header Row — "AI Draft Ready" + confidence + sentiment */}
               <View style={mcStyles.v2HeaderRow}>
                 <View style={mcStyles.rowCenter}>
-                  <Sparkles size={18} color={colors.primary.DEFAULT} />
-                  <Text style={mcStyles.v2HeaderTitle}>AI Draft Ready</Text>
+                  <Sparkles size={18} color={confColor} />
+                  <Text style={[mcStyles.v2HeaderTitle, isLowConfidence && { color: '#92400E' }]}>
+                    {isLowConfidence ? 'AI Draft — Low Confidence' : 'AI Draft Ready'}
+                  </Text>
                 </View>
                 <View style={mcStyles.rowCenter}>
-                  <Gauge size={14} color={colors.primary.light} />
-                  <Text style={mcStyles.v2ConfidenceText}>{aiDraft?.confidence}%</Text>
+                  <Gauge size={14} color={confColorLight} />
+                  <Text style={[mcStyles.v2ConfidenceText, { color: confColor }]}>{aiDraft?.confidence}%</Text>
                   {sentiment && (
                     <View style={mcStyles.v2SentimentBadge}>
                       <Text style={mcStyles.v2SentimentText}>{sentiment.primary}</Text>
@@ -424,26 +435,35 @@ export function MessageComposer({
               </View>
 
               {/* 2. Draft Text Card — white card, pure black text, subtle teal border */}
-              <View style={mcStyles.v2DraftCard}>
+              <View style={[mcStyles.v2DraftCard, isLowConfidence && { borderColor: '#FDE68A' }]}>
                 <Text style={mcStyles.v2DraftText}>
                   {aiDraft?.content}
                 </Text>
               </View>
+
+              {/* Low-confidence nudge */}
+              {isLowConfidence && (
+                <Text style={{ fontSize: 11.5, fontFamily: typography.fontFamily.medium, color: '#92400E', paddingHorizontal: 4, marginTop: -2 }}>
+                  Low confidence — consider editing before sending
+                </Text>
+              )}
 
               {/* 3. Action Row — Big Send + icon buttons */}
               <View style={mcStyles.v2ActionRow}>
                 <Pressable
                   onPress={handleApprove}
                   disabled={isBlocked}
-                  style={mcStyles.v2SendBtn}
+                  style={[mcStyles.v2SendBtn, { backgroundColor: sendBtnBg }]}
                   accessible
                   accessibilityRole="button"
-                  accessibilityLabel="Send AI draft to guest"
+                  accessibilityLabel={isLowConfidence ? 'Send low-confidence AI draft to guest' : 'Send AI draft to guest'}
                   accessibilityState={{ disabled: !!isBlocked }}
                   testID="chat-ai-approve"
                 >
                   <Send size={16} color="#FFFFFF" />
-                  <Text style={mcStyles.v2SendBtnText}>Send Draft</Text>
+                  <Text style={mcStyles.v2SendBtnText}>
+                    {isLowConfidence ? 'Review & Send' : 'Send Draft'}
+                  </Text>
                 </Pressable>
 
                 <Pressable onPress={handleEdit} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Edit AI draft" testID="chat-ai-edit">
@@ -461,44 +481,6 @@ export function MessageComposer({
                 )}
               </View>
 
-              {/* 4. Show Reasoning toggle */}
-              <PremiumPressable
-                hapticFeedback="light"
-                onPress={() => setShowReasoning(!showReasoning)}
-                style={mcStyles.v2ReasoningToggle}
-              >
-                <Sparkles size={14} color={colors.text.disabled} />
-                <Text style={mcStyles.v2ReasoningText}>
-                  {showReasoning ? 'Hide reasoning & limits' : 'Show reasoning & limits'}
-                </Text>
-                <ChevronDown size={14} color={colors.text.disabled} style={{ transform: [{ rotate: showReasoning ? '180deg' : '0deg' }] }} />
-              </PremiumPressable>
-
-              {showReasoning && (
-                <View style={{ marginTop: spacing['2'] }}>
-                  <AIReasoningSection
-                    response={{
-                      content: aiDraft?.content || '',
-                      sentiment: aiDraft?.sentiment || { primary: 'neutral', intensity: 50, emotions: [], requiresEscalation: false },
-                      topics: [],
-                      confidence: aiDraft?.confidenceDetails || {
-                        overall: aiDraft?.confidence || 0,
-                        factors: { sentimentMatch: 80, knowledgeAvailable: 70, topicCoverage: 85, styleMatch: 75, safetyCheck: 90 },
-                        warnings: [],
-                        blockedForAutoSend: false,
-                      },
-                      actionItems: aiDraft?.actionItems || [],
-                      knowledgeConflicts: aiDraft?.knowledgeConflicts || [],
-                      detectedLanguage: 'en',
-                      regenerationOptions: aiDraft?.regenerationOptions || [],
-                      historicalMatches: aiDraft?.historicalMatches,
-                    }}
-                    onFixConflict={onFixConflict ? (_conflict, field, newValue) => {
-                      onFixConflict(field, newValue);
-                    } : undefined}
-                  />
-                </View>
-              )}
             </>
           )}
           </ScrollView>
@@ -560,39 +542,43 @@ export function MessageComposer({
           )}
           {/* Action buttons pinned outside ScrollView — always visible above keyboard */}
           <View style={mcStyles.editActionBar}>
+            {/* Primary: Send edited draft */}
             <PremiumPressable
               hapticFeedback="medium"
               onPress={handleSaveEdit}
+              style={{ flex: 1 }}
             >
-              <View style={[mcStyles.actionBtnActive, { backgroundColor: colors.accent.DEFAULT, flex: 0, paddingHorizontal: spacing['5'] }]}>
-                <Check size={16} color="#FFFFFF" />
-                <Text style={[mcStyles.actionBtnText, { fontSize: 14 }]}>Save & Send</Text>
+              <View style={[mcStyles.actionBtnActive, { backgroundColor: colors.accent.DEFAULT, paddingHorizontal: spacing['5'] }]}>
+                <Send size={16} color="#FFFFFF" />
+                <Text style={[mcStyles.actionBtnText, { fontSize: 14 }]}>Send Edited Draft</Text>
               </View>
             </PremiumPressable>
 
-            <PremiumPressable
-              hapticFeedback="light"
-              onPress={() => {
-                // Clear the text but stay in edit mode so user can type from scratch
-                setEditedDraft('');
-                draftInputRef.current?.focus();
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-            >
-              <View style={[mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3` }]}>
-                <Trash2 size={14} color={colors.danger.DEFAULT} />
-                <Text style={[mcStyles.secondaryBtnText, { color: colors.danger.DEFAULT }]}>Clear</Text>
-              </View>
-            </PremiumPressable>
+            {/* Secondary group — separated from send to prevent misclicks */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+              <PremiumPressable
+                hapticFeedback="light"
+                onPress={handleCancelEdit}
+              >
+                <View style={mcStyles.secondaryBtn}>
+                  <Text style={mcStyles.secondaryBtnText}>Cancel</Text>
+                </View>
+              </PremiumPressable>
 
-            <PremiumPressable
-              hapticFeedback="light"
-              onPress={handleCancelEdit}
-            >
-              <View style={mcStyles.secondaryBtn}>
-                <Text style={mcStyles.secondaryBtnText}>Cancel</Text>
-              </View>
-            </PremiumPressable>
+              <PremiumPressable
+                hapticFeedback="light"
+                onPress={() => {
+                  setEditedDraft('');
+                  draftInputRef.current?.focus();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <View style={[mcStyles.secondaryBtn, { backgroundColor: `${colors.bg.hover}B3` }]}>
+                  <Trash2 size={14} color={colors.danger.DEFAULT} />
+                  <Text style={[mcStyles.secondaryBtnText, { color: colors.danger.DEFAULT }]}>Clear</Text>
+                </View>
+              </PremiumPressable>
+            </View>
           </View>
         </Animated.View>
       )}
@@ -658,22 +644,16 @@ export function MessageComposer({
               />
             )}
           </View>
-          <PremiumPressable
-            hapticFeedback="medium"
-            springReleaseConfig="bouncy"
-            onPress={handleSend}
+          <Pressable
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleSend(); }}
             disabled={!message.trim() || disabled || isGenerating}
-            style={[mcStyles.sendBtn, { backgroundColor: message.trim() && !isGenerating ? colors.accent.DEFAULT : colors.bg.hover }]}
+            style={[mcStyles.sendBtn, message.trim() && !isGenerating ? mcStyles.sendBtnActive : mcStyles.sendBtnDisabled]}
             accessibilityLabel="Send message"
             accessibilityHint="Sends your typed message to the guest"
             testID="chat-send"
           >
-            <Send
-              size={20}
-              color={message.trim() && !isGenerating ? '#FFFFFF' : colors.text.disabled}
-              style={{ marginLeft: 2 }}
-            />
-          </PremiumPressable>
+            <Send size={20} color="#FFFFFF" style={{ marginLeft: 2 }} />
+          </Pressable>
         </View>
         </View>
       )}
@@ -838,8 +818,8 @@ const mcStyles = StyleSheet.create({
     marginBottom: spacing['3'],
   },
   editActionBar: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'column' as const,
+    alignItems: 'stretch' as const,
     gap: spacing['2'],
     paddingHorizontal: spacing['4'],
     paddingVertical: spacing['3'],
@@ -977,6 +957,7 @@ const mcStyles = StyleSheet.create({
     alignItems: 'flex-end' as const,
     paddingHorizontal: spacing['3'],
     paddingVertical: spacing['2'],
+    gap: spacing['2'],
   },
   attachBtn: {
     width: 40,
@@ -995,7 +976,6 @@ const mcStyles = StyleSheet.create({
     borderRadius: radius['2xl'],
     paddingHorizontal: spacing['3'],
     paddingVertical: spacing['2'],
-    marginRight: spacing['2'],
     minHeight: 40,
   },
   textInput: {
@@ -1005,28 +985,39 @@ const mcStyles = StyleSheet.create({
     color: colors.text.primary,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.full,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     flexShrink: 0,
   },
+  sendBtnActive: {
+    backgroundColor: colors.accent.DEFAULT,
+    shadowColor: colors.accent.DEFAULT,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  sendBtnDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
 
   // ── V2 Premium AI Draft Styles (matching chat-premium-draft.html) ──
   v2GlassPanel: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: '#FAFAFF',
     borderRadius: 24,
     padding: 16,
     marginHorizontal: 12,
     marginBottom: 8,
-    shadowColor: '#000000',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 24,
     elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
+    borderColor: 'rgba(99, 102, 241, 0.10)',
     overflow: 'hidden' as const,
   },
   v2HeaderRow: {
@@ -1038,7 +1029,7 @@ const mcStyles = StyleSheet.create({
   v2HeaderTitle: {
     fontSize: 16,
     fontFamily: typography.fontFamily.bold,
-    color: '#0F766E', // teal-700
+    color: '#4338CA', // indigo-700 — distinct AI identity
     marginLeft: 8,
     letterSpacing: -0.3,
   },
@@ -1068,8 +1059,8 @@ const mcStyles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(20, 184, 166, 0.15)', // teal-100/40
-    shadowColor: 'rgba(20, 184, 166, 0.06)',
+    borderColor: 'rgba(99, 102, 241, 0.12)', // indigo border — AI content identity
+    shadowColor: 'rgba(99, 102, 241, 0.06)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 12,
@@ -1095,11 +1086,11 @@ const mcStyles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: colors.primary.DEFAULT,
+    backgroundColor: '#6366F1', // indigo — overridden inline by confidence-aware sendBtnBg
     borderRadius: 12,
     paddingVertical: 12,
     gap: 8,
-    shadowColor: colors.primary.DEFAULT,
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,

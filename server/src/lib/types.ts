@@ -151,7 +151,7 @@ export interface AIGenerateRequest {
 
 export interface AIGenerateResponse {
   draft: string;
-  confidence: number;
+  confidence: number | null;
   detectedLanguage: string;
   provider: AIProvider;
   model: string;

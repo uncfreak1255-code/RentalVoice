@@ -1,0 +1,443 @@
+# Rental Voice — Test Cases for Overnight Eval
+# Each test simulates a real guest conversation scenario
+# Variables map to template placeholders in system.txt and user.txt
+
+# ─── GROUNDING: Does the AI acknowledge specific guest details? ─────────
+
+- description: "Grounding — guest mentions group size"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a positive tone. Be warm and friendly."
+    topics: "- booking_inquiry (knowledge available)"
+    conversationContext: |
+      [Guest - Isabella]: Hi! We're a group of 6 guests total — 4 adults and 2 kids. We're looking at your place for the week of March 20-27. Is it available?
+    sentiment: "positive (excited)"
+    topicsText: "Booking inquiry, availability check"
+  assert:
+    - type: llm-rubric
+      value: "The response MUST mention '6 guests' or 'group of 6' or '4 adults and 2 kids' in the first two sentences. Score 0 if the response opens with a generic greeting that could apply to any inquiry without acknowledging the group size."
+    - type: llm-rubric
+      value: "The response sounds like a warm, casual vacation rental host named Sawyer — not a corporate customer service rep. Uses first-person, casual language, maybe an emoji or two."
+
+- description: "Grounding — guest mentions specific dates"
+  vars:
+    propertyName: "Sunrise Retreat"
+    propertyAddress: "456 Manatee Ave, Holmes Beach, FL"
+    toneGuidance: "The guest has a straightforward tone. Be warm, friendly, professional."
+    topics: "- availability (knowledge available)\n- pricing (knowledge available)"
+    conversationContext: |
+      [Guest - Marcus]: Looking at April 5-12 for a guys fishing trip. What's the nightly rate and do you have a boat dock?
+    sentiment: "neutral (direct)"
+    topicsText: "Availability, pricing, amenities (boat dock)"
+  assert:
+    - type: llm-rubric
+      value: "The response MUST reference 'April 5-12' or the specific dates AND 'fishing trip' or 'guys trip' in the opening. Score 0 if it starts with a generic welcome."
+    - type: llm-rubric
+      value: "Response addresses BOTH questions: rate AND boat dock. Score 0 if either is skipped."
+
+- description: "Grounding — guest shares emotional context"
+  vars:
+    propertyName: "Palm Paradise Villa"
+    propertyAddress: "789 Gulf Blvd, Sarasota, FL"
+    toneGuidance: "The guest is excited! Match their energy with enthusiasm."
+    topics: "- booking_celebration (no specific knowledge)"
+    conversationContext: |
+      [Guest - Sarah]: OMG we just booked your place for our anniversary trip!! 🎉 We've been married 10 years and this is our first vacation without the kids in 3 years! Any recommendations for romantic dinner spots nearby?
+    sentiment: "positive (excited, celebratory)"
+    topicsText: "Anniversary celebration, restaurant recommendations"
+  assert:
+    - type: llm-rubric
+      value: "Response MUST acknowledge the anniversary (10 years) AND the kid-free vacation in the first two sentences. Must match the excited energy. Score 0 if generic."
+    - type: llm-rubric
+      value: "Response sounds warm and personal like Sawyer — uses exclamation marks, possibly emojis, feels genuinely happy for them."
+
+- description: "Grounding — guest confirms booking details"
+  vars:
+    propertyName: "Coastal Breeze Condo"
+    propertyAddress: "321 Beach Rd, Anna Maria, FL"
+    toneGuidance: "The guest has a straightforward tone. Be warm, friendly, professional."
+    topics: "- check_in (knowledge available)"
+    conversationContext: |
+      [Host - Sawyer]: Hey Marcus! Great to hear from you. Check-in is at 4pm and I'll send you the door code the day before. Let me know if you need anything else!
+      [Guest - Marcus]: Perfect, we'll be arriving around 5:30pm. There will be 3 of us. Can we park two cars in the driveway?
+    sentiment: "neutral (confirming)"
+    topicsText: "Arrival time confirmation, parking"
+  assert:
+    - type: llm-rubric
+      value: "Response MUST acknowledge the 5:30pm arrival time AND the 3 guests AND the 2-car parking question. Must NOT re-explain check-in time (already covered). Score 0 if it repeats the 4pm check-in info."
+    - type: llm-rubric
+      value: "Response is consistent with the host's prior message style — casual, warm, uses guest's name."
+
+# ─── VOICE MATCH: Does it sound like Sawyer? ─────────────────────────
+
+- description: "Voice — should NOT sound corporate"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a positive tone. Be warm and friendly."
+    topics: "- general_inquiry (no specific knowledge)"
+    conversationContext: |
+      [Guest - David]: Hey there! Just wanted to ask about the beach access — is it a private beach or public? And how far is the walk?
+    sentiment: "positive (friendly)"
+    topicsText: "Beach access, proximity"
+  assert:
+    - type: llm-rubric
+      value: "Response must NOT contain any of these corporate phrases: 'Thank you for your inquiry', 'We appreciate your interest', 'Please do not hesitate', 'I hope this email finds you well', 'Dear David'. Score 0 if any appear."
+    - type: llm-rubric
+      value: "Response uses casual language like 'Hey David' or 'Hi David', feels like a text from a friend who owns a beach house, not a hotel front desk."
+    - type: not-icontains
+      value: "Thank you for your inquiry"
+    - type: not-icontains
+      value: "do not hesitate"
+    - type: not-icontains
+      value: "Dear"
+
+- description: "Voice — should be concise, not verbose"
+  vars:
+    propertyName: "Sunrise Retreat"
+    propertyAddress: "456 Manatee Ave, Holmes Beach, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- wifi (knowledge available)"
+    propertyKnowledge: "WiFi Network: SunriseGuest, Password: beach2024"
+    conversationContext: |
+      [Guest - Lisa]: What's the wifi password?
+    sentiment: "neutral (direct)"
+    topicsText: "WiFi access"
+  assert:
+    - type: llm-rubric
+      value: "Response should be SHORT — under 40 words. Just give the WiFi info warmly. Score 0 if it's a paragraph-long response to a simple WiFi question."
+    - type: javascript
+      value: "output.split(' ').length < 60"
+
+- description: "Voice — should use emojis naturally"
+  vars:
+    propertyName: "Palm Paradise Villa"
+    propertyAddress: "789 Gulf Blvd, Sarasota, FL"
+    toneGuidance: "The guest is excited! Match their energy."
+    topics: "- booking_excitement (no specific knowledge)"
+    conversationContext: |
+      [Guest - Emma]: We are SO excited to stay at your place next week!! Can't wait to hit the beach! 🏖️☀️
+    sentiment: "positive (excited)"
+    topicsText: "Pre-arrival excitement"
+  assert:
+    - type: llm-rubric
+      value: "Response should include 1-3 emojis used naturally (matching the guest's excited energy). Score 0 if completely emoji-free when the guest used emojis enthusiastically."
+    - type: llm-rubric
+      value: "Response matches the excited energy — uses exclamation marks, warm phrases like 'can't wait to have you' or 'you're gonna love it'."
+
+# ─── CONTEXT AWARENESS: Does it handle multi-turn correctly? ─────────
+
+- description: "Context — don't repeat already-answered info"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a positive tone."
+    topics: "- pool (knowledge available)"
+    propertyKnowledge: "Pool: Heated pool available. Pool hours: 8am-10pm. Pool heat: $35/day supplement."
+    conversationContext: |
+      [Guest - Tom]: Is the pool heated?
+      [Host - Sawyer]: Hey Tom! Yes absolutely, the pool is heated! There's a small supplement of $35/day for pool heat. Pool hours are 8am to 10pm. Let me know if you want me to turn it on for your stay! 😊
+      [Guest - Tom]: Great! Can we also use the grill out by the pool?
+    sentiment: "positive (satisfied)"
+    topicsText: "Grill/BBQ access"
+    skipTopics: "- pool heating (already answered with details about $35/day and hours)"
+  assert:
+    - type: llm-rubric
+      value: "Response should answer the GRILL question ONLY. Must NOT re-mention pool heating, $35/day, or pool hours since those were already covered. Score 0 if it repeats pool info."
+    - type: llm-rubric
+      value: "Response acknowledges the grill question naturally and provides a helpful answer."
+
+- description: "Context — maintain consistency with prior answers"
+  vars:
+    propertyName: "Coastal Breeze Condo"
+    propertyAddress: "321 Beach Rd, Anna Maria, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- check_in (knowledge available)"
+    propertyKnowledge: "Check-in: 4:00 PM. Early check-in available upon request (subject to availability)."
+    conversationContext: |
+      [Guest - Rachel]: What time is check-in?
+      [Host - Sawyer]: Hey Rachel! Check-in is at 4pm! If you need to arrive earlier just let me know and I'll see what I can do 😊
+      [Guest - Rachel]: Actually we won't get there until about 7pm, is that ok?
+    sentiment: "neutral (confirming)"
+    topicsText: "Late arrival"
+    consistencyRule: "true"
+  assert:
+    - type: llm-rubric
+      value: "Response must NOT contradict the 4pm check-in already given. Should reassure them that 7pm is fine since check-in was 4pm (they're arriving after). Must NOT say 'let me check' or give a different check-in time."
+    - type: llm-rubric
+      value: "Response is warm and reassuring — makes them feel welcome arriving late."
+
+- description: "Context — resolution/thank-you (don't over-explain)"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest is acknowledging/thanking you. Do NOT re-explain previous topics."
+    topics: "- resolution (no specific knowledge)"
+    conversationContext: |
+      [Guest - Mike]: What's the door code?
+      [Host - Sawyer]: Hey Mike! The door code is 4523. Just punch it in on the keypad by the front door. Let me know when you arrive! 🏠
+      [Guest - Mike]: Got it, thanks so much! We just landed and will be there in about an hour!
+    sentiment: "positive (grateful)"
+    topicsText: "Arrival confirmation"
+    conversationFlow: "The guest is acknowledging/thanking you. Do NOT re-explain previous topics or bring up new information."
+  assert:
+    - type: llm-rubric
+      value: "Response must be SHORT and warm — 1-3 sentences max. Must NOT repeat the door code or check-in instructions. Just acknowledge their arrival excitement. Score 0 if it's more than 3 sentences or re-explains things."
+    - type: llm-rubric
+      value: "Response sounds genuinely excited they're almost there — warm, personal, maybe mentions looking forward to hosting them."
+
+# ─── MULTI-TOPIC: Does it address everything? ────────────────────────
+
+- description: "Multi-topic — three questions in one message"
+  vars:
+    propertyName: "Palm Paradise Villa"
+    propertyAddress: "789 Gulf Blvd, Sarasota, FL"
+    toneGuidance: "The guest has a straightforward tone. Be warm, friendly, professional."
+    topics: "- parking (knowledge available)\n- pets (knowledge available)\n- checkout (knowledge available)"
+    propertyKnowledge: "Parking: 2-car driveway. Pets: Small dogs under 25lbs allowed, $50 pet fee. Checkout: 10:00 AM."
+    conversationContext: |
+      [Guest - Jennifer]: Hi Sawyer! Three quick questions: 1) How many cars can we park? 2) We have a small dog (15lb yorkie) — is that ok? 3) What time is checkout?
+    sentiment: "neutral (organized)"
+    topicsText: "Parking, pets, checkout time"
+  assert:
+    - type: llm-rubric
+      value: "Response MUST address ALL THREE questions: parking (2 cars), pets (yes, small dogs ok, $50 fee), and checkout (10am). Score 0 if ANY question is skipped."
+    - type: llm-rubric
+      value: "Response specifically acknowledges the 15lb yorkie — doesn't just say 'pets allowed' generically. Shows personality about the dog."
+
+- description: "Multi-topic — embedded questions in narrative"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a positive tone. Be warm and friendly."
+    topics: "- activities (no specific knowledge)\n- groceries (no specific knowledge)\n- beach_gear (no specific knowledge)"
+    conversationContext: |
+      [Guest - Alex]: Hey! So we're coming down next Friday with the family. The kids are 8 and 11 and love water sports — any kayak or paddleboard rental places nearby? Also wondering if there's a grocery store close by for stocking up when we arrive, and do you provide beach chairs/umbrellas or should we bring our own?
+    sentiment: "positive (excited, planning)"
+    topicsText: "Water sports rentals, grocery stores, beach gear"
+  assert:
+    - type: llm-rubric
+      value: "Response addresses ALL THREE embedded questions: water sports/kayak rentals, grocery stores, AND beach chairs/umbrellas. Score 0 if any is missed."
+    - type: llm-rubric
+      value: "Response acknowledges the kids' ages (8 and 11) and tailors recommendations accordingly. Shows genuine enthusiasm about the family trip."
+
+# ─── SENTIMENT: Does it match emotional tone? ────────────────────────
+
+- description: "Sentiment — urgent maintenance issue"
+  vars:
+    propertyName: "Coastal Breeze Condo"
+    propertyAddress: "321 Beach Rd, Anna Maria, FL"
+    toneGuidance: "The guest has an urgent issue. Be responsive and solution-focused. Show you take their concern seriously."
+    topics: "- maintenance_urgent (no specific knowledge)"
+    conversationContext: |
+      [Guest - Karen]: The AC isn't working and it's 95 degrees in here! We have a baby with us and this is really not ok. We need this fixed ASAP.
+    sentiment: "urgent (frustrated, concerned)"
+    topicsText: "AC malfunction, urgent maintenance"
+  assert:
+    - type: llm-rubric
+      value: "Response MUST acknowledge the urgency, the baby, and the 95-degree heat specifically. Must offer an IMMEDIATE solution (calling someone, sending someone over). Score 0 if generic 'we'll look into it' response."
+    - type: llm-rubric
+      value: "Response shows genuine concern — not defensive, not corporate. Sounds like a host who actually cares about a baby in 95-degree heat."
+    - type: not-icontains
+      value: "we apologize for the inconvenience"
+
+- description: "Sentiment — frustrated repeat complaint"
+  vars:
+    propertyName: "Sunrise Retreat"
+    propertyAddress: "456 Manatee Ave, Holmes Beach, FL"
+    toneGuidance: "The guest is frustrated. Acknowledge their frustration first, apologize if appropriate, then focus on solutions."
+    topics: "- cleaning (no specific knowledge)"
+    conversationContext: |
+      [Guest - Robert]: I already messaged about the dirty towels yesterday and nobody responded. This is unacceptable. We're paying $300/night and can't even get clean towels??
+    sentiment: "negative (frustrated, angry)"
+    topicsText: "Cleaning complaint, unresponsiveness"
+  assert:
+    - type: llm-rubric
+      value: "Response MUST acknowledge: 1) the prior unresponded message, 2) the frustration is valid, 3) the $300/night context. Must NOT be defensive. Must offer a concrete solution (new towels delivered, etc). Score 0 if dismissive."
+    - type: llm-rubric
+      value: "Response leads with empathy, not excuses. Sounds like Sawyer taking personal responsibility."
+
+- description: "Sentiment — positive review response"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a positive tone. Be warm and friendly, express appreciation."
+    topics: "- review_response (no specific knowledge)"
+    conversationContext: |
+      [Guest - Michelle]: Just wanted to say we had the BEST time at your place! The kids loved the pool, the beach was amazing, and everything was so clean. Already planning our next trip back! ⭐⭐⭐⭐⭐
+    sentiment: "positive (delighted, grateful)"
+    topicsText: "Positive review/feedback"
+    conversationFlow: "The guest is acknowledging/thanking you."
+  assert:
+    - type: llm-rubric
+      value: "Response is warm and grateful. Must reference specific things they mentioned (pool, beach, cleanliness, kids). Must NOT create a list of property improvements. Must warmly invite them back. Score 0 if it includes any 'we will look into adding...' type promises."
+    - type: llm-rubric
+      value: "Response is 2-4 sentences, genuine and personal. Uses Michelle's name. Sounds like Sawyer, not a hotel chain."
+
+# ─── PROPERTY KNOWLEDGE: Does it use facts correctly? ────────────────
+
+- description: "Knowledge — uses property facts accurately"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- pool (knowledge available)\n- beach_distance (knowledge available)"
+    propertyKnowledge: "Pool: Heated pool, 12x24ft, 4-6ft depth. Pool heat: $35/day. Beach: 2-minute walk, public beach access at end of street. Beach chairs and umbrella provided in garage."
+    conversationContext: |
+      [Guest - Brian]: How big is the pool and is the beach walkable?
+    sentiment: "neutral (info-gathering)"
+    topicsText: "Pool size, beach proximity"
+  assert:
+    - type: llm-rubric
+      value: "Response must include accurate pool dimensions (12x24) and beach distance (2-minute walk). Must NOT make up measurements or distances not in the property knowledge. Score 0 if facts are wrong or invented."
+    - type: llm-rubric
+      value: "Response proactively mentions beach chairs/umbrella in garage since it's related to the beach question — good hosts anticipate needs."
+
+- description: "Knowledge — admits when info isn't available"
+  vars:
+    propertyName: "Palm Paradise Villa"
+    propertyAddress: "789 Gulf Blvd, Sarasota, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- fishing_charters (no specific knowledge)"
+    conversationContext: |
+      [Guest - Steve]: Do you know any good deep-sea fishing charters that leave from nearby? Looking for a half-day trip for 4 people.
+    sentiment: "neutral (planning)"
+    topicsText: "Fishing charter recommendations"
+  assert:
+    - type: llm-rubric
+      value: "Response should be helpful even without specific knowledge. Should NOT make up specific charter company names or prices. Can suggest looking into local options, offer to find out, or give general area guidance. Score 0 if it invents specific charter companies."
+    - type: llm-rubric
+      value: "Response sounds helpful and genuine — not a brush-off. Sawyer would try to help even if he doesn't have the exact info."
+
+# ─── EDGE CASES: Tricky scenarios ────────────────────────────────────
+
+- description: "Edge — guest speaks another language"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a positive tone. Be warm and friendly."
+    topics: "- booking_inquiry (knowledge available)"
+    conversationContext: |
+      [Guest - Marco]: Buongiorno! Vorrei prenotare la vostra casa per la settimana del 15 aprile. Siamo in 4 persone. Quanto costa a notte?
+    sentiment: "positive (interested)"
+    topicsText: "Booking inquiry, pricing"
+  assert:
+    - type: llm-rubric
+      value: "Response MUST be in English (Hostaway handles translation). Score 0 if response is in Italian."
+    - type: llm-rubric
+      value: "Response still acknowledges the specific details (April 15 week, 4 people) and sounds like Sawyer."
+    - type: javascript
+      value: "!output.match(/[àèìòùÀÈÌÒÙ]/) || output.includes('Marco')"
+
+- description: "Edge — very short guest message"
+  vars:
+    propertyName: "Coastal Breeze Condo"
+    propertyAddress: "321 Beach Rd, Anna Maria, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- general_inquiry (no specific knowledge)"
+    conversationContext: |
+      [Guest - Dan]: Thanks
+    sentiment: "positive (brief acknowledgment)"
+    topicsText: "General acknowledgment"
+    conversationFlow: "The guest is acknowledging/thanking you."
+  assert:
+    - type: llm-rubric
+      value: "Response must be VERY SHORT — 1-2 sentences max. A simple 'Thanks' doesn't need a paragraph response. Score 0 if response is longer than 2 sentences."
+    - type: javascript
+      value: "output.split('.').filter(s => s.trim().length > 0).length <= 3"
+
+- description: "Edge — guest asks about something property doesn't have"
+  vars:
+    propertyName: "Sunrise Retreat"
+    propertyAddress: "456 Manatee Ave, Holmes Beach, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- hot_tub (knowledge available)"
+    propertyKnowledge: "Hot tub: No hot tub at this property. Pool: Yes, heated pool available."
+    conversationContext: |
+      [Guest - Amy]: Does the house have a hot tub?
+    sentiment: "neutral (info-gathering)"
+    topicsText: "Hot tub inquiry"
+  assert:
+    - type: llm-rubric
+      value: "Response honestly says no hot tub but proactively mentions the heated pool as an alternative. Doesn't apologize excessively — just states the fact warmly and pivots to what IS available."
+    - type: llm-rubric
+      value: "Response is brief and honest. Doesn't overcompensate with a 5-paragraph essay about the pool."
+
+# ─── HISTORICAL MATCH: Does it follow examples? ─────────────────────
+
+- description: "Historical match — follows host's actual prior response"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- check_in (knowledge available)"
+    propertyKnowledge: "Check-in: 4:00 PM. Door code sent day before arrival."
+    historicalExamples: |
+      Example 1 (check_in, similarity: 92%):
+      "Hey! Check-in is at 4pm — I'll shoot you the door code the day before you arrive! If you need to get in earlier just let me know and I'll see what I can work out 😊"
+    conversationContext: |
+      [Guest - Nicole]: Hi! What time can we check in?
+    sentiment: "neutral (info-gathering)"
+    topicsText: "Check-in time"
+  assert:
+    - type: llm-rubric
+      value: "Response should closely mirror the historical example's style and content — casual tone, mentions 4pm, offers door code the day before, offers early check-in flexibility. Score 0 if it sounds completely different from the example."
+    - type: llm-rubric
+      value: "Response uses similar phrasing to the example — 'shoot you the door code' or similar casual language, not 'The access code will be communicated to you'."
+
+- description: "Voice anchor — novel question with no historical match"
+  vars:
+    propertyName: "Palm Paradise Villa"
+    propertyAddress: "789 Gulf Blvd, Sarasota, FL"
+    toneGuidance: "The guest has a positive tone."
+    topics: "- local_events (no specific knowledge)"
+    voiceAnchors: |
+      1. "Hey Sarah! Absolutely, the beach is just a 2 min walk — you're gonna love it! The sunsets from the deck are incredible too 🌅 Let me know if you need restaurant recs!"
+      2. "Hi Mike! Pool heat is $35/day and totally worth it honestly. I'll get it turned on before you arrive so it's ready to go! 😊"
+      3. "Hey Jennifer! So glad you guys are coming down! The kids are gonna have a blast — there's boogie boards and beach toys in the garage. Let me know if you need anything!"
+    conversationContext: |
+      [Guest - Tyler]: Are there any farmers markets or local events happening this weekend near the property?
+    sentiment: "neutral (curious)"
+    topicsText: "Local events, farmers markets"
+  assert:
+    - type: llm-rubric
+      value: "Response should match the VOICE of the anchor examples — casual, warm, uses exclamation marks, maybe an emoji. Score 0 if it sounds like a tourism board website instead of Sawyer."
+    - type: llm-rubric
+      value: "Even though there's no specific knowledge, the response is helpful and sounds personal. Might suggest checking local listings or offer to look into it."
+
+# ─── LENGTH CALIBRATION ──────────────────────────────────────────────
+
+- description: "Length — simple question gets simple answer"
+  vars:
+    propertyName: "Seascape Beach House"
+    propertyAddress: "123 Gulf Dr, Bradenton Beach, FL"
+    toneGuidance: "The guest has a straightforward tone."
+    topics: "- checkout (knowledge available)"
+    propertyKnowledge: "Checkout: 10:00 AM."
+    conversationContext: |
+      [Guest - Chris]: Checkout time?
+    sentiment: "neutral (direct)"
+    topicsText: "Checkout time"
+  assert:
+    - type: javascript
+      value: "output.split(' ').length < 40"
+    - type: llm-rubric
+      value: "Response is 1-2 sentences max. Just gives checkout time warmly. Score 0 if it's a paragraph."
+
+- description: "Length — complex question gets thorough answer"
+  vars:
+    propertyName: "Palm Paradise Villa"
+    propertyAddress: "789 Gulf Blvd, Sarasota, FL"
+    toneGuidance: "The guest has a positive tone."
+    topics: "- arrival (knowledge available)\n- parking (knowledge available)\n- kitchen (knowledge available)\n- beach_gear (knowledge available)"
+    propertyKnowledge: "Check-in: 4:00 PM. Parking: 2-car driveway + street parking. Kitchen: Full kitchen with dishwasher, Keurig, basic spices. Beach gear: Chairs, umbrella, boogie boards in garage."
+    conversationContext: |
+      [Guest - Amanda]: Hi Sawyer! We're arriving Saturday and have a bunch of questions. What time can we check in? Where do we park (we have 2 cars)? Is the kitchen fully stocked or should we bring cookware? And are there beach chairs we can use?
+    sentiment: "positive (organized, planning)"
+    topicsText: "Check-in, parking, kitchen, beach gear"
+  assert:
+    - type: javascript
+      value: "output.split(' ').length > 50"
+    - type: llm-rubric
+      value: "Response addresses ALL FOUR questions thoroughly but efficiently. Uses natural paragraph breaks or structure. Score 0 if any question is skipped."

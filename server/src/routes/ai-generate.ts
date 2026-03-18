@@ -159,7 +159,7 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
       request: parsed.data,
     });
 
-    const confidencePercent = Math.round(result.confidence);
+    const confidencePercent = Math.round(result.confidence ?? 50);
     const meetsThreshold = confidencePercent >= threshold;
 
     // 4. If confidence meets threshold, attempt to auto-send via PMS

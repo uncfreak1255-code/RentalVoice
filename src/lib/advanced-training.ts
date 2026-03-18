@@ -109,7 +109,7 @@ class IncrementalTrainer {
         // Legacy messages without originType fall back to old behavior
         const weight = msg.originType
           ? (msg.originType === 'host_written' ? 3 : msg.originType === 'ai_edited' ? 2.5 : 1)
-          : (msg.wasApproved ? 3 : msg.wasEdited ? 2 : 1);
+          : (msg.wasApproved ? 1.5 : msg.wasEdited ? 2 : 1);
 
         // Run updateStyleMetrics multiple times based on weight
         // host_written messages dominate style learning; ai_approved minimally influences
@@ -119,7 +119,7 @@ class IncrementalTrainer {
 
         // Add to few-shot index (approved/edited responses are higher quality examples)
         if (msg.guestMessage) {
-          await fewShotIndexer.addExample(msg.guestMessage, msg.content, msg.propertyId);
+          await fewShotIndexer.addExample(msg.guestMessage, msg.content, msg.propertyId, msg.originType);
         }
 
         // Extract per-property knowledge from host replies
@@ -142,6 +142,30 @@ class IncrementalTrainer {
 
       // Notify: "Learned from 10 new messages"
       this.notifyCallbacks();
+
+      // Auto-trigger MultiPassTrainer if it hasn't run or results are stale
+      // This ensures phrase mining and style analysis stay current
+      try {
+        const mpState = multiPassTrainer.getState();
+        const hasResults = mpState.passesCompleted.length > 0;
+        const isStale = !hasResults || (mpState.passesCompleted.length < 5);
+        if (!mpState.isRunning && isStale && batch.length > 0) {
+          const hostMessages = batch
+            .filter(m => m.content && m.content.length > 10)
+            .map(m => ({
+              content: m.content,
+              prevGuestContent: m.guestMessage,
+              propertyId: m.propertyId,
+              timestamp: new Date(m.timestamp),
+            }));
+          if (hostMessages.length >= 5) {
+            console.log('[IncrementalTrainer] Auto-triggering MultiPassTrainer with batch data');
+            multiPassTrainer.runDeepTraining(hostMessages).catch(console.error);
+          }
+        }
+      } catch (e) {
+        console.warn('[IncrementalTrainer] MultiPass auto-trigger failed:', e);
+      }
 
       // Sync learning state to cloud (fire-and-forget, throttled internally)
       syncLearningToCloud().catch((err) =>
@@ -226,6 +250,8 @@ export interface MultiPassResult {
   patternsExtracted: number;
   metrics: Record<string, number>;
   completedAt: number;
+  /** Top frequent phrases extracted from phrase_mining pass */
+  frequentPhrasesList?: string[];
 }
 
 class MultiPassTrainer {
@@ -267,6 +293,50 @@ class MultiPassTrainer {
 
   getState(): MultiPassState {
     return { ...this.state };
+  }
+
+  /** Get the top frequent phrases mined from host messages, ready for LLM prompt injection */
+  getFrequentPhrases(): string[] {
+    return this.state.results?.phrase_mining?.frequentPhrasesList || [];
+  }
+
+  /**
+   * Returns a 0–10 confidence adjustment based on how much deep training has completed.
+   * Each of the 5 passes contributes up to 2 points when it has mined meaningful patterns.
+   * This rewards the system for having done thorough voice analysis — more training = higher floor.
+   */
+  getConfidenceAdjustment(): number {
+    const results = this.state.results;
+    if (!results || Object.keys(results).length === 0) return 0;
+
+    let adjustment = 0;
+
+    // style_tone: +2 if completed with patterns
+    if (results.style_tone?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.style_tone.patternsExtracted / 3);
+    }
+
+    // intent_mapping: +2 if completed with patterns
+    if (results.intent_mapping?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.intent_mapping.patternsExtracted / 5);
+    }
+
+    // phrase_mining: +2 if frequent phrases were extracted
+    if (results.phrase_mining?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.phrase_mining.patternsExtracted / 10);
+    }
+
+    // contextual: +2 if contextual patterns found
+    if (results.contextual?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.contextual.patternsExtracted / 3);
+    }
+
+    // edge_cases: +2 if edge case patterns found
+    if (results.edge_cases?.patternsExtracted > 0) {
+      adjustment += Math.min(2, results.edge_cases.patternsExtracted / 3);
+    }
+
+    return Math.round(adjustment);
   }
 
   onStateChange(callback: (state: MultiPassState) => void): () => void {
@@ -343,6 +413,7 @@ class MultiPassTrainer {
     const startTime = Date.now();
     let patternsExtracted = 0;
     const metrics: Record<string, number> = {};
+    let frequentPhrasesList: string[] | undefined;
 
     switch (pass) {
       case 'style_tone':
@@ -363,11 +434,12 @@ class MultiPassTrainer {
         break;
 
       case 'phrase_mining':
-        // Pass 3: Extract unique phrases
+        // Pass 3: Extract unique phrases and persist top frequent ones
         const phraseResult = await this.runPhraseMiningPass(messages, onProgress);
         patternsExtracted = phraseResult.patterns;
         metrics.uniquePhrases = phraseResult.uniquePhrases;
         metrics.frequentPhrases = phraseResult.frequentPhrases;
+        frequentPhrasesList = phraseResult.topPhrases;
         break;
 
       case 'contextual':
@@ -393,6 +465,7 @@ class MultiPassTrainer {
       patternsExtracted,
       metrics,
       completedAt: Date.now(),
+      frequentPhrasesList,
     };
   }
 
@@ -458,7 +531,7 @@ class MultiPassTrainer {
   private async runPhraseMiningPass(
     messages: { content: string }[],
     onProgress: (progress: number) => void
-  ): Promise<{ patterns: number; uniquePhrases: number; frequentPhrases: number }> {
+  ): Promise<{ patterns: number; uniquePhrases: number; frequentPhrases: number; topPhrases: string[] }> {
     const phraseCount = new Map<string, number>();
 
     for (let i = 0; i < messages.length; i++) {
@@ -473,14 +546,19 @@ class MultiPassTrainer {
       }
     }
 
-    const frequentPhrases = [...phraseCount.entries()]
+    const frequentEntries = [...phraseCount.entries()]
       .filter(([_, count]) => count >= 3)
-      .length;
+      .sort((a, b) => b[1] - a[1]);
+
+    const frequentPhrases = frequentEntries.length;
+    // Persist top 30 most frequent phrases for LLM prompt injection
+    const topPhrases = frequentEntries.slice(0, 30).map(([phrase]) => phrase);
 
     return {
       patterns: messages.length,
       uniquePhrases: phraseCount.size,
       frequentPhrases,
+      topPhrases,
     };
   }
 
@@ -553,11 +631,23 @@ class MultiPassTrainer {
 
   private detectIntent(content: string): string {
     const intentPatterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code|lock/i,
-      check_out: /check.?out|leave|leaving|departure/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
       parking: /park|car|garage|driveway/i,
-      maintenance: /broken|not working|fix|repair|issue|problem/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
       question: /where|how|what|when|can I/i,
     };
@@ -1107,16 +1197,25 @@ class TrainingQualityAnalyzer {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code|lock/i,
-      check_out: /check.?out|leave|leaving|departure/i,
-      parking: /park|car|garage/i,
-      maintenance: /broken|not working|fix|repair|issue/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
-      refund: /refund|money back|compensation/i,
-      amenity: /pool|gym|hot tub|amenities/i,
-      local_tips: /restaurant|recommend|nearby/i,
-      booking: /reservation|extend|cancel|dates/i,
+      question: /where|how|what|when|can I/i,
     };
 
     for (const [intent, pattern] of Object.entries(patterns)) {
@@ -1385,8 +1484,8 @@ class FewShotIndexer {
 
   async saveIndex(): Promise<void> {
     try {
-      // Keep last 1000 examples
-      const toSave = this.examples.slice(-1000);
+      // Keep last 5000 examples (covers most hosts' full history)
+      const toSave = this.examples.slice(-5000);
       await AsyncStorage.setItem(scopedKey(FEW_SHOT_INDEX_KEY), JSON.stringify({
         examples: toSave,
       }));
@@ -1447,10 +1546,17 @@ class FewShotIndexer {
       this.keywordIndex.get(keyword)!.push(example.id);
     }
 
-    // Save periodically
-    if (this.examples.length % 10 === 0) {
-      await this.saveIndex();
-    }
+    // Save after every example — previously only saved every 10th, causing data loss on restart
+    // Debounce to 1s to handle bulk imports without thrashing AsyncStorage
+    this.scheduleSave();
+  }
+
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private scheduleSave(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      this.saveIndex().catch(console.error);
+    }, 1000);
   }
 
   // Find most relevant examples for a guest message
@@ -1478,17 +1584,18 @@ class FewShotIndexer {
         score += 20;
       }
 
-      // Recency bonus
-      const ageInDays = (Date.now() - example.timestamp) / (1000 * 60 * 60 * 24);
-      if (ageInDays < 30) score += 10;
-      else if (ageInDays < 90) score += 5;
+      // Recency bonus using temporal weight system (3x recent, 2x medium, 1x older, 0.5x ancient)
+      const temporalMultiplier = temporalWeightManager.getWeightForTimestamp(example.timestamp);
+      score += Math.round(temporalMultiplier * 5); // 15 for recent, 10 for medium, 5 for older, 2 for ancient
 
       // Origin quality bonus — prefer host-written ground truth over AI-generated
       if (example.originType === 'host_written') score += 30;
       else if (example.originType === 'ai_edited') score += 15;
       // ai_approved and legacy (undefined) get no bonus
 
-      if (score > 0) {
+      // Minimum quality threshold: require meaningful match (intent match=50, property=20, keyword=10)
+      // score >= 30 filters noise from single-keyword-only matches
+      if (score >= 30) {
         scored.push({ example, score });
       }
     }
@@ -1511,8 +1618,8 @@ class FewShotIndexer {
     for (let i = 0; i < examples.length; i++) {
       const ex = examples[i];
       prompt += `\nExample ${i + 1}:\n`;
-      prompt += `Guest: "${ex.guestMessage.substring(0, 150)}${ex.guestMessage.length > 150 ? '...' : ''}"\n`;
-      prompt += `Your response: "${ex.hostResponse.substring(0, 200)}${ex.hostResponse.length > 200 ? '...' : ''}"\n`;
+      prompt += `Guest: "${ex.guestMessage}"\n`;
+      prompt += `Your response: "${ex.hostResponse}"\n`;
     }
 
     prompt += '\nUse these examples to guide your tone, style, and level of detail.\n';
@@ -1522,12 +1629,25 @@ class FewShotIndexer {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code|lock/i,
-      check_out: /check.?out|leave|leaving|departure/i,
-      parking: /park|car|garage/i,
-      maintenance: /broken|not working|fix|repair|issue|problem/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
+      question: /where|how|what|when|can I/i,
     };
 
     for (const [intent, pattern] of Object.entries(patterns)) {
@@ -1559,8 +1679,8 @@ class FewShotIndexer {
    * Returns examples from different intents to give the LLM a broad sense of the host's voice.
    */
   getHostWrittenVoiceAnchors(limit: number = 5): FewShotExample[] {
-    // Filter to host-written only (ground truth voice)
-    const hostWritten = this.examples.filter(ex => ex.originType === 'host_written');
+    // Filter to host-written only (ground truth voice), with quality floor
+    const hostWritten = this.examples.filter(ex => ex.originType === 'host_written' && ex.hostResponse.length >= 30);
 
     if (hostWritten.length === 0) {
       // Fallback: use ai_edited (host corrected) if no pure host-written exist
@@ -1726,11 +1846,23 @@ class ConversationFlowLearner {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password|network/i,
-      check_in: /check.?in|arrive|arrival|key|code/i,
-      check_out: /check.?out|leave|leaving|departure/i,
-      parking: /park|car|garage/i,
-      issue: /broken|not working|fix|repair|problem/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
       thanks: /thank|appreciate|great|wonderful/i,
       question: /where|how|what|when|can I/i,
     };
@@ -1952,11 +2084,25 @@ class GuestMemoryManager {
 
   private detectIntent(content: string): string {
     const patterns: Record<string, RegExp> = {
-      wifi: /wi.?fi|internet|password/i,
-      check_in: /check.?in|arrive|arrival|key|code/i,
-      check_out: /check.?out|leave|leaving/i,
-      parking: /park|car|garage/i,
-      amenities: /pool|gym|hot tub/i,
+      wifi: /wi.?fi|internet|password|network|connect/i,
+      check_in: /check.?in|arrive|arrival|key|code|lock|door/i,
+      check_out: /check.?out|leave|leaving|departure|depart/i,
+      early_checkin: /\b(early|earlier)\b.*\b(check|arrive|in)\b/i,
+      late_checkout: /\b(late|later)\b.*\b(check|out|leave|stay)\b/i,
+      parking: /park|car|garage|driveway/i,
+      pet: /\bpet|dog|cat|puppy|kitten|animal\b/i,
+      maintenance: /broken|not working|fix|repair|leak|issue|problem|damage/i,
+      housekeeping: /clean|cleaning|towel|sheet|trash|garbage|dirty|housekeeping/i,
+      appliance: /\btv|television|stove|oven|microwave|dishwasher|washer|dryer|appliance\b/i,
+      amenity: /pool|gym|fitness|hot tub|jacuzzi|sauna|amenities/i,
+      hvac: /\bheat|heating|ac|air condition|thermostat|temperature\b/i,
+      noise: /noise|loud|quiet|neighbor|party|music/i,
+      local_tips: /restaurant|food|eat|coffee|grocery|store|shop|recommend|nearby|area/i,
+      emergency: /emergency|urgent|fire|flood|ambulance|police|danger|safety/i,
+      refund: /refund|money back|reimburse|compensation|discount/i,
+      booking: /reservation|extend|cancel|dates|booking/i,
+      thanks: /thank|appreciate|great|wonderful/i,
+      question: /where|how|what|when|can I/i,
     };
 
     for (const [intent, pattern] of Object.entries(patterns)) {
@@ -2018,6 +2164,48 @@ export function buildAdvancedAIPrompt(
 
   // 2. Few-shot examples
   additionalPrompt += fewShotIndexer.getFewShotPrompt(guestMessage, propertyId);
+
+  // 3. Negative examples (what to avoid)
+  additionalPrompt += negativeExampleManager.getNegativeExamplesPrompt();
+
+  // 4. Guest memory (returning guests)
+  additionalPrompt += guestMemoryManager.getGuestMemoryPrompt(guestEmail, guestPhone);
+
+  // 5. Per-property conversation knowledge (learned from past host replies)
+  if (propertyId) {
+    additionalPrompt += propertyConversationKnowledge.getKnowledgePrompt(propertyId);
+  }
+
+  return additionalPrompt;
+}
+
+/**
+ * Variant of buildAdvancedAIPrompt that uses semantic voice examples from the
+ * server-side vector index instead of local keyword-based few-shot matching.
+ * Falls back to the keyword-based examples if semanticExamples is empty.
+ *
+ * All other prompt components (lexicon, negatives, guest memory, property
+ * knowledge) are identical to buildAdvancedAIPrompt.
+ */
+export function buildAdvancedAIPromptWithSemantic(
+  guestMessage: string,
+  semanticExamples: import('./semantic-voice-index').VoiceExample[],
+  formatAsPrompt: (examples: import('./semantic-voice-index').VoiceExample[]) => string,
+  propertyId?: string,
+  guestEmail?: string,
+  guestPhone?: string
+): string {
+  let additionalPrompt = '';
+
+  // 1. Property-specific lexicon
+  additionalPrompt += propertyLexiconManager.getLexiconPrompt(propertyId || '');
+
+  // 2. Semantic few-shot examples (server-matched) — fall back to keyword matching if empty
+  if (semanticExamples.length > 0) {
+    additionalPrompt += formatAsPrompt(semanticExamples);
+  } else {
+    additionalPrompt += fewShotIndexer.getFewShotPrompt(guestMessage, propertyId);
+  }
 
   // 3. Negative examples (what to avoid)
   additionalPrompt += negativeExampleManager.getNegativeExamplesPrompt();
