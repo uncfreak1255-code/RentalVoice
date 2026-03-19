@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView, Keyboard, Share } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView, Keyboard, Share, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +72,7 @@ import {
   Brain,
   Search,
   X,
+  MessageSquare,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -1222,9 +1223,24 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
   if (!conversation) {
     return (
-      <View style={chatStyles.emptyContainer}>
-        <Text style={chatStyles.emptyText}>Conversation not found</Text>
-      </View>
+      <SafeAreaView style={chatStyles.emptyContainer} edges={['top', 'bottom']}>
+        <AlertTriangle size={32} color={colors.text.muted} />
+        <Text style={chatStyles.emptyHeading}>Conversation unavailable</Text>
+        <Text style={chatStyles.emptySubtext}>
+          This conversation may have been removed or isn't synced yet.
+        </Text>
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to inbox"
+          style={({ pressed }) => [
+            chatStyles.emptyAction,
+            { opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={chatStyles.emptyActionText}>Go Back</Text>
+        </Pressable>
+      </SafeAreaView>
     );
   }
 
@@ -1467,8 +1483,30 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
                 );
               }}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingTop: spacing['2'], paddingBottom: spacing['4'] }}
-              inverted={true}
+              contentContainerStyle={displayMessages.length === 0
+                ? { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing['6'] }
+                : { paddingTop: spacing['2'], paddingBottom: spacing['4'] }
+              }
+              ListEmptyComponent={
+                searchQuery.trim() ? (
+                  <View style={chatStyles.emptyListContainer}>
+                    <Search size={28} color={colors.text.muted} />
+                    <Text style={chatStyles.emptyListHeading}>No matching messages</Text>
+                    <Text style={chatStyles.emptyListSubtext}>
+                      Try a different search term or clear the filter.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={chatStyles.emptyListContainer}>
+                    <MessageSquare size={28} color={colors.text.muted} />
+                    <Text style={chatStyles.emptyListHeading}>No messages yet</Text>
+                    <Text style={chatStyles.emptyListSubtext}>
+                      New guest messages will appear here. You can also type a message below to start the conversation.
+                    </Text>
+                  </View>
+                )
+              }
+              inverted={displayMessages.length > 0}
               initialNumToRender={20}
               onContentSizeChange={handleContentSizeChange}
               onLayout={handleListLayout}
@@ -1535,10 +1573,54 @@ const chatStyles = StyleSheet.create({
     backgroundColor: colors.bg.base,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing['8'],
   },
-  emptyText: {
+  emptyHeading: {
     color: colors.text.primary,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 17,
+    marginTop: spacing['4'],
+    textAlign: 'center' as const,
+  },
+  emptySubtext: {
+    color: colors.text.muted,
     fontFamily: typography.fontFamily.regular,
+    fontSize: 14,
+    marginTop: spacing['2'],
+    textAlign: 'center' as const,
+    lineHeight: 20,
+  },
+  emptyAction: {
+    marginTop: spacing['6'],
+    paddingHorizontal: spacing['6'],
+    paddingVertical: spacing['3'],
+    backgroundColor: colors.primary.DEFAULT,
+    borderRadius: radius.md,
+  },
+  emptyActionText: {
+    color: colors.text.inverse,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 15,
+  },
+  emptyListContainer: {
+    alignItems: 'center' as const,
+    paddingVertical: spacing['8'],
+  },
+  emptyListHeading: {
+    color: colors.text.primary,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 16,
+    marginTop: spacing['3'],
+    textAlign: 'center' as const,
+  },
+  emptyListSubtext: {
+    color: colors.text.muted,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: 14,
+    marginTop: spacing['1.5'],
+    textAlign: 'center' as const,
+    lineHeight: 20,
+    maxWidth: 280,
   },
   // Escalation banner
   escalationBanner: {
