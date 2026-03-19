@@ -40,6 +40,7 @@ import {
   Lightbulb,
   Minus,
   List,
+  Settings,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -140,6 +141,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const [backgroundSyncProgress, setBackgroundSyncProgress] = useState<BackgroundSyncProgress | null>(null);
   const [backgroundFetchAvailable, setBackgroundFetchAvailable] = useState<boolean | null>(null);
   const [backgroundFetchStatusText, setBackgroundFetchStatusText] = useState<string>('');
+
+  // UI collapse state
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // AI Training state
   const [trainingState, setTrainingState] = useState<TrainingState | null>(null);
@@ -1131,9 +1135,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             )}
           </Animated.View>
 
-          {/* Stats Grid */}
-          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+          {/* Stats Grid — hidden by default, shown in Advanced */}
+          {showAdvanced && <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.muted, marginBottom: 8, marginLeft: 4 }}>
               Coverage Snapshot
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
@@ -1213,7 +1217,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </Animated.View>}
 
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ marginBottom: 24 }}>
             <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
@@ -1636,8 +1640,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </View>
           </Animated.View>
 
-          {/* ── TIER 2: Per-Property Style Comparison ── */}
-          {Object.keys(hostStyleProfiles).filter((k) => k !== 'global').length > 0 && (
+          {/* ── TIER 2: Per-Property Style Comparison — Advanced only ── */}
+          {showAdvanced && Object.keys(hostStyleProfiles).filter((k) => k !== 'global').length > 0 && (
             <Animated.View entering={FadeInDown.delay(450).duration(400)} style={{ marginBottom: 24 }}>
               <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
                 Per-Property Styles
@@ -1673,8 +1677,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             </Animated.View>
           )}
 
-          {/* ── TIER 3: Confidence Calibration Dashboard ── */}
-          {calSummary && (() => {
+          {/* ── TIER 3: Confidence Calibration Dashboard — Advanced only ── */}
+          {showAdvanced && calSummary && (() => {
             const gaugeColor = calSummary.calibrationScore >= 70 ? '#10B981'
               : calSummary.calibrationScore >= 40 ? '#F59E0B' : '#EF4444';
             return (
@@ -1749,8 +1753,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             );
           })()}
 
-          {/* ── TIER 3: Voice DNA Export ── */}
-          {hostStyleProfiles['global'] && (() => {
+          {/* ── TIER 3: Voice DNA Export — Advanced only ── */}
+          {showAdvanced && hostStyleProfiles['global'] && (() => {
             const profile = hostStyleProfiles['global'];
             return (
               <Animated.View entering={FadeInDown.delay(550).duration(400)}>
@@ -1788,8 +1792,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             );
           })()}
 
-          {/* ── TIER 3: Reply Delta Insights ── */}
-          {deltaStats && (() => {
+          {/* ── TIER 3: Reply Delta Insights — Advanced only ── */}
+          {showAdvanced && deltaStats && (() => {
             const { hostMoreSpecific, totalAdded, totalRemoved, recentDeltas } = deltaStats;
 
             return (
@@ -1832,39 +1836,6 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </Animated.View>
             );
           })()}
-
-          {/* ── TIER 3: Conversation Flow Predictions ── */}
-          {conversationFlows.length > 0 && (
-            <Animated.View entering={FadeInDown.delay(650).duration(400)} style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
-                Conversation Patterns
-              </Text>
-              <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
-                <Text style={{ color: colors.text.muted, fontSize: 12, marginBottom: 12 }}>
-                  Detected {conversationFlows.length} recurring conversation patterns from your history.
-                </Text>
-                {conversationFlows.slice(0, 5).map((flow, idx) => (
-                  <View key={String(flow.id) || `flow-${idx}`} style={{ backgroundColor: 'rgba(15,23,42,0.5)', borderRadius: 10, padding: 10, marginBottom: 6 }}>
-                    <Text style={{ color: '#E2E8F0', fontSize: 12, fontFamily: typography.fontFamily.semibold, marginBottom: 4 }}>
-                      {flow.intentSequence.map(i => i.replace(/_/g, ' ')).join(' → ')}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Text style={{ color: colors.text.muted, fontSize: 11 }}>
-                        Seen {flow.frequency}x
-                      </Text>
-                      {flow.predictedNextIntent && (
-                        <View style={{ backgroundColor: 'rgba(99,102,241,0.15)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                          <Text style={{ color: '#A5B4FC', fontSize: 10, fontFamily: typography.fontFamily.semibold }}>
-                            → {flow.predictedNextIntent.replace(/_/g, ' ')} ({flow.predictionConfidence}%)
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </Animated.View>
-          )}
 
           {/* Historical Data Fetch Section */}
           <Animated.View entering={FadeInDown.delay(250).duration(400)}>
@@ -1993,8 +1964,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <SectionFooter text="Only anonymized patterns are stored. No personal data is saved remotely." />
           </Animated.View>
 
-          {/* Background Sync Section */}
-          <Animated.View entering={FadeInDown.delay(275).duration(400)} style={{ marginBottom: 24 }}>
+          {/* Background Sync Section — Advanced only */}
+          {showAdvanced && <Animated.View entering={FadeInDown.delay(275).duration(400)} style={{ marginBottom: 24 }}>
             <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
               Background Sync
             </Text>
@@ -2177,33 +2148,42 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 </View>
               </View>
             </View>
-          </Animated.View>
+          </Animated.View>}
 
-
-
-          {/* Reset Button */}
-          <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ marginBottom: 32 }}>
-            <Pressable
-              onPress={handleResetLearning}
-              style={({ pressed }) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: colors.danger.muted, borderRadius: 12, paddingVertical: 16, opacity: pressed ? 0.8 : 1 })}
-            >
-              <Trash2 size={18} color="#EF4444" />
-              <Text style={{ color: colors.danger.DEFAULT, fontFamily: typography.fontFamily.medium, marginLeft: 8 }}>Reset All Learning Data</Text>
-            </Pressable>
-          </Animated.View>
-
-          {/* Info */}
-          <Animated.View
-            entering={FadeInDown.delay(600).duration(400)}
-            style={{ borderRadius: 12, padding: 16, marginBottom: 32, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' }}
+          {/* ── Advanced Toggle Button ── */}
+          <Pressable
+            onPress={() => setShowAdvanced(!showAdvanced)}
+            style={({ pressed }) => ({
+              flexDirection: 'row' as const,
+              alignItems: 'center' as const,
+              justifyContent: 'center' as const,
+              backgroundColor: colors.bg.card,
+              borderRadius: 12,
+              paddingVertical: 14,
+              marginBottom: 24,
+              opacity: pressed ? 0.7 : 1,
+              borderWidth: 1,
+              borderColor: colors.border.DEFAULT,
+            })}
           >
-            <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 15, marginBottom: 8 }}>How AI Learning Works</Text>
-            <Text style={{ color: '#64748B', fontSize: 14, lineHeight: 20 }}>
-              The AI analyzes your past messages to learn your unique communication style.
-              When you approve or edit AI suggestions, it learns from those interactions to
-              better match your tone, vocabulary, and preferences over time.
+            <Settings size={16} color={colors.text.muted} />
+            <Text style={{ color: colors.text.secondary, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 8 }}>
+              {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
             </Text>
-          </Animated.View>
+          </Pressable>
+
+          {/* Reset Button — Advanced only */}
+          {showAdvanced && (
+            <Animated.View entering={FadeInDown.duration(300)} style={{ marginBottom: 32 }}>
+              <Pressable
+                onPress={handleResetLearning}
+                style={({ pressed }) => ({ flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: colors.danger.muted, borderRadius: 12, paddingVertical: 16, opacity: pressed ? 0.8 : 1 })}
+              >
+                <Trash2 size={18} color={colors.danger.DEFAULT} />
+                <Text style={{ color: colors.danger.DEFAULT, fontFamily: typography.fontFamily.medium, marginLeft: 8 }}>Reset All Learning Data</Text>
+              </Pressable>
+            </Animated.View>
+          )}
         </ScrollView>
       </SafeAreaView>
 
