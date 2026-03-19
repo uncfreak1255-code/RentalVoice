@@ -1,31 +1,20 @@
 {
-  "deny": [
-    "Edit: .env",
-    "Edit: .env.local",
-    "Edit: .env*.local",
-    "Edit: server/.env",
-    "Edit: server/.env.local",
-    "Edit: server/.env.live.local",
-    "Edit: server/.env.founder.local",
-    "Read: server/.env",
-    "Read: server/.env.local",
-    "Read: server/.env.live.local",
-    "Read: server/.env.founder.local",
-    "Read: .env",
-    "Read: .env.local",
-    "Edit: credentials*",
-    "Edit: secrets/",
-    "Edit: *.p8",
-    "Edit: *.p12",
-    "Edit: *.key",
-    "Edit: *.mobileprovision",
-    "Edit: *.pem",
-    "Edit: package-lock.json",
-    "Edit: bun.lock",
-    "Edit: server/bun.lock",
-    "Edit: yarn.lock",
-    "Bash: rm -rf",
-    "Bash: git push --force",
-    "Bash: git reset --hard"
-  ]
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "deny": [
+      "Edit(**/credentials*)",
+      "Edit(**/secrets/**)",
+      "Edit(**/*.p8)",
+      "Edit(**/*.p12)",
+      "Edit(**/*.key)",
+      "Edit(**/*.mobileprovision)",
+      "Edit(**/*.pem)",
+      "Edit(**/package-lock.json)",
+      "Edit(**/bun.lock)",
+      "Edit(**/yarn.lock)",
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)"
+    ]
+  }
 }
