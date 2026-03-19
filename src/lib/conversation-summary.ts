@@ -6,6 +6,11 @@ import type { Conversation, Message } from './store';
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+// Server proxy config
+const AI_PROXY_URL = process.env.EXPO_PUBLIC_AI_PROXY_URL || '';
+const AI_PROXY_TOKEN = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN || '';
+const useServerProxy = Boolean(AI_PROXY_URL && AI_PROXY_TOKEN);
+
 // Minimum messages before generating a summary
 export const MIN_MESSAGES_FOR_SUMMARY = 5;
 
@@ -367,19 +372,35 @@ ${messages}
 Summary (one line, use → arrows):`;
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const geminiPayload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 100,
       },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 100,
+    };
+
+    let response: Response;
+    if (useServerProxy) {
+      response = await fetch(`${AI_PROXY_URL}/api/ai-proxy/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AI_PROXY_TOKEN}`,
         },
-      }),
-    });
+        body: JSON.stringify({
+          provider: 'google',
+          model: 'gemini-2.0-flash',
+          payload: geminiPayload,
+        }),
+      });
+    } else {
+      response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiPayload),
+      });
+    }
 
     if (!response.ok) {
       throw new Error('AI summary generation failed');

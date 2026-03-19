@@ -11,6 +11,11 @@ import { detectIntent } from './intent-detection';
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+// Server proxy config
+const AI_PROXY_URL = process.env.EXPO_PUBLIC_AI_PROXY_URL || '';
+const AI_PROXY_TOKEN = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN || '';
+const useServerProxy = Boolean(AI_PROXY_URL && AI_PROXY_TOKEN);
+
 // PropertyKnowledge is imported from store.ts
 
 export interface AIResponse {
@@ -338,8 +343,8 @@ export async function generateAIResponse(options: AIGenerationOptions): Promise<
   } = options;
   const apiKey = process.env.EXPO_PUBLIC_VIBECODE_GOOGLE_API_KEY;
 
-  if (!apiKey) {
-    console.error('[AI Service] No Gemini API key found');
+  if (!apiKey && !useServerProxy) {
+    console.error('[AI Service] No Gemini API key found and no server proxy configured');
     throw new Error('Local AI is not configured for this build. Use the current connected workflow or switch to a build with managed AI enabled.');
   }
 
@@ -445,27 +450,44 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
   console.log('[AI Service] Generating response for intent:', detectedIntent);
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const geminiPayload = {
+      systemInstruction: {
+        parts: [{ text: systemPrompt }],
       },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: userPrompt }],
         },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userPrompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 500,
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      },
+    };
+
+    let response: Response;
+    if (useServerProxy) {
+      console.log('[AI Service] Routing through server proxy');
+      response = await fetch(`${AI_PROXY_URL}/api/ai-proxy/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${AI_PROXY_TOKEN}`,
         },
-      }),
-    });
+        body: JSON.stringify({
+          provider: 'google',
+          model: GEMINI_MODEL,
+          payload: geminiPayload,
+        }),
+      });
+    } else {
+      response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiPayload),
+      });
+    }
 
     if (!response.ok) {
       const error = await response.text();
