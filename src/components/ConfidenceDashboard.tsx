@@ -38,7 +38,7 @@ export function ConfidenceDashboard({ onPress }: ConfidenceDashboardProps) {
         <View style={styles.emptyState}>
           <Activity size={24} color={colors.text.muted} />
           <Text style={styles.emptyText}>
-            Send some AI drafts to start tracking voice confidence
+            Respond to a few guest messages to start tracking voice accuracy
           </Text>
         </View>
       </View>

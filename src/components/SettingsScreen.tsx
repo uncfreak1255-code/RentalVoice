@@ -464,16 +464,15 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             />
             <ValueRow
               icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
-              label="Profile Strength"
+              label="Messages Trained"
               value={(() => {
                 const count = effectiveMessagesTrained;
-                if (count >= 500) return 'Expert';
-                if (count >= 200) return 'Strong';
-                if (count >= 50) return 'Learning';
-                if (count > 0) return 'Building';
-                return 'Not Started';
+                if (count >= 500) return `${count.toLocaleString()} messages`;
+                if (count >= 50) return `${count} messages`;
+                if (count > 0) return `${count} messages`;
+                return 'None yet';
               })()}
-              valueColor={colors.primary.DEFAULT}
+              valueColor={colors.text.secondary}
             />
             <LinkRow
               icon={<Brain size={18} color={colors.primary.DEFAULT} />}

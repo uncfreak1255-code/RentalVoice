@@ -952,8 +952,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Training Complete Notification */}
-        {showTrainingComplete && lastTrainingResult && (
+        {/* Training Complete Notification — only show when real data was analyzed */}
+        {showTrainingComplete && lastTrainingResult && lastTrainingResult.stats.hostMessagesAnalyzed > 0 && (
           <Animated.View
             entering={FadeIn.duration(300)}
             style={{ marginHorizontal: spacing['4'], marginBottom: spacing['4'], backgroundColor: colors.success.muted, borderWidth: 1, borderColor: colors.success.DEFAULT, borderRadius: radius['2xl'], padding: spacing['4'] }}
@@ -961,39 +961,25 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing['2'] }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.success.muted, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] }}>
-                  <Zap size={20} color="#22C55E" />
+                  <Zap size={20} color={colors.success.DEFAULT} />
                 </View>
                 <View>
-                  <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.semibold, fontSize: 16 }}>AI Fully Trained!</Text>
-                  <Text style={{ color: colors.success.DEFAULT, fontSize: 12 }}>Now answers accurately in your voice</Text>
+                  <Text style={{ color: colors.success.DEFAULT, fontFamily: typography.fontFamily.semibold, fontSize: typography.styles.body.fontSize }}>
+                    {lastTrainingResult.stats.hostMessagesAnalyzed > 50 ? 'Voice Training Complete' : 'Voice Training Updated'}
+                  </Text>
+                  <Text style={{ color: colors.success.DEFAULT, fontSize: typography.styles.caption.fontSize }}>
+                    {lastTrainingResult.stats.hostMessagesAnalyzed > 50
+                      ? `Learned from ${lastTrainingResult.stats.hostMessagesAnalyzed.toLocaleString()} of your messages`
+                      : `Analyzed ${lastTrainingResult.stats.hostMessagesAnalyzed} messages — send more to improve`}
+                  </Text>
                 </View>
               </View>
               <Pressable
                 onPress={() => setShowTrainingComplete(false)}
-                style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
+                style={({ pressed }) => ({ padding: spacing['2'], opacity: pressed ? 0.7 : 1 })}
               >
-                <X size={18} color="#22C55E" />
+                <X size={18} color={colors.success.DEFAULT} />
               </Pressable>
-            </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing['2'], paddingTop: spacing['2'], borderTopWidth: 1, borderTopColor: colors.success.muted }}>
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.bold, fontSize: 18 }}>
-                  {lastTrainingResult.stats.hostMessagesAnalyzed.toLocaleString()}
-                </Text>
-                <Text style={{ color: colors.success.DEFAULT, fontSize: 12 }}>Messages Analyzed</Text>
-              </View>
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.bold, fontSize: 18 }}>
-                  {lastTrainingResult.stats.patternsIndexed.toLocaleString()}
-                </Text>
-                <Text style={{ color: colors.success.DEFAULT, fontSize: 12 }}>Patterns Indexed</Text>
-              </View>
-              <View style={{ alignItems: 'center', flex: 1 }}>
-                <Text style={{ color: '#22C55E', fontFamily: typography.fontFamily.bold, fontSize: 18 }}>
-                  {Math.round(lastTrainingResult.stats.trainingDurationMs / 1000)}s
-                </Text>
-                <Text style={{ color: colors.success.DEFAULT, fontSize: 12 }}>Training Time</Text>
-              </View>
             </View>
           </Animated.View>
         )}

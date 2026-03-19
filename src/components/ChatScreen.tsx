@@ -1280,10 +1280,10 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
               <Brain size={18} color="#FFFFFF" />
               <View style={chatStyles.learnToastText}>
                 <Text style={chatStyles.learnToastTitle}>
-                  {learningToastType === 'approval' && '✓ AI confidence reinforced'}
-                  {learningToastType === 'edit' && '✏️ AI learned from your edit'}
-                  {learningToastType === 'independent' && '🧠 AI learning your style'}
-                  {learningToastType === 'rejection' && '📝 AI noted your preference'}
+                  {learningToastType === 'approval' && 'Draft approved'}
+                  {learningToastType === 'edit' && 'Learned from your edit'}
+                  {learningToastType === 'independent' && 'Style recorded'}
+                  {learningToastType === 'rejection' && 'Preference noted'}
                 </Text>
                 <Text style={chatStyles.learnToastBody}>
                   {editLearningSummary}

@@ -199,7 +199,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
             {selectedProperty?.image && <Image source={{ uri: selectedProperty.image }} style={{ width: 36, height: 36, borderRadius: 8 }} contentFit="cover" />}
             <View style={{ marginLeft: spacing['3'], flex: 1 }}>
               <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>{selectedProperty?.name || 'Select Property'}</Text>
-              <Text style={{ color: colors.text.muted, fontSize: 12 }} numberOfLines={1}>{completionPercent}% configured</Text>
+              <Text style={{ color: colors.text.muted, fontSize: 12 }} numberOfLines={1}>{filledSections} of {totalSections} sections filled</Text>
             </View>
             {showPropertySelector ? <ChevronUp size={18} color="#64748B" /> : <ChevronDown size={18} color="#64748B" />}
           </Pressable>
