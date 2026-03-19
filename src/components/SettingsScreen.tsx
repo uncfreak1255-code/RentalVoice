@@ -13,7 +13,7 @@ import {
   User,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, typography } from '@/lib/design-tokens';
+import { colors, spacing, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
 import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
@@ -205,9 +205,9 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Header */}
         <View style={sLocal.header}>
-          <View style={{ width: 22 }} />
+          <View style={{ width: spacing['5'] }} />
           <Text style={sLocal.headerTitle}>Settings</Text>
-          <View style={{ width: 22 }} />
+          <View style={{ width: spacing['5'] }} />
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={sLocal.scrollContent} showsVerticalScrollIndicator={false}>
@@ -220,7 +220,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               label="PMS Status"
               right={
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, marginRight: 6 }} />
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, marginRight: spacing['1.5'] }} />
                   <Text style={{ color: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, fontSize: 15, fontFamily: typography.fontFamily.medium }}>
                     {isDemoMode ? 'Demo' : 'Connected'}
                   </Text>
@@ -263,7 +263,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               }
             />
             {shouldShowUsageBar && (
-              <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+              <View style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'] }}>
                 <View style={{ height: 6, backgroundColor: colors.border.DEFAULT, borderRadius: 3, overflow: 'hidden' }}>
                   <View style={{
                     height: 6,
@@ -412,8 +412,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                   isLast={!autoPilotEnabled}
                 />
                 {autoPilotEnabled && (
-                  <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'] }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing['2'] }}>
                       <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.primary }}>Confidence Threshold</Text>
                       <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
                     </View>
@@ -547,7 +547,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           </View>
 
           {/* ── Disconnect ── */}
-          <View style={{ marginTop: 28, marginBottom: 40, paddingHorizontal: 16 }}>
+          <View style={{ marginTop: spacing['7'], marginBottom: spacing['10'], paddingHorizontal: spacing['4'] }}>
             <View style={s.card}>
               <Pressable
                 onPress={handleLogout}
@@ -582,8 +582,8 @@ const sLocal = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing['4'],
+    paddingVertical: spacing['3'],
   },
   headerTitle: {
     fontSize: 17,
@@ -591,7 +591,7 @@ const sLocal = StyleSheet.create({
     color: colors.text.primary,
   },
   scrollContent: {
-    paddingTop: 4,
+    paddingTop: spacing['1'],
   },
   logoutBtn: {
     backgroundColor: colors.bg.base,
@@ -605,6 +605,6 @@ const sLocal = StyleSheet.create({
     color: colors.danger.DEFAULT,
     fontFamily: typography.fontFamily.medium,
     fontSize: 16,
-    marginLeft: 8,
+    marginLeft: spacing['2'],
   },
 });

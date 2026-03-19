@@ -1695,12 +1695,12 @@ const chatStyles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
     fontFamily: typography.fontFamily.regular,
-    marginTop: 2,
+    marginTop: spacing['0.5'],
   },
   // Header
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing['4'],
+    paddingVertical: spacing['3'],
     backgroundColor: colors.bg.base,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.DEFAULT,
@@ -1715,7 +1715,7 @@ const chatStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
   },
   backButton: {
-    marginRight: 12,
+    marginRight: spacing['3'],
   },
   guestPressable: {
     flexDirection: 'row',
@@ -1772,7 +1772,7 @@ const chatStyles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary.DEFAULT,
-    marginRight: 6,
+    marginRight: spacing['1.5'],
   },
 
   // ── Date separators ──
