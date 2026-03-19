@@ -26,16 +26,16 @@ function SectionGroupHeader({ label }: { label: string }) {
 
 function CollapsibleSection({ title, icon, children, isExpanded, onToggle, isFilled }: SectionProps) {
   return (
-    <View style={{ marginBottom: 2, marginHorizontal: 16, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' }}>
+    <View style={{ marginBottom: 2, marginHorizontal: 16, backgroundColor: colors.bg.card, borderRadius: 12, overflow: 'hidden' }}>
       <Pressable onPress={onToggle} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: spacing['4'], opacity: pressed ? 0.7 : 1 }]}>
         <View style={pk.row}>{icon}<Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['3'], flex: 1, fontSize: 16 }}>{title}</Text></View>
         <View style={pk.row}>
-          {isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E', marginRight: 10 }} />}
-          {!isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginRight: 10 }} />}
-          {isExpanded ? <ChevronUp size={18} color="#C7C7CC" /> : <ChevronDown size={18} color="#C7C7CC" />}
+          {isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.status.online, marginRight: 10 }} />}
+          {!isFilled && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border.strong, marginRight: 10 }} />}
+          {isExpanded ? <ChevronUp size={18} color={colors.text.muted} /> : <ChevronDown size={18} color={colors.text.muted} />}
         </View>
       </Pressable>
-      {isExpanded && <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E5E7EB' }}>{children}</Animated.View>}
+      {isExpanded && <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border.DEFAULT }}>{children}</Animated.View>}
     </View>
   );
 }
@@ -138,7 +138,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   const renderInput = (label: string, field: keyof PropertyKnowledge, placeholder: string, multiline = false) => (
     <View style={{ marginBottom: spacing['4'] }}>
       <Text style={{ color: colors.text.muted, fontSize: 14, marginBottom: spacing['2'] }}>{label}</Text>
-      <TextInput value={(formData[field] as string) || ''} onChangeText={(text) => updateField(field, text)} placeholder={placeholder} placeholderTextColor="#94A3B8" multiline={multiline} numberOfLines={multiline ? 4 : 1} style={[pk.input, multiline && { minHeight: 100, textAlignVertical: 'top' }]} />
+      <TextInput value={(formData[field] as string) || ''} onChangeText={(text) => updateField(field, text)} placeholder={placeholder} placeholderTextColor={colors.text.disabled} multiline={multiline} numberOfLines={multiline ? 4 : 1} style={[pk.input, multiline && { minHeight: 100, textAlignVertical: 'top' }]} />
     </View>
   );
 
@@ -170,7 +170,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
         <Text style={{ color: colors.text.primary, fontSize: 18, textAlign: 'center', marginBottom: spacing['4'] }}>No Properties Found</Text>
         <Text style={{ color: colors.text.muted, textAlign: 'center' }}>Connect your Hostaway account to manage property knowledge.</Text>
         <Pressable onPress={onBack} style={{ marginTop: spacing['6'], backgroundColor: colors.primary.DEFAULT, paddingHorizontal: spacing['6'], paddingVertical: spacing['3'], borderRadius: radius.full }}>
-          <Text style={{ color: '#FFF', fontFamily: typography.fontFamily.semibold }}>Go Back</Text>
+          <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold }}>Go Back</Text>
         </Pressable>
       </View>
     );
@@ -179,7 +179,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
   return (
     <View style={pk.root}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={{ backgroundColor: '#FFFFFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#C6C6C8' }}>
+        <View style={{ backgroundColor: colors.bg.base, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.DEFAULT }}>
           {/* Nav row */}
           <View style={[pk.row, { justifyContent: 'space-between', paddingHorizontal: spacing['4'], paddingTop: spacing['2'], paddingBottom: spacing['2'] }]}>
             <View style={pk.row}>
@@ -187,7 +187,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               <Text style={pk.title}>Property Knowledge</Text>
             </View>
             <Pressable onPress={handleSave} style={({ pressed }) => ({ backgroundColor: colors.primary.DEFAULT, paddingHorizontal: 18, paddingVertical: 7, borderRadius: radius.full, opacity: pressed ? 0.8 : 1 })}>
-              <Text style={{ color: '#FFF', fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>Save</Text>
+              <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>Save</Text>
             </Pressable>
           </View>
           {/* Completion bar */}
@@ -201,7 +201,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>{selectedProperty?.name || 'Select Property'}</Text>
               <Text style={{ color: colors.text.muted, fontSize: 12 }} numberOfLines={1}>{filledSections} of {totalSections} sections filled</Text>
             </View>
-            {showPropertySelector ? <ChevronUp size={18} color="#64748B" /> : <ChevronDown size={18} color="#64748B" />}
+            {showPropertySelector ? <ChevronUp size={18} color={colors.text.muted} /> : <ChevronDown size={18} color={colors.text.muted} />}
           </Pressable>
           {showPropertySelector && (
             <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['2'] }}>
@@ -225,7 +225,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               style={({ pressed }) => ({
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                 marginHorizontal: spacing['4'], marginBottom: 10,
-                backgroundColor: importSuccess ? '#22C55E' : colors.primary.DEFAULT,
+                backgroundColor: importSuccess ? colors.success.DEFAULT : colors.primary.DEFAULT,
                 borderRadius: 10,
                 paddingVertical: 11, paddingHorizontal: spacing['4'],
                 opacity: pressed ? 0.85 : isImporting ? 0.7 : 1,
@@ -233,13 +233,13 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               })}
             >
               {isImporting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.text.inverse} />
               ) : importSuccess ? (
-                <CheckCircle2 size={18} color="#FFFFFF" />
+                <CheckCircle2 size={18} color={colors.text.inverse} />
               ) : (
-                <Download size={18} color="#FFFFFF" />
+                <Download size={18} color={colors.text.inverse} />
               )}
-              <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.semibold, fontSize: 14 }}>
+              <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, fontSize: 14 }}>
                 {isImporting ? 'Importing...' : importSuccess ? 'Imported!' : 'Auto-Import from Hostaway'}
               </Text>
             </Pressable>
@@ -256,22 +256,22 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
             <CollapsibleSection title="Check-in Instructions" icon={<DoorOpen size={20} color={colors.primary.DEFAULT} />} isExpanded={expandedSections.checkin} onToggle={() => toggleSection('checkin')} isFilled={isSectionFilled(['checkInTime', 'checkInInstructions'])}>
               {renderInput('Check-in Time', 'checkInTime', 'e.g., 3:00 PM')}{renderInput('Check-in Instructions', 'checkInInstructions', 'Describe how guests access the property...', true)}
             </CollapsibleSection>
-            <CollapsibleSection title="Check-out Instructions" icon={<DoorClosed size={20} color="#8B5CF6" />} isExpanded={expandedSections.checkout} onToggle={() => toggleSection('checkout')} isFilled={isSectionFilled(['checkOutTime', 'checkOutInstructions'])}>
+            <CollapsibleSection title="Check-out Instructions" icon={<DoorClosed size={20} color="{colors.primary.DEFAULT}" />} isExpanded={expandedSections.checkout} onToggle={() => toggleSection('checkout')} isFilled={isSectionFilled(['checkOutTime', 'checkOutInstructions'])}>
               {renderInput('Check-out Time', 'checkOutTime', 'e.g., 11:00 AM')}{renderInput('Check-out Instructions', 'checkOutInstructions', 'What should guests do before leaving?', true)}
             </CollapsibleSection>
             <CollapsibleSection title="Parking Information" icon={<Car size={20} color="#EC4899" />} isExpanded={expandedSections.parking} onToggle={() => toggleSection('parking')} isFilled={isSectionFilled(['parkingInfo'])}>
               {renderInput('Parking Details', 'parkingInfo', 'Where can guests park?', true)}
             </CollapsibleSection>
-            <CollapsibleSection title="House Rules" icon={<ScrollText size={20} color="#EAB308" />} isExpanded={expandedSections.rules} onToggle={() => toggleSection('rules')} isFilled={isSectionFilled(['houseRules'])}>
+            <CollapsibleSection title="House Rules" icon={<ScrollText size={20} color={colors.warning.DEFAULT} />} isExpanded={expandedSections.rules} onToggle={() => toggleSection('rules')} isFilled={isSectionFilled(['houseRules'])}>
               {renderInput('House Rules', 'houseRules', 'Key rules: quiet hours, smoking...', true)}
             </CollapsibleSection>
             <View style={{ height: 20 }} />
             <SectionGroupHeader label="Policies" />
-            <CollapsibleSection title="Pet Policy" icon={<PawPrint size={20} color="#F97316" />} isExpanded={expandedSections.pets} onToggle={() => toggleSection('pets')} isFilled={formData.petsAllowed !== undefined}>
+            <CollapsibleSection title="Pet Policy" icon={<PawPrint size={20} color={colors.accent.DEFAULT} />} isExpanded={expandedSections.pets} onToggle={() => toggleSection('pets')} isFilled={formData.petsAllowed !== undefined}>
               <View style={[pk.row, { justifyContent: 'space-between', marginBottom: spacing['4'], backgroundColor: colors.bg.elevated, borderRadius: radius.lg, padding: spacing['4'] }]}>
-                <View style={pk.row}><PawPrint size={18} color="#F97316" /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Pets Allowed</Text></View>
+                <View style={pk.row}><PawPrint size={18} color={colors.accent.DEFAULT} /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Pets Allowed</Text></View>
                 <Pressable onPress={() => { updateField('petsAllowed', !formData.petsAllowed); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                  style={[pk.toggle, { backgroundColor: formData.petsAllowed ? '#22C55E' : colors.border.DEFAULT }]}>
+                  style={[pk.toggle, { backgroundColor: formData.petsAllowed ? colors.success.DEFAULT : colors.border.DEFAULT }]}>
                   <View style={[pk.toggleThumb, { marginLeft: formData.petsAllowed ? 'auto' : 0 }]} />
                 </Pressable>
               </View>
@@ -292,10 +292,10 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
             <CollapsibleSection title="Appliances & Amenities" icon={<Wrench size={20} color="#06B6D4" />} isExpanded={expandedSections.appliances} onToggle={() => toggleSection('appliances')} isFilled={isSectionFilled(['applianceGuide'])}>
               {renderInput('Appliance Guide', 'applianceGuide', 'Instructions for TV, thermostat...', true)}
             </CollapsibleSection>
-            <CollapsibleSection title="Local Recommendations" icon={<MapPin size={20} color="#22C55E" />} isExpanded={expandedSections.local} onToggle={() => toggleSection('local')} isFilled={isSectionFilled(['localRecommendations'])}>
+            <CollapsibleSection title="Local Recommendations" icon={<MapPin size={20} color={colors.success.DEFAULT} />} isExpanded={expandedSections.local} onToggle={() => toggleSection('local')} isFilled={isSectionFilled(['localRecommendations'])}>
               {renderInput('Local Tips', 'localRecommendations', 'Nearby restaurants, attractions...', true)}
             </CollapsibleSection>
-            <CollapsibleSection title="Emergency Contacts" icon={<Phone size={20} color="#EF4444" />} isExpanded={expandedSections.emergency} onToggle={() => toggleSection('emergency')} isFilled={isSectionFilled(['emergencyContacts'])}>
+            <CollapsibleSection title="Emergency Contacts" icon={<Phone size={20} color={colors.danger.DEFAULT} />} isExpanded={expandedSections.emergency} onToggle={() => toggleSection('emergency')} isFilled={isSectionFilled(['emergencyContacts'])}>
               {renderInput('Emergency Contacts', 'emergencyContacts', 'Property manager, maintenance...', true)}
             </CollapsibleSection>
             <CollapsibleSection title="Additional Notes" icon={<FileText size={20} color="#A855F7" />} isExpanded={expandedSections.custom} onToggle={() => toggleSection('custom')} isFilled={isSectionFilled(['customNotes'])}>
@@ -308,7 +308,7 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               {renderToneSelector()}
             </CollapsibleSection>
             {/* Upsell Options */}
-            <CollapsibleSection title="Upsell Options" icon={<DollarSign size={20} color="#22C55E" />} isExpanded={expandedSections.upsells} onToggle={() => toggleSection('upsells')} isFilled={isSectionFilled(['earlyCheckInAvailable', 'lateCheckOutAvailable'] as any)}>
+            <CollapsibleSection title="Upsell Options" icon={<DollarSign size={20} color={colors.success.DEFAULT} />} isExpanded={expandedSections.upsells} onToggle={() => toggleSection('upsells')} isFilled={isSectionFilled(['earlyCheckInAvailable', 'lateCheckOutAvailable'] as any)}>
               <View style={[pk.row, { justifyContent: 'space-between', marginBottom: spacing['4'], backgroundColor: colors.bg.elevated, borderRadius: radius.lg, padding: spacing['4'] }]}>
                 <View style={pk.row}><Clock size={18} color={colors.primary.DEFAULT} /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Early Check-in</Text></View>
                 <Pressable onPress={() => { updateField('earlyCheckInAvailable', !formData.earlyCheckInAvailable); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
@@ -318,9 +318,9 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
               </View>
               {formData.earlyCheckInAvailable && renderInput('Early Check-in Fee ($)', 'earlyCheckInFee' as any, 'e.g., 25')}
               <View style={[pk.row, { justifyContent: 'space-between', marginBottom: spacing['4'], backgroundColor: colors.bg.elevated, borderRadius: radius.lg, padding: spacing['4'] }]}>
-                <View style={pk.row}><Clock size={18} color="#8B5CF6" /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Late Check-out</Text></View>
+                <View style={pk.row}><Clock size={18} color={colors.primary.DEFAULT} /><Text style={{ color: colors.text.primary, marginLeft: spacing['3'] }}>Late Check-out</Text></View>
                 <Pressable onPress={() => { updateField('lateCheckOutAvailable', !formData.lateCheckOutAvailable); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                  style={[pk.toggle, { backgroundColor: formData.lateCheckOutAvailable ? '#8B5CF6' : colors.border.DEFAULT }]}>
+                  style={[pk.toggle, { backgroundColor: formData.lateCheckOutAvailable ? colors.primary.DEFAULT : colors.border.DEFAULT }]}>
                   <View style={[pk.toggleThumb, { marginLeft: formData.lateCheckOutAvailable ? 'auto' : 0 }]} />
                 </Pressable>
               </View>
@@ -335,14 +335,14 @@ export function PropertyKnowledgeScreen({ onBack }: PropertyKnowledgeScreenProps
 }
 
 const pk = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F2F2F7' },
+  root: { flex: 1, backgroundColor: colors.bg.elevated },
   row: { flexDirection: 'row', alignItems: 'center' },
   title: { color: colors.text.primary, fontSize: 20, fontFamily: typography.fontFamily.bold },
-  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
-  propSelector: { marginTop: spacing['4'], backgroundColor: '#F2F2F7', borderRadius: radius.md, padding: spacing['3'], flexDirection: 'row', alignItems: 'center' },
+  backBtn: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.bg.base, alignItems: 'center', justifyContent: 'center', marginRight: spacing['3'] },
+  propSelector: { marginTop: spacing['4'], backgroundColor: colors.bg.elevated, borderRadius: radius.md, padding: spacing['3'], flexDirection: 'row', alignItems: 'center' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.md, padding: spacing['4'], marginHorizontal: 16 },
   input: { backgroundColor: colors.bg.elevated, borderRadius: radius.lg, paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], color: colors.text.primary },
   toneCard: { flex: 1, minWidth: 100, padding: spacing['3'], borderRadius: radius.md, borderWidth: 1 },
   toggle: { width: 48, height: 28, borderRadius: radius.full, padding: 4, flexDirection: 'row' },
-  toggleThumb: { width: 20, height: 20, borderRadius: radius.full, backgroundColor: '#FFFFFF' },
+  toggleThumb: { width: 20, height: 20, borderRadius: radius.full, backgroundColor: colors.bg.base },
 });

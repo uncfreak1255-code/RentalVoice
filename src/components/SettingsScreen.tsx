@@ -220,8 +220,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               label="PMS Status"
               right={
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? '#F59E0B' : '#10B981', marginRight: 6 }} />
-                  <Text style={{ color: isDemoMode ? '#F59E0B' : '#10B981', fontSize: 15, fontFamily: typography.fontFamily.medium }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, marginRight: 6 }} />
+                  <Text style={{ color: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, fontSize: 15, fontFamily: typography.fontFamily.medium }}>
                     {isDemoMode ? 'Demo' : 'Connected'}
                   </Text>
                 </View>
@@ -239,8 +239,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="Founder" />
           <View style={s.card}>
             <LinkRow
-              icon={<User size={18} color={founderSession ? '#10B981' : colors.primary.DEFAULT} />}
-              iconBg={founderSession ? '#D1FAE5' : undefined}
+              icon={<User size={18} color={founderSession ? colors.success.DEFAULT : colors.primary.DEFAULT} />}
+              iconBg={founderSession ? colors.success.muted : undefined}
               label={founderSession ? 'Founder Account Active' : 'Founder Access'}
               onPress={() => handleNavigate('founderAccess')}
               isLast
@@ -264,13 +264,13 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             />
             {shouldShowUsageBar && (
               <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-                <View style={{ height: 6, backgroundColor: '#E5E7EB', borderRadius: 3, overflow: 'hidden' }}>
+                <View style={{ height: 6, backgroundColor: colors.border.DEFAULT, borderRadius: 3, overflow: 'hidden' }}>
                   <View style={{
                     height: 6,
                     borderRadius: 3,
                     width: `${Math.min(usagePercent, 100)}%`,
                     backgroundColor: usagePercent < 70 ? colors.primary.DEFAULT
-                      : usagePercent < 90 ? '#F59E0B' : '#EF4444',
+                      : usagePercent < 90 ? colors.warning.DEFAULT : colors.danger.DEFAULT,
                   }} />
                 </View>
               </View>
@@ -322,10 +322,10 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                       }
                       valueColor={
                         commercialEntitlements.entitlements.supermemoryMode === 'full'
-                          ? '#10B981'
+                          ? colors.success.DEFAULT
                           : commercialEntitlements.entitlements.supermemoryMode === 'degraded'
-                            ? '#F59E0B'
-                            : '#EF4444'
+                            ? colors.warning.DEFAULT
+                            : colors.danger.DEFAULT
                       }
                     />
                     <ValueRow
@@ -414,7 +414,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                 {autoPilotEnabled && (
                   <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: '#000000' }}>Confidence Threshold</Text>
+                      <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.primary }}>Confidence Threshold</Text>
                       <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
                     </View>
                     <Slider
@@ -424,8 +424,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                       value={settings.autoPilotConfidenceThreshold}
                       onValueChange={(v) => updateSettings({ autoPilotConfidenceThreshold: Math.round(v) })}
                       minimumTrackTintColor={colors.primary.DEFAULT}
-                      maximumTrackTintColor="#E5E7EB"
-                      thumbTintColor="#FFFFFF"
+                      maximumTrackTintColor={colors.border.DEFAULT}
+                      thumbTintColor={colors.bg.base}
                       style={{ height: 28 }}
                     />
                   </View>
@@ -554,13 +554,13 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                 disabled={isDisconnecting}
                 style={({ pressed }) => [s.row, { opacity: pressed ? 0.8 : 1 }]}
               >
-                <View style={[s.iconBox, { backgroundColor: '#FEE2E2' }]}>
-                  <LogOut size={18} color="#EF4444" />
+                <View style={[s.iconBox, { backgroundColor: colors.danger.muted }]}>
+                  <LogOut size={18} color={colors.danger.DEFAULT} />
                 </View>
-                <Text style={{ flex: 1, fontSize: 16, fontFamily: typography.fontFamily.regular, color: '#EF4444' }}>
+                <Text style={{ flex: 1, fontSize: 16, fontFamily: typography.fontFamily.regular, color: colors.danger.DEFAULT }}>
                   {isDisconnecting ? 'Disconnecting...' : isDemoMode ? 'Exit Demo Mode' : 'Disconnect Hostaway'}
                 </Text>
-                {isDisconnecting && <ActivityIndicator size="small" color="#EF4444" />}
+                {isDisconnecting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
               </Pressable>
             </View>
           </View>
@@ -576,7 +576,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 const sLocal = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.bg.subtle,
   },
   header: {
     flexDirection: 'row',
@@ -588,13 +588,13 @@ const sLocal = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontFamily: typography.fontFamily.semibold,
-    color: '#000000',
+    color: colors.text.primary,
   },
   scrollContent: {
     paddingTop: 4,
   },
   logoutBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg.base,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -602,7 +602,7 @@ const sLocal = StyleSheet.create({
     height: 50,
   },
   logoutText: {
-    color: '#EF4444',
+    color: colors.danger.DEFAULT,
     fontFamily: typography.fontFamily.medium,
     fontSize: 16,
     marginLeft: 8,

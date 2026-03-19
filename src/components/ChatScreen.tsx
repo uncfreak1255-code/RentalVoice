@@ -123,12 +123,12 @@ function SmartReplyBar({ guestMessage, propertyKnowledge, onSelect }: {
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: pressed ? colors.primary.DEFAULT + '20' : colors.primary.DEFAULT + '10',
+              backgroundColor: pressed ? colors.primary.soft : colors.primary.muted,
               paddingHorizontal: 12,
               paddingVertical: 7,
               borderRadius: 16,
               borderWidth: 1,
-              borderColor: colors.primary.DEFAULT + '30',
+              borderColor: colors.primary.soft,
             })}
           >
             <Text style={{ fontSize: 13, marginRight: 4 }}>{reply.icon}</Text>
@@ -1256,7 +1256,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             <SafeAreaView edges={['top']}>
               <View style={chatStyles.escalationRow}>
                 <View style={chatStyles.escalationContent}>
-                  <AlertTriangle size={20} color="#FFFFFF" />
+                  <AlertTriangle size={20} color={colors.text.inverse} />
                   <View style={chatStyles.escalationTextWrap}>
                     <Text style={chatStyles.escalationTitle}>Escalation Required</Text>
                     <Text style={chatStyles.escalationSubtitle}>This message requires immediate attention</Text>
@@ -1277,7 +1277,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             style={chatStyles.learnToast}
           >
             <View style={chatStyles.learnToastInner}>
-              <Brain size={18} color="#FFFFFF" />
+              <Brain size={18} color={colors.text.inverse} />
               <View style={chatStyles.learnToastText}>
                 <Text style={chatStyles.learnToastTitle}>
                   {learningToastType === 'approval' && 'Draft approved'}
@@ -1543,7 +1543,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 const chatStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.bg.subtle,
   },
   flex1: {
     flex: 1,
@@ -1591,7 +1591,7 @@ const chatStyles = StyleSheet.create({
     flex: 1,
   },
   escalationTitle: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontFamily: typography.fontFamily.semibold,
     fontSize: 14,
   },
@@ -1601,7 +1601,7 @@ const chatStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
   },
   escalationDismiss: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontFamily: typography.fontFamily.medium,
     fontSize: 14,
   },
@@ -1630,7 +1630,7 @@ const chatStyles = StyleSheet.create({
     flex: 1,
   },
   learnToastTitle: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontFamily: typography.fontFamily.semibold,
     fontSize: 13,
   },
@@ -1644,9 +1644,9 @@ const chatStyles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg.base,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border.DEFAULT,
   },
   headerInner: {
     flexDirection: 'row',
