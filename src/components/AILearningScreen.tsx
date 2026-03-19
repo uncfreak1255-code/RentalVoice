@@ -1837,7 +1837,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           {conversationFlows.length > 0 && (
             <Animated.View entering={FadeInDown.delay(650).duration(400)} style={{ marginBottom: 24 }}>
               <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
-                🔄 Conversation Patterns
+                Conversation Patterns
               </Text>
               <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
                 <Text style={{ color: colors.text.muted, fontSize: 12, marginBottom: 12 }}>

@@ -208,10 +208,10 @@ export function AutoPilotSettingsScreen({ onBack, onNavigate }: AutoPilotSetting
                   </View>
                   <Text style={s.thresholdHint}>
                     {settings.autoPilotConfidenceThreshold >= 90
-                      ? '✓ Very safe — only sends highly confident responses'
+                      ? 'Very safe — only sends highly confident responses'
                       : settings.autoPilotConfidenceThreshold >= 80
-                      ? '⚠ Balanced — most responses will auto-send'
-                      : '⚡ Aggressive — more automation, less review'}
+                      ? 'Balanced — most responses will auto-send'
+                      : 'Aggressive — more automation, less review'}
                   </Text>
                 </View>
               </View>

@@ -15,6 +15,7 @@ import {
   Paperclip,
   Trash2,
   MoreHorizontal,
+  Zap,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, withSequence } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -329,7 +330,7 @@ export function MessageComposer({
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-            <Text style={{ fontSize: 14 }}>⚡</Text>
+            <Zap size={14} color={colors.warning.DEFAULT} />
           </View>
           <Text style={{
             flex: 1,
