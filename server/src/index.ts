@@ -31,6 +31,7 @@ import { guestyRouter } from './routes/guesty.js';
 import './adapters/guesty-adapter.js'; // Self-registers Guesty adapter
 import { lodgifyRouter } from './routes/lodgify.js';
 import './adapters/lodgify-adapter.js'; // Self-registers Lodgify adapter
+import { aiProxyRouter } from './routes/ai-proxy-personal.js';
 
 const app = new Hono().basePath('/api');
 
@@ -89,6 +90,7 @@ app.route('/voice', voiceRouter);
 app.route('/webhooks', webhooksRouter);
 app.route('/guesty', guestyRouter);
 app.route('/lodgify', lodgifyRouter);
+app.route('/ai-proxy', aiProxyRouter);
 
 
 // ============================================================
