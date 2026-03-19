@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView, Keyboard, Share } from 'react-native';
+import { View, Text, Pressable, KeyboardAvoidingView, Platform, Alert, FlatList, StyleSheet, TextInput, ScrollView, Keyboard, Share, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,6 +72,7 @@ import {
   Brain,
   Search,
   X,
+  MessageSquare,
 } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -123,12 +124,12 @@ function SmartReplyBar({ guestMessage, propertyKnowledge, onSelect }: {
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: pressed ? colors.primary.DEFAULT + '20' : colors.primary.DEFAULT + '10',
+              backgroundColor: pressed ? colors.primary.soft : colors.primary.muted,
               paddingHorizontal: 12,
               paddingVertical: 7,
               borderRadius: 16,
               borderWidth: 1,
-              borderColor: colors.primary.DEFAULT + '30',
+              borderColor: colors.primary.soft,
             })}
           >
             <Text style={{ fontSize: 13, marginRight: 4 }}>{reply.icon}</Text>
@@ -303,7 +304,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
   }, [conversation?.guest?.email, conversation?.guest?.phone]);
   const guestStayCount = guestMemory?.conversationHistory.length ?? 0;
   const guestMemoryStorageKey = conversation?.id ? `guest-memory-collapsed:${conversation.id}` : null;
-  const [guestMemoryCollapsed, setGuestMemoryCollapsed] = useState(false);
+  const [guestMemoryCollapsed, setGuestMemoryCollapsed] = useState(true);
 
   const latestConversationIssue = useMemo(() => {
     const matching = issues.filter((issue) => issue.conversationId === conversationId);
@@ -316,7 +317,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
     return activeConversationIssue.notes.startsWith('Handoff:') ? activeConversationIssue.notes : null;
   }, [activeConversationIssue?.notes]);
   const issueTriageStorageKey = conversation?.id ? `issue-triage-collapsed:${conversation.id}` : null;
-  const [issueTriageCollapsed, setIssueTriageCollapsed] = useState(false);
+  const [issueTriageCollapsed, setIssueTriageCollapsed] = useState(true);
 
   const messages = conversation?.messages ?? [];
 
@@ -1222,9 +1223,24 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
   if (!conversation) {
     return (
-      <View style={chatStyles.emptyContainer}>
-        <Text style={chatStyles.emptyText}>Conversation not found</Text>
-      </View>
+      <SafeAreaView style={chatStyles.emptyContainer} edges={['top', 'bottom']}>
+        <AlertTriangle size={32} color={colors.text.muted} />
+        <Text style={chatStyles.emptyHeading}>Conversation unavailable</Text>
+        <Text style={chatStyles.emptySubtext}>
+          This conversation may have been removed or isn't synced yet.
+        </Text>
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Go back to inbox"
+          style={({ pressed }) => [
+            chatStyles.emptyAction,
+            { opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Text style={chatStyles.emptyActionText}>Go Back</Text>
+        </Pressable>
+      </SafeAreaView>
     );
   }
 
@@ -1247,29 +1263,6 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       />
 
       <SafeAreaView style={chatStyles.flex1} edges={['top']}>
-        {/* Escalation Alert */}
-        {showEscalationAlert && (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            style={chatStyles.escalationBanner}
-          >
-            <SafeAreaView edges={['top']}>
-              <View style={chatStyles.escalationRow}>
-                <View style={chatStyles.escalationContent}>
-                  <AlertTriangle size={20} color="#FFFFFF" />
-                  <View style={chatStyles.escalationTextWrap}>
-                    <Text style={chatStyles.escalationTitle}>Escalation Required</Text>
-                    <Text style={chatStyles.escalationSubtitle}>This message requires immediate attention</Text>
-                  </View>
-                </View>
-                <Pressable onPress={dismissEscalationAlert} accessibilityRole="button" accessibilityLabel="Dismiss escalation alert" style={{ padding: spacing['2'] }}>
-                  <Text style={chatStyles.escalationDismiss}>Dismiss</Text>
-                </Pressable>
-              </View>
-            </SafeAreaView>
-          </Animated.View>
-        )}
-
         {/* Learning Toast — contextual feedback per interaction type */}
         {editLearningSummary && (
           <Animated.View
@@ -1277,13 +1270,13 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             style={chatStyles.learnToast}
           >
             <View style={chatStyles.learnToastInner}>
-              <Brain size={18} color="#FFFFFF" />
+              <Brain size={18} color={colors.text.inverse} />
               <View style={chatStyles.learnToastText}>
                 <Text style={chatStyles.learnToastTitle}>
-                  {learningToastType === 'approval' && '✓ AI confidence reinforced'}
-                  {learningToastType === 'edit' && '✏️ AI learned from your edit'}
-                  {learningToastType === 'independent' && '🧠 AI learning your style'}
-                  {learningToastType === 'rejection' && '📝 AI noted your preference'}
+                  {learningToastType === 'approval' && 'Draft approved'}
+                  {learningToastType === 'edit' && 'Learned from your edit'}
+                  {learningToastType === 'independent' && 'Style recorded'}
+                  {learningToastType === 'rejection' && 'Preference noted'}
                 </Text>
                 <Text style={chatStyles.learnToastBody}>
                   {editLearningSummary}
@@ -1427,13 +1420,11 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             </Animated.View>
           )}
 
-          {/* Conversation Summary */}
-          <View style={{ marginTop: spacing['3'] }}>
+          {/* Conversation Summary — compact to save space */}
           <ConversationSummaryDisplay
             conversation={conversation}
-            variant="full"
+            variant="compact"
           />
-          </View>
         </Animated.View>
 
         {/* Messages */}
@@ -1492,8 +1483,30 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
                 );
               }}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingTop: spacing['2'], paddingBottom: spacing['4'] }}
-              inverted={true}
+              contentContainerStyle={displayMessages.length === 0
+                ? { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing['6'] }
+                : { paddingTop: spacing['2'], paddingBottom: spacing['4'] }
+              }
+              ListEmptyComponent={
+                searchQuery.trim() ? (
+                  <View style={chatStyles.emptyListContainer}>
+                    <Search size={28} color={colors.text.muted} />
+                    <Text style={chatStyles.emptyListHeading}>No matching messages</Text>
+                    <Text style={chatStyles.emptyListSubtext}>
+                      Try a different search term or clear the filter.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={chatStyles.emptyListContainer}>
+                    <MessageSquare size={28} color={colors.text.muted} />
+                    <Text style={chatStyles.emptyListHeading}>No messages yet</Text>
+                    <Text style={chatStyles.emptyListSubtext}>
+                      New guest messages will appear here. You can also type a message below to start the conversation.
+                    </Text>
+                  </View>
+                )
+              }
+              inverted={displayMessages.length > 0}
               initialNumToRender={20}
               onContentSizeChange={handleContentSizeChange}
               onLayout={handleListLayout}
@@ -1543,7 +1556,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 const chatStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
+    backgroundColor: colors.bg.subtle,
   },
   flex1: {
     flex: 1,
@@ -1560,10 +1573,54 @@ const chatStyles = StyleSheet.create({
     backgroundColor: colors.bg.base,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing['8'],
   },
-  emptyText: {
+  emptyHeading: {
     color: colors.text.primary,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 17,
+    marginTop: spacing['4'],
+    textAlign: 'center' as const,
+  },
+  emptySubtext: {
+    color: colors.text.muted,
     fontFamily: typography.fontFamily.regular,
+    fontSize: 14,
+    marginTop: spacing['2'],
+    textAlign: 'center' as const,
+    lineHeight: 20,
+  },
+  emptyAction: {
+    marginTop: spacing['6'],
+    paddingHorizontal: spacing['6'],
+    paddingVertical: spacing['3'],
+    backgroundColor: colors.primary.DEFAULT,
+    borderRadius: radius.md,
+  },
+  emptyActionText: {
+    color: colors.text.inverse,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 15,
+  },
+  emptyListContainer: {
+    alignItems: 'center' as const,
+    paddingVertical: spacing['8'],
+  },
+  emptyListHeading: {
+    color: colors.text.primary,
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 16,
+    marginTop: spacing['3'],
+    textAlign: 'center' as const,
+  },
+  emptyListSubtext: {
+    color: colors.text.muted,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: 14,
+    marginTop: spacing['1.5'],
+    textAlign: 'center' as const,
+    lineHeight: 20,
+    maxWidth: 280,
   },
   // Escalation banner
   escalationBanner: {
@@ -1591,7 +1648,7 @@ const chatStyles = StyleSheet.create({
     flex: 1,
   },
   escalationTitle: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontFamily: typography.fontFamily.semibold,
     fontSize: 14,
   },
@@ -1601,7 +1658,7 @@ const chatStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
   },
   escalationDismiss: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontFamily: typography.fontFamily.medium,
     fontSize: 14,
   },
@@ -1630,7 +1687,7 @@ const chatStyles = StyleSheet.create({
     flex: 1,
   },
   learnToastTitle: {
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     fontFamily: typography.fontFamily.semibold,
     fontSize: 13,
   },
@@ -1638,15 +1695,15 @@ const chatStyles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
     fontFamily: typography.fontFamily.regular,
-    marginTop: 2,
+    marginTop: spacing['0.5'],
   },
   // Header
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing['4'],
+    paddingVertical: spacing['3'],
+    backgroundColor: colors.bg.base,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border.DEFAULT,
   },
   headerInner: {
     flexDirection: 'row',
@@ -1658,7 +1715,7 @@ const chatStyles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
   },
   backButton: {
-    marginRight: 12,
+    marginRight: spacing['3'],
   },
   guestPressable: {
     flexDirection: 'row',
@@ -1715,7 +1772,7 @@ const chatStyles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary.DEFAULT,
-    marginRight: 6,
+    marginRight: spacing['1.5'],
   },
 
   // ── Date separators ──

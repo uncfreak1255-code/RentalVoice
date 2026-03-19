@@ -24,6 +24,9 @@ import {
   X,
   Search,
   MessageSquarePlus,
+  AlertTriangle,
+  RefreshCw,
+  Settings,
 } from 'lucide-react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import * as Haptics from 'expo-haptics';
@@ -184,6 +187,10 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [isSilentRefreshing, setIsSilentRefreshing] = useState(false);
   const [isBriefingCollapsed, setIsBriefingCollapsed] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(
+    !isDemoMode && (features.serverProxiedAI || Boolean(accountId && apiKey))
+  );
 
   const filteredConversations = useMemo(() => {
     let result = [...conversations];
@@ -517,6 +524,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       setConversations(newConversations);
       console.log(`[Refresh] Updated ${newConversations.length} conversations`);
       setLastSyncTime(new Date());
+      setLoadError(null);
 
       // Update badge count
       const totalUnread = newConversations.reduce((sum, c) => sum + c.unreadCount, 0);
@@ -558,6 +566,9 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       }
     } catch (error) {
       console.error('[Refresh] Error refreshing data:', error);
+      setLoadError(
+        error instanceof Error ? error.message : 'Could not load conversations. Check your connection.'
+      );
       if (!silent) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
@@ -565,6 +576,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
     setIsRefreshing(false);
     setIsSilentRefreshing(false);
+    setIsInitialLoading(false);
   }, [isDemoMode, accountId, apiKey, setProperties, setConversations, conversations, scheduledMessages, settings]);
 
   // Auto-refresh on mount (or load demo data)
@@ -768,7 +780,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         )}
         {isRefreshing && (
           <Text style={{ textAlign: 'center', fontSize: 11, color: colors.primary.DEFAULT, paddingVertical: 4 }}>
-            Syncing...
+            Loading conversations...
           </Text>
         )}
 
@@ -956,73 +968,167 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             <ScrollView
               contentContainerStyle={{ flex: 1 }}
               refreshControl={
-                <RefreshControl refreshing={isRefreshing} onRefresh={() => handleRefresh(false)} tintColor="#14B8A6" colors={['#14B8A6']} />
+                <RefreshControl refreshing={isRefreshing} onRefresh={() => handleRefresh(false)} tintColor={colors.primary.DEFAULT} colors={[colors.primary.DEFAULT]} />
               }
             >
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing['8'] }}>
-                {/* Filter-specific empty state icons */}
-                <View
-                  style={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    backgroundColor: activeFilter === 'unread' ? colors.primary.muted : colors.bg.elevated,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 20,
-                  }}
-                >
-                  {activeFilter === 'unread' ? (
-                    <CheckCircle2 size={36} color={colors.primary.DEFAULT} />
-                  ) : activeFilter === 'check_in' ? (
-                    <DoorOpen size={36} color={colors.primary.DEFAULT} />
-                  ) : activeFilter === 'check_out' ? (
-                    <LogOut size={36} color={colors.primary.DEFAULT} />
-                  ) : (
-                    <Inbox size={36} color={colors.text.muted} />
-                  )}
-                </View>
-                <Text style={{ fontSize: 20, fontFamily: typography.fontFamily.bold, color: colors.text.primary, textAlign: 'center' }}>
-                  {selectedPropertyId
-                    ? 'No conversations for this property'
-                    : activeFilter === 'unread'
-                    ? 'All caught up!'
-                    : activeFilter === 'check_in'
-                    ? 'No upcoming check-ins'
-                    : activeFilter === 'check_out'
-                    ? 'No upcoming check-outs'
-                    : 'No conversations'}
-                </Text>
-                <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.muted, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
-                  {selectedPropertyId
-                    ? 'Try selecting "All Properties" to see all conversations.'
-                    : activeFilter === 'unread'
-                    ? 'No unread messages to review.'
-                    : activeFilter === 'check_in'
-                    ? 'No guests arriving in the next 48 hours.'
-                    : activeFilter === 'check_out'
-                    ? 'No guests departing in the next 48 hours.'
-                    : 'Pull down to refresh your inbox.'}
-                </Text>
-                {selectedPropertyId && (
-                  <Pressable
-                    onPress={() => setSelectedProperty(null)}
-                    style={({ pressed }) => ({
-                      opacity: pressed ? 0.7 : 1,
-                      marginTop: 20,
-                      backgroundColor: colors.primary.DEFAULT,
-                      paddingHorizontal: 20,
-                      paddingVertical: 12,
-                      borderRadius: radius.md,
-                      shadowColor: colors.primary.DEFAULT,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 8,
-                      elevation: 4,
-                    })}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>View All Properties</Text>
-                  </Pressable>
+                {/* ── Initial loading state ── */}
+                {isInitialLoading && !loadError ? (
+                  <>
+                    <View
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 40,
+                        backgroundColor: colors.primary.muted,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: spacing['5'],
+                      }}
+                    >
+                      <RefreshCw size={36} color={colors.primary.DEFAULT} />
+                    </View>
+                    <Text style={{ ...typography.styles.h2, color: colors.text.primary, textAlign: 'center' }}>
+                      Loading conversations...
+                    </Text>
+                    <Text style={{ ...typography.styles.body, color: colors.text.muted, textAlign: 'center', marginTop: spacing['2'] }}>
+                      Fetching your latest guest messages from Hostaway.
+                    </Text>
+                  </>
+                ) : loadError ? (
+                  /* ── Error state ── */
+                  <>
+                    <View
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 40,
+                        backgroundColor: colors.danger.muted,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: spacing['5'],
+                      }}
+                    >
+                      <AlertTriangle size={36} color={colors.danger.DEFAULT} />
+                    </View>
+                    <Text style={{ ...typography.styles.h2, color: colors.text.primary, textAlign: 'center' }}>
+                      Something went wrong
+                    </Text>
+                    <Text style={{ ...typography.styles.body, color: colors.text.muted, textAlign: 'center', marginTop: spacing['2'] }}>
+                      {loadError}
+                    </Text>
+                    <Pressable
+                      onPress={() => handleRefresh(false)}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.7 : 1,
+                        marginTop: spacing['5'],
+                        backgroundColor: colors.primary.DEFAULT,
+                        paddingHorizontal: spacing['5'],
+                        paddingVertical: spacing['3'],
+                        borderRadius: radius.md,
+                      })}
+                    >
+                      <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>Retry</Text>
+                    </Pressable>
+                  </>
+                ) : !features.serverProxiedAI && !accountId && !apiKey && !isDemoMode ? (
+                  /* ── Not connected state ── */
+                  <>
+                    <View
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 40,
+                        backgroundColor: colors.bg.elevated,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: spacing['5'],
+                      }}
+                    >
+                      <Settings size={36} color={colors.text.muted} />
+                    </View>
+                    <Text style={{ ...typography.styles.h2, color: colors.text.primary, textAlign: 'center' }}>
+                      No conversations yet
+                    </Text>
+                    <Text style={{ ...typography.styles.body, color: colors.text.muted, textAlign: 'center', marginTop: spacing['2'] }}>
+                      Connect Hostaway to get started.
+                    </Text>
+                    <Pressable
+                      onPress={onOpenSettings}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.7 : 1,
+                        marginTop: spacing['5'],
+                        backgroundColor: colors.primary.DEFAULT,
+                        paddingHorizontal: spacing['5'],
+                        paddingVertical: spacing['3'],
+                        borderRadius: radius.md,
+                      })}
+                    >
+                      <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>Go to Settings</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  /* ── Filter-specific empty states ── */
+                  <>
+                    <View
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 40,
+                        backgroundColor: activeFilter === 'unread' ? colors.primary.muted : colors.bg.elevated,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: spacing['5'],
+                      }}
+                    >
+                      {activeFilter === 'unread' ? (
+                        <CheckCircle2 size={36} color={colors.primary.DEFAULT} />
+                      ) : activeFilter === 'check_in' ? (
+                        <DoorOpen size={36} color={colors.primary.DEFAULT} />
+                      ) : activeFilter === 'check_out' ? (
+                        <LogOut size={36} color={colors.primary.DEFAULT} />
+                      ) : (
+                        <Inbox size={36} color={colors.text.muted} />
+                      )}
+                    </View>
+                    <Text style={{ ...typography.styles.h2, color: colors.text.primary, textAlign: 'center' }}>
+                      {selectedPropertyId
+                        ? 'No conversations for this property'
+                        : activeFilter === 'unread'
+                        ? 'All caught up!'
+                        : activeFilter === 'check_in'
+                        ? 'No upcoming check-ins'
+                        : activeFilter === 'check_out'
+                        ? 'No upcoming check-outs'
+                        : 'No conversations yet'}
+                    </Text>
+                    <Text style={{ ...typography.styles.body, color: colors.text.muted, textAlign: 'center', marginTop: spacing['2'] }}>
+                      {selectedPropertyId
+                        ? 'Try selecting "All Properties" to see all conversations.'
+                        : activeFilter === 'unread'
+                        ? 'No unread messages to review.'
+                        : activeFilter === 'check_in'
+                        ? 'No guests arriving in the next 48 hours.'
+                        : activeFilter === 'check_out'
+                        ? 'No guests departing in the next 48 hours.'
+                        : 'Pull down to refresh, or new messages will appear automatically.'}
+                    </Text>
+                    {selectedPropertyId && (
+                      <Pressable
+                        onPress={() => setSelectedProperty(null)}
+                        style={({ pressed }) => ({
+                          opacity: pressed ? 0.7 : 1,
+                          marginTop: spacing['5'],
+                          backgroundColor: colors.primary.DEFAULT,
+                          paddingHorizontal: spacing['5'],
+                          paddingVertical: spacing['3'],
+                          borderRadius: radius.md,
+                        })}
+                      >
+                        <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>View All Properties</Text>
+                      </Pressable>
+                    )}
+                  </>
                 )}
               </View>
             </ScrollView>
