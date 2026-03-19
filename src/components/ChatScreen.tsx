@@ -303,7 +303,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
   }, [conversation?.guest?.email, conversation?.guest?.phone]);
   const guestStayCount = guestMemory?.conversationHistory.length ?? 0;
   const guestMemoryStorageKey = conversation?.id ? `guest-memory-collapsed:${conversation.id}` : null;
-  const [guestMemoryCollapsed, setGuestMemoryCollapsed] = useState(false);
+  const [guestMemoryCollapsed, setGuestMemoryCollapsed] = useState(true);
 
   const latestConversationIssue = useMemo(() => {
     const matching = issues.filter((issue) => issue.conversationId === conversationId);
@@ -316,7 +316,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
     return activeConversationIssue.notes.startsWith('Handoff:') ? activeConversationIssue.notes : null;
   }, [activeConversationIssue?.notes]);
   const issueTriageStorageKey = conversation?.id ? `issue-triage-collapsed:${conversation.id}` : null;
-  const [issueTriageCollapsed, setIssueTriageCollapsed] = useState(false);
+  const [issueTriageCollapsed, setIssueTriageCollapsed] = useState(true);
 
   const messages = conversation?.messages ?? [];
 
@@ -1247,29 +1247,6 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       />
 
       <SafeAreaView style={chatStyles.flex1} edges={['top']}>
-        {/* Escalation Alert */}
-        {showEscalationAlert && (
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            style={chatStyles.escalationBanner}
-          >
-            <SafeAreaView edges={['top']}>
-              <View style={chatStyles.escalationRow}>
-                <View style={chatStyles.escalationContent}>
-                  <AlertTriangle size={20} color={colors.text.inverse} />
-                  <View style={chatStyles.escalationTextWrap}>
-                    <Text style={chatStyles.escalationTitle}>Escalation Required</Text>
-                    <Text style={chatStyles.escalationSubtitle}>This message requires immediate attention</Text>
-                  </View>
-                </View>
-                <Pressable onPress={dismissEscalationAlert} accessibilityRole="button" accessibilityLabel="Dismiss escalation alert" style={{ padding: spacing['2'] }}>
-                  <Text style={chatStyles.escalationDismiss}>Dismiss</Text>
-                </Pressable>
-              </View>
-            </SafeAreaView>
-          </Animated.View>
-        )}
-
         {/* Learning Toast — contextual feedback per interaction type */}
         {editLearningSummary && (
           <Animated.View
@@ -1427,13 +1404,11 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
             </Animated.View>
           )}
 
-          {/* Conversation Summary */}
-          <View style={{ marginTop: spacing['3'] }}>
+          {/* Conversation Summary — compact to save space */}
           <ConversationSummaryDisplay
             conversation={conversation}
-            variant="full"
+            variant="compact"
           />
-          </View>
         </Animated.View>
 
         {/* Messages */}
