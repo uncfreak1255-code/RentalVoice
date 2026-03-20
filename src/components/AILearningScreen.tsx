@@ -1055,13 +1055,15 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
               <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 9999, overflow: 'hidden' }}>
                 <View
-                  style={{ backgroundColor: '#14B8A6', borderRadius: 9999, height: '100%', width: `${Math.max(0, Math.min(learningImportSummary.progressPercent, 100))}%` }}
+                  style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${Math.max(0, Math.min(learningImportSummary.progressPercent, 100))}%` }}
                 />
               </View>
               <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 8 }}>{learningImportSummary.detailLabel}</Text>
-              <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 4 }}>
-                {learningImportSummary.hostMessagesAnalyzed.toLocaleString()} host replies analyzed • {learningImportSummary.patternsIndexed.toLocaleString()} reusable patterns indexed
-              </Text>
+              {(learningImportSummary.hostMessagesAnalyzed > 0 || learningImportSummary.patternsIndexed > 0) && (
+                <Text style={{ color: colors.text.disabled, fontSize: 12, marginTop: 4 }}>
+                  {learningImportSummary.hostMessagesAnalyzed.toLocaleString()} replies analyzed · {learningImportSummary.patternsIndexed.toLocaleString()} patterns learned
+                </Text>
+              )}
             </View>
 
             <Pressable
@@ -1524,19 +1526,24 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                         </View>
                         <Text style={{ color: '#64748B', fontSize: 11, marginLeft: 8 }}>Formal</Text>
                       </View>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 }}>
-                        {[20, 40, 60, 80].map((val) => (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing['2'] }}>
+                        {([
+                          { val: 20, label: 'Casual' },
+                          { val: 40, label: 'Relaxed' },
+                          { val: 60, label: 'Balanced' },
+                          { val: 80, label: 'Formal' },
+                        ] as const).map(({ val, label }) => (
                           <Pressable
                             key={val}
                             onPress={() => updateHostStyleProfile('global', { formalityLevel: val })}
                             style={({ pressed }) => ({
-                              paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8,
-                              backgroundColor: Math.abs(globalProfile.formalityLevel - val) < 15 ? '#A855F720' : 'transparent',
+                              paddingHorizontal: spacing['3'], paddingVertical: spacing['1.5'], borderRadius: radius.md,
+                              backgroundColor: Math.abs(globalProfile.formalityLevel - val) < 15 ? colors.primary.muted : 'transparent',
                               opacity: pressed ? 0.7 : 1,
                             })}
                           >
-                            <Text style={{ color: Math.abs(globalProfile.formalityLevel - val) < 15 ? '#A855F7' : '#64748B', fontSize: 11 }}>
-                              {val === 20 ? '😎' : val === 40 ? '🙂' : val === 60 ? '🤝' : '👔'}
+                            <Text style={{ color: Math.abs(globalProfile.formalityLevel - val) < 15 ? colors.primary.DEFAULT : colors.text.muted, fontSize: 12, fontFamily: typography.fontFamily.medium }}>
+                              {label}
                             </Text>
                           </Pressable>
                         ))}
@@ -1605,7 +1612,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                         <Text style={{ color: colors.text.muted, fontSize: 13 }}>Response Length</Text>
                         <Text style={{ color: colors.text.primary, fontSize: 13, fontFamily: typography.fontFamily.medium }}>
-                          ~{Math.round(globalProfile.averageResponseLength)} words
+                          {globalProfile.averageResponseLength > 0 ? `~${Math.round(globalProfile.averageResponseLength)} words` : 'Not set'}
                         </Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>

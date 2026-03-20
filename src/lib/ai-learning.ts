@@ -619,7 +619,10 @@ export function buildLearningImportSummary({
     if (historySyncStatus.syncPhase === 'conversations') {
       statusLabel = 'Fetching conversations';
     } else if (historySyncStatus.syncPhase === 'messages') {
-      statusLabel = `Fetching messages for conversation ${historySyncStatus.processedConversations} of ${conversationsDiscovered || '?'}`;
+      const total = conversationsDiscovered || 0;
+      const done = historySyncStatus.processedConversations || 0;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      statusLabel = total > 0 ? `Reading your messages (${pct}%)` : 'Reading your messages';
     } else if (historySyncStatus.syncPhase === 'analyzing') {
       statusLabel = 'Analyzing patterns from your history';
     }
@@ -629,12 +632,17 @@ export function buildLearningImportSummary({
     statusLabel = 'Learning ready';
   }
 
-  let detailLabel = 'No history imported yet';
+  let detailLabel = 'Import your message history to get started';
   if (historySyncStatus.isSyncing || isImported) {
-    detailLabel = `${historySyncStatus.processedMessages || historySyncStatus.totalMessagesSynced} messages fetched`;
+    const msgCount = historySyncStatus.processedMessages || historySyncStatus.totalMessagesSynced;
+    detailLabel = msgCount > 0 ? `${msgCount.toLocaleString()} messages imported` : 'Starting import...';
   }
   if (isTrainingReady && !historySyncStatus.isSyncing) {
-    detailLabel = `${hostMessagesAnalyzed} host messages analyzed • ${patternsIndexed} patterns indexed`;
+    if (hostMessagesAnalyzed > 0) {
+      detailLabel = `Learned from ${hostMessagesAnalyzed.toLocaleString()} of your replies`;
+    } else {
+      detailLabel = 'Import complete — training will begin shortly';
+    }
   }
 
   return {
