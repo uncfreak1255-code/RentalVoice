@@ -46,3 +46,9 @@ Then use this order:
   - `/Users/sawbeck/Projects/RentalVoice/.agents/workflows/release.md`
 - session recovery / continuation workflow:
   - `/Users/sawbeck/Projects/RentalVoice/.agents/workflows/session-handoff.md`
+
+## Workflow-layer rule
+
+- In this repo, `.agents/workflows/` is the workflow-agent layer.
+- Do not create a second conflicting workflow system under `.claude/agents/` unless there is a deliberate migration plan.
+- Keep `docs/status/` and `docs/runbooks/` as the canonical durable state for future sessions.
