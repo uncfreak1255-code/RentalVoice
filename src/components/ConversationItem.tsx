@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet } from 'react-native';
 import type { Conversation } from '@/lib/store';
 import { guestMemoryManager } from '@/lib/advanced-training';
 import { PremiumPressable } from '@/components/ui/PremiumPressable';
-import { typography } from '@/lib/design-tokens';
+import { colors, spacing, typography } from '@/lib/design-tokens';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -86,10 +86,10 @@ function getAvatarColor(name: string): string {
 
 // Platform badge config — colors match each channel's brand
 const PLATFORM_BADGES: Record<string, { bg: string; label: string }> = {
-  airbnb:  { bg: '#FF5A5F', label: 'A' },
-  vrbo:    { bg: '#3B5998', label: 'V' },
-  booking: { bg: '#003580', label: 'B' },
-  direct:  { bg: '#34C759', label: 'D' },
+  airbnb:  { bg: colors.platform.airbnb, label: 'A' },
+  vrbo:    { bg: colors.platform.vrbo, label: 'V' },
+  booking: { bg: colors.platform.booking, label: 'B' },
+  direct:  { bg: colors.status.online, label: 'D' },
 };
 
 // Determine inline intent tags shown next to the guest name
@@ -98,7 +98,7 @@ function getInlineTags(conversation: Conversation) {
 
   // Inquiry pill — shown for pre-booking conversations (no reservation yet)
   if (conversation.isInquiry) {
-    tags.push({ id: 'inquiry', label: 'Inquiry', bg: '#D1FAE5', color: '#059669' });
+    tags.push({ id: 'inquiry', label: 'Inquiry', bg: colors.success.muted, color: colors.success.DEFAULT });
   }
 
   return tags;
@@ -243,19 +243,19 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing['4'],
+    paddingVertical: spacing['4'],
+    backgroundColor: colors.bg.base,
   },
-  selected: { backgroundColor: '#F8FAFB' },
-  unreadRow: { backgroundColor: '#F5F5F5' },
-  pressed: { backgroundColor: '#F5F7F8' },
+  selected: { backgroundColor: colors.bg.subtle },
+  unreadRow: { backgroundColor: colors.bg.subtle },
+  pressed: { backgroundColor: colors.bg.hover },
 
   // ── Avatar ──
   avatarContainer: {
     width: 38,
     height: 38,
-    marginRight: 12,
+    marginRight: spacing['3'],
     marginTop: 2,
   },
   avatar: {
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 13,
     fontFamily: typography.fontFamily.bold,
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     letterSpacing: 0.5,
   },
 
@@ -291,36 +291,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing['2'],
   },
   guestName: {
     fontSize: 17,
     fontFamily: typography.fontFamily.semibold,
-    color: '#000000',
+    color: colors.text.primary,
     flexShrink: 1,
   },
   guestNameUnread: {
     fontFamily: typography.fontFamily.bold,
   },
   inlineTag: {
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing['1.5'],
     paddingVertical: 1,
     borderRadius: 4,
-    marginLeft: 6,
+    marginLeft: spacing['1.5'],
   },
   returningTag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing['2'],
     paddingVertical: 2,
     borderRadius: 999,
-    marginLeft: 6,
-    backgroundColor: '#EEF9F6',
+    marginLeft: spacing['1.5'],
+    backgroundColor: colors.success.muted,
     borderWidth: 1,
-    borderColor: '#D8F1EA',
+    borderColor: colors.success.muted,
   },
   returningTagText: {
     fontSize: 10.5,
     fontFamily: typography.fontFamily.medium,
-    color: '#0F766E',
+    color: colors.success.DEFAULT,
   },
   inlineTagText: {
     fontSize: 12,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 13,
     fontFamily: typography.fontFamily.regular,
-    color: '#8E8E93',
+    color: colors.text.muted,
     flexShrink: 0,
   },
 
@@ -340,21 +340,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
+    width: spacing['2'],
+    height: spacing['2'],
     borderRadius: 4,
-    backgroundColor: '#FF3B30',
-    marginRight: 4,
+    backgroundColor: colors.danger.DEFAULT,
+    marginRight: spacing['1'],
     flexShrink: 0,
   },
   messagePreview: {
     fontSize: 15,
     fontFamily: typography.fontFamily.regular,
-    color: '#8E8E93',
+    color: colors.text.muted,
     flex: 1,
   },
   messagePreviewUnread: {
-    color: '#000000',
+    color: colors.text.primary,
     fontFamily: typography.fontFamily.medium,
   },
 
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   propertyInfo: {
     fontSize: 13,
     fontFamily: typography.fontFamily.regular,
-    color: '#8E8E93',
+    color: colors.text.muted,
   },
   channelBadge: {
     position: 'absolute' as const,
@@ -374,12 +374,12 @@ const styles = StyleSheet.create({
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: colors.bg.base,
   },
   channelBadgeText: {
     fontSize: 8,
     fontFamily: typography.fontFamily.bold,
-    color: '#FFFFFF',
+    color: colors.text.inverse,
     letterSpacing: 0,
   },
 });
