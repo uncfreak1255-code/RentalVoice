@@ -1844,8 +1844,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             );
           })()}
 
-          {/* Historical Data Fetch Section */}
-          <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+          {/* Historical Data Fetch Section — Advanced only (Learning Status card covers basic progress) */}
+          {showAdvanced && <Animated.View entering={FadeInDown.delay(250).duration(400)}>
             <SectionHeader title="Historical Importer" />
             <View style={s.card}>
               
@@ -1969,7 +1969,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               )}
             </View>
             <SectionFooter text="Only anonymized patterns are stored. No personal data is saved remotely." />
-          </Animated.View>
+          </Animated.View>}
 
           {/* Background Sync Section — Advanced only */}
           {showAdvanced && <Animated.View entering={FadeInDown.delay(275).duration(400)} style={{ marginBottom: 24 }}>
