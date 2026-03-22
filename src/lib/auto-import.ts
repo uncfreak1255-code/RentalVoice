@@ -42,12 +42,16 @@ export async function startAutoImportAfterConnect(
       const store = useAppStore.getState();
       const existingProfile = store.hostStyleProfiles['global'];
 
+      const totalMessages = Object.values(messagesByConversation as Record<number, HostawayMessage[]>)
+        .reduce((sum, msgs) => sum + msgs.length, 0);
+      console.log(`[AutoImport] Total messages across all conversations: ${totalMessages}`);
+
       aiTrainingService.autoTrainOnFetch(
         conversations as HostawayConversation[],
         messagesByConversation as Record<number, HostawayMessage[]>,
         existingProfile
       ).then((result) => {
-        if (result.success) {
+        if (result.success && result.stats.hostMessagesAnalyzed > 0) {
           const store = useAppStore.getState();
           store.updateHostStyleProfile('global', result.styleProfile);
           store.updateAILearningProgress({
@@ -62,6 +66,8 @@ export async function startAutoImportAfterConnect(
             },
           });
           console.log(`[AutoImport] ✅ Auto-training complete: ${result.stats.hostMessagesAnalyzed} messages analyzed, ${result.stats.patternsIndexed} patterns indexed`);
+        } else {
+          console.warn(`[AutoImport] ⚠️ Training completed but produced no results. success=${result.success}, hostMessages=${result.stats.hostMessagesAnalyzed}, totalMessages=${totalMessages}`);
         }
       }).catch((error) => {
         console.error('[AutoImport] Auto-training failed:', error);

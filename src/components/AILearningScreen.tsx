@@ -1096,7 +1096,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
             </Pressable>
 
-            {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult) && !isTraining && !historySyncStatus.isSyncing && (
+            {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult || (learningImportSummary.isImported && learningImportSummary.hostMessagesAnalyzed === 0)) && !isTraining && !historySyncStatus.isSyncing && (
               <View>
                 <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
                   {trainingState?.hasCompletedInitialTraining
@@ -1120,17 +1120,17 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginTop: 12,
-                    paddingVertical: 8,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    marginTop: spacing['3'],
+                    paddingVertical: spacing['2'],
+                    paddingHorizontal: spacing['4'],
+                    borderRadius: radius.md,
+                    backgroundColor: colors.primary.muted,
                     alignSelf: 'center',
                   }}
                 >
-                  <RefreshCw size={14} color="#A855F7" />
-                  <Text style={{ color: '#A855F7', fontSize: 13, fontFamily: typography.fontFamily.semibold, marginLeft: 6 }}>
-                    Retrain on Full History
+                  <RefreshCw size={14} color={colors.primary.DEFAULT} />
+                  <Text style={{ color: colors.primary.DEFAULT, fontSize: 13, fontFamily: typography.fontFamily.semibold, marginLeft: spacing['1.5'] }}>
+                    {learningImportSummary.isImported && learningImportSummary.hostMessagesAnalyzed === 0 ? 'Train Now' : 'Retrain on Full History'}
                   </Text>
                 </Pressable>
               </View>
