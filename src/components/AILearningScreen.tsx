@@ -949,9 +949,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   }, [canStartHistoryImport, historySyncStatus.canResume, handleStartSync, learningImportSummary.isImported, recurringCoverage.recurringIntentCount]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2F2F7' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg.subtle }}>
       <LinearGradient
-        colors={['#F8F9FA', '#F8F9FA']}
+        colors={[colors.bg.subtle, colors.bg.subtle]}
         style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 150 }}
       />
 
@@ -992,11 +992,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
         {trainingState?.isAutoTraining && trainingState.isTraining && (
           <Animated.View
             entering={FadeIn.duration(200)}
-            style={{ marginBottom: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.border.DEFAULT, borderRadius: 12, padding: 12, marginHorizontal: 16 }}
+            style={{ marginBottom: 16, backgroundColor: colors.bg.base, borderWidth: 1, borderColor: colors.border.DEFAULT, borderRadius: 12, padding: 12, marginHorizontal: 16 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <Animated.View style={spinStyle}>
-                <RefreshCw size={16} color="#A855F7" />
+                <RefreshCw size={16} color={colors.primary.DEFAULT} />
               </Animated.View>
               <Text style={{ color: colors.primary.DEFAULT, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 8 }}>
                 Auto-training on your history...
@@ -1036,11 +1036,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           {/* Learning Status Card */}
           <Animated.View
             entering={FadeInDown.delay(100).duration(400)}
-            style={{ borderRadius: 12, padding: 16, marginBottom: 24, backgroundColor: '#FFFFFF' }}
+            style={{ borderRadius: 12, padding: 16, marginBottom: 24, backgroundColor: colors.bg.base }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <View style={{ width: 48, height: 48, borderRadius: 9999, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-                <Brain size={24} color="#A855F7" />
+              <View style={{ width: 48, height: 48, borderRadius: 9999, backgroundColor: colors.bg.base, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                <Brain size={24} color={colors.primary.DEFAULT} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 18 }}>Learning Status</Text>
@@ -1051,9 +1051,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
             <View style={{ backgroundColor: colors.bg.hover, borderRadius: 14, padding: 14, marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={{ color: colors.text.muted, fontSize: 13 }}>Import progress</Text>
-                <Text style={{ color: '#14B8A6', fontFamily: typography.fontFamily.semibold }}>{learningImportSummary.progressPercent}%</Text>
+                <Text style={{ color: colors.primary.DEFAULT, fontFamily: typography.fontFamily.semibold }}>{learningImportSummary.progressPercent}%</Text>
               </View>
-              <View style={{ height: 8, backgroundColor: '#E2E8F0', borderRadius: 9999, overflow: 'hidden' }}>
+              <View style={{ height: 8, backgroundColor: colors.border.DEFAULT, borderRadius: 9999, overflow: 'hidden' }}>
                 <View
                   style={{ backgroundColor: colors.primary.DEFAULT, borderRadius: 9999, height: '100%', width: `${Math.max(0, Math.min(learningImportSummary.progressPercent, 100))}%` }}
                 />
@@ -1073,7 +1073,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 borderRadius: 12,
                 paddingVertical: 12,
                 alignItems: 'center',
-                backgroundColor: !canStartHistoryImport || historySyncStatus.isSyncing ? '#E2E8F0' : colors.primary.DEFAULT,
+                backgroundColor: !canStartHistoryImport || historySyncStatus.isSyncing ? colors.border.DEFAULT : colors.primary.DEFAULT,
                 opacity: pressed ? 0.8 : 1,
               })}
             >
@@ -1081,7 +1081,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 {historySyncStatus.isSyncing ? (
                   <>
                     <Animated.View style={spinStyle}>
-                      <RefreshCw size={18} color="#A855F7" />
+                      <RefreshCw size={18} color={colors.primary.DEFAULT} />
                     </Animated.View>
                     <Text style={{ color: colors.primary.DEFAULT, fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>
                       {learningImportSummary.statusLabel}
@@ -1089,8 +1089,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   </>
                 ) : (
                   <>
-                    <Sparkles size={18} color="#FFFFFF" />
-                    <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>{learningPrimaryAction}</Text>
+                    <Sparkles size={18} color={colors.text.inverse} />
+                    <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>{learningPrimaryAction}</Text>
                   </>
                 )}
               </View>
@@ -1098,7 +1098,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
             {(trainingState?.hasCompletedInitialTraining || aiLearningProgress.lastTrainingResult || (learningImportSummary.isImported && learningImportSummary.hostMessagesAnalyzed === 0)) && !isTraining && !historySyncStatus.isSyncing && (
               <View>
-                <Text style={{ color: '#64748B', fontSize: 12, textAlign: 'center', marginTop: 12 }}>
+                <Text style={{ color: colors.text.muted, fontSize: 12, textAlign: 'center', marginTop: 12 }}>
                   {trainingState?.hasCompletedInitialTraining
                     ? getTrainingSummary(trainingState)
                     : aiLearningProgress.lastTrainingResult
@@ -1146,7 +1146,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ width: '50%', paddingRight: 8, marginBottom: 12 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <BarChart3 size={16} color="#14B8A6" />
+                    <BarChart3 size={16} color={colors.primary.DEFAULT} />
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Recurring Coverage</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontFamily: typography.fontFamily.bold }}>
@@ -1161,7 +1161,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ width: '50%', paddingLeft: 8, marginBottom: 12 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <TrendingUp size={16} color="#A855F7" />
+                    <TrendingUp size={16} color={colors.primary.DEFAULT} />
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Recurring Intents</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontFamily: typography.fontFamily.bold }}>
@@ -1174,7 +1174,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ width: '50%', paddingRight: 8 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <CheckCircle size={16} color="#22C55E" />
+                    <CheckCircle size={16} color={colors.success.DEFAULT} />
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Covered</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontFamily: typography.fontFamily.bold }}>
@@ -1186,7 +1186,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ width: '50%', paddingLeft: 8 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Edit3 size={16} color="#F59E0B" />
+                    <Edit3 size={16} color={colors.warning.DEFAULT} />
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Edits + Corrections</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontFamily: typography.fontFamily.bold }}>
@@ -1198,7 +1198,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ width: '50%', paddingRight: 8, marginTop: 12 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Sparkles size={16} color="#60A5FA" />
+                    <Sparkles size={16} color={colors.primary.DEFAULT} />
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Patterns Indexed</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontFamily: typography.fontFamily.bold }}>
@@ -1210,7 +1210,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               <View style={{ width: '50%', paddingLeft: 8, marginTop: 12 }}>
                 <View style={{ backgroundColor: colors.bg.hover, borderRadius: 12, padding: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <X size={16} color="#EF4444" />
+                    <X size={16} color={colors.danger.DEFAULT} />
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginLeft: 8 }}>Rejections Noted</Text>
                   </View>
                   <Text style={{ color: colors.text.primary, fontSize: 24, fontFamily: typography.fontFamily.bold }}>
@@ -1222,22 +1222,22 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           </Animated.View>}
 
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
               Top Repeated Guest Questions
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
               {recurringCoverage.rows.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                  <MessageSquare size={24} color="#475569" />
-                  <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                  <MessageSquare size={24} color={colors.text.secondary} />
+                  <Text style={{ color: colors.text.muted, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
                     Import and train on your history to measure which repeated guest questions the AI can already cover.
                   </Text>
                 </View>
               ) : (
                 <View style={{ gap: 10 }}>
                   {recurringCoverage.rows.slice(0, 5).map((row) => {
-                    const badgeColor = row.status === 'covered' ? '#16A34A' : row.status === 'weak' ? '#D97706' : '#DC2626';
-                    const badgeBg = row.status === 'covered' ? '#DCFCE7' : row.status === 'weak' ? '#FEF3C7' : '#FEE2E2';
+                    const badgeColor = row.status === 'covered' ? colors.success.DEFAULT : row.status === 'weak' ? colors.warning.DEFAULT : colors.danger.DEFAULT;
+                    const badgeBg = row.status === 'covered' ? colors.success.muted : row.status === 'weak' ? colors.warning.muted : colors.danger.muted;
                     return (
                       <View key={row.intent} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg.hover, borderRadius: 12, padding: 12 }}>
                         <View style={{ flex: 1, paddingRight: 12 }}>
@@ -1263,7 +1263,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
           {/* ── TIER 2: Accuracy Dashboard ── */}
           <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
               Accuracy Trend
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
@@ -1272,8 +1272,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 if (outcomes.length === 0) {
                   return (
                     <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                      <TrendingUp size={24} color="#475569" />
-                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                      <TrendingUp size={24} color={colors.text.secondary} />
+                      <Text style={{ color: colors.text.muted, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
                         Start approving or editing AI drafts to track accuracy over time
                       </Text>
                     </View>
@@ -1341,13 +1341,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     {hasEnoughData && (
                       <View style={{ flexDirection: 'row', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 16 }}>
                         {totalApproved > 0 && (
-                          <View style={{ flex: totalApproved, backgroundColor: '#22C55E' }} />
+                          <View style={{ flex: totalApproved, backgroundColor: colors.success.DEFAULT }} />
                         )}
                         {totalEdited > 0 && (
-                          <View style={{ flex: totalEdited, backgroundColor: '#F59E0B' }} />
+                          <View style={{ flex: totalEdited, backgroundColor: colors.warning.DEFAULT }} />
                         )}
                         {totalRejected > 0 && (
-                          <View style={{ flex: totalRejected, backgroundColor: '#EF4444' }} />
+                          <View style={{ flex: totalRejected, backgroundColor: colors.danger.DEFAULT }} />
                         )}
                       </View>
                     )}
@@ -1357,14 +1357,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       {weeks.map((week, i) => {
                         const rate = week.total > 0 ? (week.approved / week.total) : 0;
                         const barHeight = Math.max(8, rate * 50);
-                        const color = rate >= 0.7 ? '#22C55E' : rate >= 0.4 ? '#F59E0B' : '#EF4444';
+                        const color = rate >= 0.7 ? colors.success.DEFAULT : rate >= 0.4 ? colors.warning.DEFAULT : colors.danger.DEFAULT;
                         return (
                           <View key={i.toString()} style={{ alignItems: 'center', flex: 1 }}>
                             <Text style={{ color: colors.text.muted, fontSize: 10, marginBottom: 4 }}>
                               {week.total > 0 ? `${Math.round(rate * 100)}%` : '—'}
                             </Text>
-                            <View style={{ width: 24, height: barHeight, backgroundColor: week.total > 0 ? color : '#E2E8F0', borderRadius: 4 }} />
-                            <Text style={{ color: '#64748B', fontSize: 10, marginTop: 4 }}>{week.label}</Text>
+                            <View style={{ width: 24, height: barHeight, backgroundColor: week.total > 0 ? color : colors.border.DEFAULT, borderRadius: 4 }} />
+                            <Text style={{ color: colors.text.muted, fontSize: 10, marginTop: 4 }}>{week.label}</Text>
                           </View>
                         );
                       })}
@@ -1377,7 +1377,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
           {/* ── TIER 2: What I Learned Summary ── */}
           <Animated.View entering={FadeInDown.delay(350).duration(400)} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
               What I Learned
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
@@ -1387,12 +1387,12 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     return (
                       <View style={{ gap: 12 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Brain size={24} color="#475569" />
+                          <Brain size={24} color={colors.text.secondary} />
                           <Text style={{ color: colors.text.primary, fontSize: 14, fontFamily: typography.fontFamily.semibold, marginLeft: 10 }}>
                             History imported. Learning signals are ready.
                           </Text>
                         </View>
-                        <Text style={{ color: '#64748B', fontSize: 13, lineHeight: 20 }}>
+                        <Text style={{ color: colors.text.muted, fontSize: 13, lineHeight: 20 }}>
                           The app has already indexed your host replies and repeated guest questions. The visible style profile cards are still catching up.
                         </Text>
                         <View style={{ gap: 8 }}>
@@ -1412,8 +1412,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                   return (
                     <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                      <Brain size={24} color="#475569" />
-                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                      <Brain size={24} color={colors.text.secondary} />
+                      <Text style={{ color: colors.text.muted, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
                         {learningImportSummary.isImported
                           ? 'Import finished. The app is still converting your history into a visible style profile.'
                           : 'Import your message history to see what the AI learned about your style'}
@@ -1431,7 +1431,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     {/* Greeting */}
                     {globalProfile.commonGreetings.length > 0 && (
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Hand size={15} color="#22C55E" style={{ marginRight: 8 }} />
+                        <Hand size={15} color={colors.success.DEFAULT} style={{ marginRight: 8 }} />
                         <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                           Typical greeting: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>"{globalProfile.commonGreetings[0]}"</Text>
                         </Text>
@@ -1448,7 +1448,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                     {/* Length */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <AlignLeft size={15} color="#14B8A6" style={{ marginRight: 8 }} />
+                      <AlignLeft size={15} color={colors.primary.DEFAULT} style={{ marginRight: 8 }} />
                       <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                         Response length: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>{lengthLabel} (~{Math.round(globalProfile.averageResponseLength)} words)</Text>
                       </Text>
@@ -1465,7 +1465,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     {/* Sign-off */}
                     {globalProfile.commonSignoffs.length > 0 && (
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <PenLine size={15} color="#60A5FA" style={{ marginRight: 8 }} />
+                        <PenLine size={15} color={colors.primary.DEFAULT} style={{ marginRight: 8 }} />
                         <Text style={{ color: colors.text.muted, fontSize: 13, flex: 1 }}>
                           Sign-off: <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>"{globalProfile.commonSignoffs[0]}"</Text>
                         </Text>
@@ -1473,7 +1473,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     )}
 
                     {/* Samples analyzed */}
-                    <Text style={{ color: '#475569', fontSize: 11, marginTop: 4, textAlign: 'right' }}>
+                    <Text style={{ color: colors.text.secondary, fontSize: 11, marginTop: 4, textAlign: 'right' }}>
                       Based on {globalProfile.samplesAnalyzed} messages analyzed
                     </Text>
                   </View>
@@ -1484,7 +1484,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
           {/* ── TIER 2: Style Profile Editor ── */}
           <Animated.View entering={FadeInDown.delay(400).duration(400)} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
               Style Preferences
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
@@ -1492,8 +1492,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 if (!globalProfile) {
                   return (
                     <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-                      <Sliders size={24} color="#475569" />
-                      <Text style={{ color: '#64748B', fontSize: 13, marginTop: 8, textAlign: 'center' }}>
+                      <Sliders size={24} color={colors.text.secondary} />
+                      <Text style={{ color: colors.text.muted, fontSize: 13, marginTop: 8, textAlign: 'center' }}>
                         {profileSyncPending
                           ? 'Training finished, but the editable style profile has not hydrated yet.'
                           : learningImportSummary.isImported
@@ -1520,11 +1520,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                         </Text>
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ color: '#64748B', fontSize: 11, marginRight: 8 }}>Casual</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 11, marginRight: 8 }}>Casual</Text>
                         <View style={{ flex: 1, height: 6, backgroundColor: colors.bg.elevated, borderRadius: 3, overflow: 'hidden' }}>
                           <View style={{ width: `${globalProfile.formalityLevel}%`, height: '100%', backgroundColor: colors.primary.DEFAULT, borderRadius: 3 }} />
                         </View>
-                        <Text style={{ color: '#64748B', fontSize: 11, marginLeft: 8 }}>Formal</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 11, marginLeft: 8 }}>Formal</Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing['2'] }}>
                         {([
@@ -1559,11 +1559,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                         </Text>
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ color: '#64748B', fontSize: 11, marginRight: 8 }}>Direct</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 11, marginRight: 8 }}>Direct</Text>
                         <View style={{ flex: 1, height: 6, backgroundColor: colors.bg.elevated, borderRadius: 3, overflow: 'hidden' }}>
                           <View style={{ width: `${globalProfile.warmthLevel}%`, height: '100%', backgroundColor: colors.warning.DEFAULT, borderRadius: 3 }} />
                         </View>
-                        <Text style={{ color: '#64748B', fontSize: 11, marginLeft: 8 }}>Warm</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 11, marginLeft: 8 }}>Warm</Text>
                       </View>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 8 }}>
                         {[20, 40, 60, 80].map((val) => (
@@ -1572,11 +1572,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                             onPress={() => updateHostStyleProfile('global', { warmthLevel: val })}
                             style={({ pressed }) => ({
                               paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8,
-                              backgroundColor: Math.abs(globalProfile.warmthLevel - val) < 15 ? '#F59E0B20' : 'transparent',
+                              backgroundColor: Math.abs(globalProfile.warmthLevel - val) < 15 ? colors.warning.muted : 'transparent',
                               opacity: pressed ? 0.7 : 1,
                             })}
                           >
-                            <Text style={{ color: Math.abs(globalProfile.warmthLevel - val) < 15 ? '#F59E0B' : '#64748B', fontSize: 11, fontFamily: typography.fontFamily.medium }}>
+                            <Text style={{ color: Math.abs(globalProfile.warmthLevel - val) < 15 ? colors.warning.DEFAULT : colors.text.muted, fontSize: 11, fontFamily: typography.fontFamily.medium }}>
                               {val === 20 ? 'Direct' : val === 40 ? 'Neutral' : val === 60 ? 'Friendly' : 'Warm'}
                             </Text>
                           </Pressable>
@@ -1588,20 +1588,20 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <View>
                         <Text style={{ color: colors.text.muted, fontSize: 13 }}>Use Emojis</Text>
-                        <Text style={{ color: '#64748B', fontSize: 11 }}>Include emojis in AI responses</Text>
+                        <Text style={{ color: colors.text.muted, fontSize: 11 }}>Include emojis in AI responses</Text>
                       </View>
                       <Pressable
                         onPress={() => updateHostStyleProfile('global', { usesEmojis: !globalProfile.usesEmojis })}
                         style={{
                           width: 48, height: 28, borderRadius: 14,
-                          backgroundColor: globalProfile.usesEmojis ? '#22C55E' : '#CBD5E1',
+                          backgroundColor: globalProfile.usesEmojis ? colors.success.DEFAULT : colors.border.strong,
                           justifyContent: 'center',
                           paddingHorizontal: 2,
                         }}
                       >
                         <View style={{
                           width: 24, height: 24, borderRadius: 12,
-                          backgroundColor: '#FFFFFF',
+                          backgroundColor: colors.bg.base,
                           alignSelf: globalProfile.usesEmojis ? 'flex-end' : 'flex-start',
                         }} />
                       </Pressable>
@@ -1628,12 +1628,12 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                               onPress={() => updateHostStyleProfile('global', { averageResponseLength: opt.value })}
                               style={({ pressed }) => ({
                                 paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
-                                backgroundColor: isActive ? '#14B8A620' : '#F1F5F9',
+                                backgroundColor: isActive ? colors.primary.soft : colors.bg.hover,
                                 opacity: pressed ? 0.7 : 1, alignItems: 'center',
                               })}
                             >
-                              <opt.Icon size={18} color={isActive ? '#14B8A6' : '#64748B'} style={{ marginBottom: 2 }} />
-                              <Text style={{ color: isActive ? '#14B8A6' : '#64748B', fontSize: 11, fontFamily: typography.fontFamily.medium }}>
+                              <opt.Icon size={18} color={isActive ? colors.primary.DEFAULT : colors.text.muted} style={{ marginBottom: 2 }} />
+                              <Text style={{ color: isActive ? colors.primary.DEFAULT : colors.text.muted, fontSize: 11, fontFamily: typography.fontFamily.medium }}>
                                 {opt.label}
                               </Text>
                             </Pressable>
@@ -1650,7 +1650,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
           {/* ── TIER 2: Per-Property Style Comparison — Advanced only ── */}
           {showAdvanced && Object.keys(hostStyleProfiles).filter((k) => k !== 'global').length > 0 && (
             <Animated.View entering={FadeInDown.delay(450).duration(400)} style={{ marginBottom: 24 }}>
-              <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+              <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
                 Per-Property Styles
               </Text>
               <View style={{ gap: 8 }}>
@@ -1674,7 +1674,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                         <Text style={{ color: colors.text.muted, fontSize: 12 }}>
                           {fLabel} • {wLabel} • {p.usesEmojis ? 'Uses emojis' : 'No emojis'} • ~{Math.round(p.averageResponseLength)} words
                         </Text>
-                        <Text style={{ color: '#475569', fontSize: 11, marginTop: 4 }}>
+                        <Text style={{ color: colors.text.secondary, fontSize: 11, marginTop: 4 }}>
                           {p.samplesAnalyzed} samples analyzed
                         </Text>
                       </View>
@@ -1686,11 +1686,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
           {/* ── TIER 3: Confidence Calibration Dashboard — Advanced only ── */}
           {showAdvanced && calSummary && (() => {
-            const gaugeColor = calSummary.calibrationScore >= 70 ? '#10B981'
-              : calSummary.calibrationScore >= 40 ? '#F59E0B' : '#EF4444';
+            const gaugeColor = calSummary.calibrationScore >= 70 ? colors.success.DEFAULT
+              : calSummary.calibrationScore >= 40 ? colors.warning.DEFAULT : colors.danger.DEFAULT;
             return (
               <Animated.View entering={FadeInDown.delay(500).duration(400)} style={{ marginBottom: 24 }}>
-                <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+                <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
                   Confidence Calibration
                 </Text>
                 <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
@@ -1705,7 +1705,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {/* Breakdown Row */}
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                     <View style={{ flex: 1, backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
-                      <Text style={{ color: '#10B981', fontSize: 18, fontFamily: typography.fontFamily.bold }}>{calSummary.calibratedCount}</Text>
+                      <Text style={{ color: colors.success.DEFAULT, fontSize: 18, fontFamily: typography.fontFamily.bold }}>{calSummary.calibratedCount}</Text>
                       <Text style={{ color: colors.text.muted, fontSize: 10 }}>Calibrated</Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: 'rgba(245,158,11,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
@@ -1713,7 +1713,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       <Text style={{ color: colors.text.muted, fontSize: 10 }}>Overconfident</Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: 'rgba(99,102,241,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
-                      <Text style={{ color: '#6366F1', fontSize: 18, fontFamily: typography.fontFamily.bold }}>{calSummary.underconfidentCount}</Text>
+                      <Text style={{ color: colors.primary.DEFAULT, fontSize: 18, fontFamily: typography.fontFamily.bold }}>{calSummary.underconfidentCount}</Text>
                       <Text style={{ color: colors.text.muted, fontSize: 10 }}>Underconfident</Text>
                     </View>
                   </View>
@@ -1721,7 +1721,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {/* Averages */}
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                     <Text style={{ color: colors.text.muted, fontSize: 12 }}>Avg confidence when approved:</Text>
-                    <Text style={{ color: '#10B981', fontSize: 12, fontFamily: typography.fontFamily.semibold }}>{calSummary.avgConfidenceWhenApproved}%</Text>
+                    <Text style={{ color: colors.success.DEFAULT, fontSize: 12, fontFamily: typography.fontFamily.semibold }}>{calSummary.avgConfidenceWhenApproved}%</Text>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                     <Text style={{ color: colors.text.muted, fontSize: 12 }}>Avg confidence when rejected:</Text>
@@ -1732,9 +1732,9 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {calSummary.confidenceAdjustment !== 0 && (
                     <View style={{ backgroundColor: 'rgba(99,102,241,0.1)', borderRadius: 10, padding: 10, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
                       {calSummary.confidenceAdjustment < 0
-                        ? <AlertTriangle size={14} color="#F59E0B" style={{ marginRight: 6 }} />
-                        : <Lightbulb size={14} color="#A5B4FC" style={{ marginRight: 6 }} />}
-                      <Text style={{ color: '#A5B4FC', fontSize: 12, flex: 1 }}>
+                        ? <AlertTriangle size={14} color={colors.warning.DEFAULT} style={{ marginRight: 6 }} />
+                        : <Lightbulb size={14} color={colors.primary.DEFAULT} style={{ marginRight: 6 }} />}
+                      <Text style={{ color: colors.primary.DEFAULT, fontSize: 12, flex: 1 }}>
                         {calSummary.confidenceAdjustment < 0
                           ? `AI is overconfident by ~${Math.abs(calSummary.confidenceAdjustment)}%. Adjusting threshold down.`
                           : `AI is underconfident by ~${calSummary.confidenceAdjustment}%. Could safely increase auto-pilot.`}
@@ -1745,10 +1745,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   {/* Problem Intents */}
                   {calSummary.problemIntents.length > 0 && (
                     <View style={{ marginTop: 10 }}>
-                      <Text style={{ color: '#64748B', fontSize: 11, fontFamily: typography.fontFamily.semibold, marginBottom: 6 }}>Problem Areas:</Text>
+                      <Text style={{ color: colors.text.muted, fontSize: 11, fontFamily: typography.fontFamily.semibold, marginBottom: 6 }}>Problem Areas:</Text>
                       {calSummary.problemIntents.slice(0, 3).map((pi, idx) => (
                         <View key={idx.toString()}>
-                          <Text style={{ color: pi.issue === 'overconfident' ? '#F59E0B' : '#6366F1', fontSize: 11, marginBottom: 2 }}>
+                          <Text style={{ color: pi.issue === 'overconfident' ? colors.warning.DEFAULT : colors.primary.DEFAULT, fontSize: 11, marginBottom: 2 }}>
                             • {pi.intent.replace(/_/g, ' ')}: {pi.issue} ({pi.count}x)
                           </Text>
                         </View>
@@ -1805,14 +1805,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
             return (
               <Animated.View entering={FadeInDown.delay(600).duration(400)} style={{ marginBottom: 24 }}>
-                <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+                <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
                   🔬 Deep Edit Analysis
                 </Text>
                 <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
                   {/* Summary Stats */}
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
                     <View style={{ flex: 1, backgroundColor: 'rgba(16,185,129,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
-                      <Text style={{ color: '#10B981', fontSize: 18, fontFamily: typography.fontFamily.bold }}>{totalAdded}</Text>
+                      <Text style={{ color: colors.success.DEFAULT, fontSize: 18, fontFamily: typography.fontFamily.bold }}>{totalAdded}</Text>
                       <Text style={{ color: colors.text.muted, fontSize: 10 }}>Info Added</Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: 'rgba(239,68,68,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
@@ -1820,20 +1820,20 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       <Text style={{ color: colors.text.muted, fontSize: 10 }}>Info Removed</Text>
                     </View>
                     <View style={{ flex: 1, backgroundColor: 'rgba(99,102,241,0.12)', borderRadius: 10, padding: 10, alignItems: 'center' }}>
-                      <Text style={{ color: '#6366F1', fontSize: 18, fontFamily: typography.fontFamily.bold }}>{hostMoreSpecific}</Text>
+                      <Text style={{ color: colors.primary.DEFAULT, fontSize: 18, fontFamily: typography.fontFamily.bold }}>{hostMoreSpecific}</Text>
                       <Text style={{ color: colors.text.muted, fontSize: 10 }}>Host Specific</Text>
                     </View>
                   </View>
 
                   {/* Recent Delta Log */}
-                  <Text style={{ color: '#64748B', fontSize: 11, fontFamily: typography.fontFamily.semibold, marginBottom: 6 }}>Recent Corrections:</Text>
+                  <Text style={{ color: colors.text.muted, fontSize: 11, fontFamily: typography.fontFamily.semibold, marginBottom: 6 }}>Recent Corrections:</Text>
                   {recentDeltas.map((delta, idx) => (
                     <View key={String(delta.id) || `delta-${idx}`} style={{ backgroundColor: 'rgba(15,23,42,0.5)', borderRadius: 8, padding: 10, marginBottom: 6 }}>
                       <Text style={{ color: colors.text.muted, fontSize: 12, marginBottom: 2 }}>
                         {delta.learningSummary}
                       </Text>
                       {delta.specificExamples.length > 0 && (
-                        <Text style={{ color: '#64748B', fontSize: 10, fontStyle: 'italic' }}>
+                        <Text style={{ color: colors.text.muted, fontSize: 10, fontStyle: 'italic' }}>
                           {delta.specificExamples[0]}
                         </Text>
                       )}
@@ -1856,23 +1856,23 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     <Text style={{ color: colors.text.muted, fontSize: 13, fontFamily: typography.fontFamily.medium }}>
                       {learningImportSummary.statusLabel}
                     </Text>
-                    <Text style={{ color: '#14B8A6', fontSize: 13, fontFamily: typography.fontFamily.semibold }}>
+                    <Text style={{ color: colors.primary.DEFAULT, fontSize: 13, fontFamily: typography.fontFamily.semibold }}>
                       {learningImportSummary.progressPercent}%
                     </Text>
                   </View>
 
                   {/* Progress Bar */}
-                  <View style={{ height: 6, backgroundColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginVertical: 8 }}>
+                  <View style={{ height: 6, backgroundColor: colors.border.DEFAULT, borderRadius: 3, overflow: 'hidden', marginVertical: 8 }}>
                     <View
-                      style={{ height: '100%', borderRadius: 3, backgroundColor: historySyncStatus.isPaused ? '#F59E0B' : '#14B8A6', width: `${learningImportSummary.progressPercent}%` }}
+                      style={{ height: '100%', borderRadius: 3, backgroundColor: historySyncStatus.isPaused ? colors.warning.DEFAULT : colors.primary.DEFAULT, width: `${learningImportSummary.progressPercent}%` }}
                     />
                   </View>
 
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <Text style={{ color: '#64748B', fontSize: 12 }}>
+                    <Text style={{ color: colors.text.muted, fontSize: 12 }}>
                       {learningImportSummary.detailLabel}
                     </Text>
-                    <Text style={{ color: '#64748B', fontSize: 12 }}>
+                    <Text style={{ color: colors.text.muted, fontSize: 12 }}>
                       {formatTimeRemaining(historySyncStatus.estimatedTimeRemaining)}
                     </Text>
                   </View>
@@ -1884,24 +1884,24 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                         onPress={handleResumeSync}
                         style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary.DEFAULT, borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                       >
-                        <Play size={14} color="#FFFFFF" />
-                        <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Resume</Text>
+                        <Play size={14} color={colors.text.inverse} />
+                        <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Resume</Text>
                       </Pressable>
                     ) : (
                       <Pressable
                         onPress={handlePauseSync}
-                        style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F59E0B', borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
+                        style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warning.DEFAULT, borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                       >
-                        <Pause size={14} color="#FFFFFF" />
-                        <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Pause</Text>
+                        <Pause size={14} color={colors.text.inverse} />
+                        <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Pause</Text>
                       </Pressable>
                     )}
                     <Pressable
                       onPress={handleCancelSync}
-                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF4444', borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
+                      style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger.DEFAULT, borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                     >
-                      <Square size={14} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Cancel</Text>
+                      <Square size={14} color={colors.text.inverse} />
+                      <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Cancel</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -1925,8 +1925,8 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
                   {/* Resume Options (if incomplete) */}
                   {historySyncStatus.canResume && (
-                    <View style={{ padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E7EB', backgroundColor: '#FEF3C7' }}>
-                      <Text style={{ color: '#D97706', fontSize: 13, fontFamily: typography.fontFamily.medium, marginBottom: 8 }}>
+                    <View style={{ padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.DEFAULT, backgroundColor: colors.warning.muted }}>
+                      <Text style={{ color: colors.warning.DEFAULT, fontSize: 13, fontFamily: typography.fontFamily.medium, marginBottom: 8 }}>
                         Previous sync incomplete. {historySyncStatus.processedConversations} conversations processed.
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -1934,15 +1934,15 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                           onPress={() => handleStartSync(true)}
                           style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary.DEFAULT, borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                         >
-                          <Play size={14} color="#FFFFFF" />
-                          <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Resume</Text>
+                          <Play size={14} color={colors.text.inverse} />
+                          <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Resume</Text>
                         </Pressable>
                         <Pressable
                           onPress={handleClearAndRestart}
-                          style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E2E8F0', borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
+                          style={({ pressed }) => ({ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.border.DEFAULT, borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                         >
-                          <RefreshCw size={14} color="#64748B" />
-                          <Text style={{ color: '#475569', fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Start Fresh</Text>
+                          <RefreshCw size={14} color={colors.text.muted} />
+                          <Text style={{ color: colors.text.secondary, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 6 }}>Start Fresh</Text>
                         </Pressable>
                       </View>
                     </View>
@@ -1952,7 +1952,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   <Row
                     icon={<Calendar size={18} color={colors.primary.DEFAULT} />}
                     label="Date Range"
-                    right={<Text style={{ color: '#6B7280', fontSize: 16 }}>Last {dateRangeMonths} months</Text>}
+                    right={<Text style={{ color: colors.text.disabled, fontSize: 16 }}>Last {dateRangeMonths} months</Text>}
                     onPress={() => setShowDateRangeModal(true)}
                   />
 
@@ -1973,13 +1973,13 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
           {/* Background Sync Section — Advanced only */}
           {showAdvanced && <Animated.View entering={FadeInDown.delay(275).duration(400)} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: '#6B7280', marginBottom: 8, marginLeft: 4 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontFamily.semibold, letterSpacing: 0.1, color: colors.text.disabled, marginBottom: 8, marginLeft: 4 }}>
               Background Sync
             </Text>
             <View style={{ backgroundColor: colors.bg.card, borderRadius: 12, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
-                  <Moon size={20} color="#A855F7" />
+                <View style={{ width: 40, height: 40, borderRadius: 9999, backgroundColor: colors.bg.base, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <Moon size={20} color={colors.primary.DEFAULT} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium }}>Continue in Background</Text>
@@ -1992,35 +1992,35 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               </View>
 
               {/* Background Fetch Status */}
-              <View style={{ backgroundColor: '#F8F9FA', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#E2E8F0' }}>
+              <View style={{ backgroundColor: colors.bg.subtle, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border.DEFAULT }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <Text style={{ color: colors.text.primary, fontSize: 12, fontFamily: typography.fontFamily.medium }}>System Status</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     {isCommercialMode ? (
                       <>
-                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#22C55E', marginRight: 6 }} />
-                        <Text style={{ color: '#16A34A', fontSize: 12 }}>Server Managed</Text>
+                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: colors.success.DEFAULT, marginRight: 6 }} />
+                        <Text style={{ color: colors.success.DEFAULT, fontSize: 12 }}>Server Managed</Text>
                       </>
                     ) : backgroundFetchAvailable === null ? (
-                      <Text style={{ color: '#94A3B8', fontSize: 12 }}>Checking...</Text>
+                      <Text style={{ color: colors.text.disabled, fontSize: 12 }}>Checking...</Text>
                     ) : backgroundSyncAvailableInMode ? (
                       <>
-                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#22C55E', marginRight: 6 }} />
-                        <Text style={{ color: '#16A34A', fontSize: 12 }}>Available</Text>
+                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: colors.success.DEFAULT, marginRight: 6 }} />
+                        <Text style={{ color: colors.success.DEFAULT, fontSize: 12 }}>Available</Text>
                       </>
                     ) : (
                       <>
-                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#F97316', marginRight: 6 }} />
-                        <Text style={{ color: '#EA580C', fontSize: 12 }}>Limited</Text>
+                        <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: colors.accent.DEFAULT, marginRight: 6 }} />
+                        <Text style={{ color: colors.accent.DEFAULT, fontSize: 12 }}>Limited</Text>
                       </>
                     )}
                   </View>
                 </View>
                 {!backgroundSyncAvailableInMode && backgroundFetchStatusText && !isCommercialMode && (
-                  <Text style={{ color: '#64748B', fontSize: 12 }}>{backgroundFetchStatusText}</Text>
+                  <Text style={{ color: colors.text.muted, fontSize: 12 }}>{backgroundFetchStatusText}</Text>
                 )}
                 {isCommercialMode && (
-                  <Text style={{ color: '#64748B', fontSize: 12 }}>
+                  <Text style={{ color: colors.text.muted, fontSize: 12 }}>
                     Sync runs on the Rental Voice server and keeps going after the app closes.
                   </Text>
                 )}
@@ -2028,15 +2028,15 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
               {/* Background Sync Progress */}
               {backgroundSyncState?.isEnabled && backgroundSyncProgress && (
-                <View style={{ backgroundColor: '#A855F710', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                <View style={{ backgroundColor: colors.primary.muted, borderRadius: 12, padding: 12, marginBottom: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       {backgroundSyncProgress.isRunning ? (
                         <Animated.View style={spinStyle}>
-                          <RefreshCw size={14} color="#A855F7" />
+                          <RefreshCw size={14} color={colors.primary.DEFAULT} />
                         </Animated.View>
                       ) : (
-                        <Moon size={14} color="#A855F7" />
+                        <Moon size={14} color={colors.primary.DEFAULT} />
                       )}
                       <Text style={{ color: colors.primary.DEFAULT, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 8 }}>
                         {backgroundSyncProgress.isRunning ? 'Syncing...' : 'Waiting for background run'}
@@ -2055,11 +2055,11 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   </View>
 
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: '#64748B', fontSize: 12 }}>
+                    <Text style={{ color: colors.text.muted, fontSize: 12 }}>
                       {backgroundSyncProgress.processedConversations} conversations, {backgroundSyncProgress.processedMessages} messages
                     </Text>
                     {backgroundSyncProgress.lastRunTime && (
-                      <Text style={{ color: '#64748B', fontSize: 12 }}>
+                      <Text style={{ color: colors.text.muted, fontSize: 12 }}>
                         Last: {new Date(backgroundSyncProgress.lastRunTime).toLocaleTimeString()}
                       </Text>
                     )}
@@ -2078,7 +2078,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       onPress={handleResumeBackgroundSyncInForeground}
                       style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: colors.primary.DEFAULT, borderRadius: 8, paddingVertical: 8, marginRight: 8, opacity: pressed ? 0.8 : 1 })}
                     >
-                      <Smartphone size={14} color="#FFFFFF" />
+                      <Smartphone size={14} color={colors.text.inverse} />
                       <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 4 }}>
                         {isCommercialMode ? 'Refresh' : 'Speed Up'}
                       </Text>
@@ -2087,7 +2087,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       onPress={handleDisableBackgroundSync}
                       style={({ pressed }) => ({ flex: 1, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: colors.danger.muted, borderRadius: 8, paddingVertical: 8, opacity: pressed ? 0.8 : 1 })}
                     >
-                      <Square size={14} color="#EF4444" />
+                      <Square size={14} color={colors.danger.DEFAULT} />
                       <Text style={{ color: colors.danger.light, fontFamily: typography.fontFamily.medium, fontSize: 14, marginLeft: 4 }}>Stop</Text>
                     </Pressable>
                   </View>
@@ -2096,10 +2096,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
 
               {/* Background Sync Complete */}
               {backgroundSyncState?.phase === 'complete' && (
-                <View style={{ backgroundColor: '#22C55E10', borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
-                  <CheckCircle size={16} color="#22C55E" />
+                <View style={{ backgroundColor: colors.success.muted, borderRadius: 12, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
+                  <CheckCircle size={16} color={colors.success.DEFAULT} />
                   <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={{ color: '#4ADE80', fontFamily: typography.fontFamily.medium, fontSize: 14 }}>Background sync complete!</Text>
+                    <Text style={{ color: colors.success.DEFAULT, fontFamily: typography.fontFamily.medium, fontSize: 14 }}>Background sync complete!</Text>
                     <Text style={{ color: colors.text.muted, fontSize: 12, marginTop: 2 }}>
                       {backgroundSyncState.processedMessages} messages analyzed
                     </Text>
@@ -2108,7 +2108,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                     onPress={handleClearBackgroundSync}
                     style={({ pressed }) => ({ padding: 8, opacity: pressed ? 0.7 : 1 })}
                   >
-                    <X size={16} color="#64748B" />
+                    <X size={16} color={colors.text.muted} />
                   </Pressable>
                 </View>
               )}
@@ -2118,24 +2118,24 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                 <Pressable
                   onPress={handleEnableBackgroundSync}
                   disabled={!canStartHistoryImport || !backgroundSyncAvailableInMode}
-                  style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: !canStartHistoryImport || !backgroundSyncAvailableInMode ? '#E2E8F0' : colors.primary.DEFAULT, opacity: pressed ? 0.8 : 1 })}
+                  style={({ pressed }) => ({ borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: !canStartHistoryImport || !backgroundSyncAvailableInMode ? colors.border.DEFAULT : colors.primary.DEFAULT, opacity: pressed ? 0.8 : 1 })}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     {!canStartHistoryImport ? (
                       <>
-                        <AlertCircle size={18} color="#64748B" />
-                        <Text style={{ color: '#64748B', fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>Connect Hostaway First</Text>
+                        <AlertCircle size={18} color={colors.text.muted} />
+                        <Text style={{ color: colors.text.muted, fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>Connect Hostaway First</Text>
                       </>
                     ) : !backgroundSyncAvailableInMode ? (
                       <>
-                        <CloudOff size={18} color="#64748B" />
-                        <Text style={{ color: '#64748B', fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>
+                        <CloudOff size={18} color={colors.text.muted} />
+                        <Text style={{ color: colors.text.muted, fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>
                           {isCommercialMode ? 'Server Sync Unavailable' : 'Background Fetch Unavailable'}
                         </Text>
                       </>
                     ) : (
                       <>
-                        <Moon size={18} color="#FFFFFF" />
+                        <Moon size={18} color={colors.text.inverse} />
                         <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, marginLeft: 8 }}>Enable Background Sync</Text>
                       </>
                     )}
@@ -2144,7 +2144,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               )}
 
               {/* Info about background sync */}
-              <View style={{ backgroundColor: '#F0FDF4', borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#DCFCE7' }}>
+              <View style={{ backgroundColor: colors.success.muted, borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: colors.success.muted }}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <Clock size={14} color={colors.primary.DEFAULT} />
                   <Text style={{ color: colors.primary.DEFAULT, fontSize: 12, marginLeft: 8, flex: 1 }}>
@@ -2248,14 +2248,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                       borderRadius: 9999, 
                       marginRight: 8, 
                       marginBottom: 8, 
-                      backgroundColor: isSelected ? colors.primary.DEFAULT : '#FFFFFF', 
+                      backgroundColor: isSelected ? colors.primary.DEFAULT : colors.bg.base, 
                       borderWidth: 1,
                       borderColor: isSelected ? colors.primary.DEFAULT : colors.border.DEFAULT,
                       opacity: pressed ? 0.7 : 1 
                     })}
                   >
                     <Text
-                      style={{ fontFamily: typography.fontFamily.semibold, color: isSelected ? '#FFFFFF' : colors.text.primary }}
+                      style={{ fontFamily: typography.fontFamily.semibold, color: isSelected ? colors.text.inverse : colors.text.primary }}
                     >
                       {months === 'all' ? 'All Time' : `${months} months`}
                     </Text>
@@ -2283,14 +2283,14 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
                   keyboardType="numeric"
                   placeholder="12"
                   placeholderTextColor={colors.text.disabled}
-                  style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: colors.border.DEFAULT, paddingHorizontal: 16, paddingVertical: 14, color: colors.text.primary, fontSize: 16 }}
+                  style={{ flex: 1, backgroundColor: colors.bg.base, borderRadius: 12, borderWidth: 1, borderColor: colors.border.DEFAULT, paddingHorizontal: 16, paddingVertical: 14, color: colors.text.primary, fontSize: 16 }}
                 />
                 <Text style={{ color: colors.text.muted, marginLeft: 12 }}>months</Text>
               </View>
             </View>
 
             {/* Info */}
-            <View style={{ backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: '#DCFCE7' }}>
+            <View style={{ backgroundColor: colors.success.muted, borderRadius: 12, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: colors.success.muted }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <Clock size={18} color={colors.primary.DEFAULT} style={{ marginTop: 2 }} />
                 <Text style={{ color: colors.primary.DEFAULT, fontSize: 13, lineHeight: 18, marginLeft: 10, flex: 1 }}>
@@ -2305,7 +2305,7 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
               onPress={() => setShowDateRangeModal(false)}
               style={({ pressed }) => ({ backgroundColor: colors.text.primary, borderRadius: 12, paddingVertical: 16, alignItems: 'center' as const, opacity: pressed ? 0.8 : 1 })}
             >
-              <Text style={{ color: '#FFFFFF', fontFamily: typography.fontFamily.semibold, fontSize: 16 }}>Done</Text>
+              <Text style={{ color: colors.text.inverse, fontFamily: typography.fontFamily.semibold, fontSize: 16 }}>Done</Text>
             </Pressable>
           </Pressable>
         </Pressable>
