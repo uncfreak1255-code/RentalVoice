@@ -351,7 +351,21 @@ class AITrainingService {
     try {
       // Collect all host messages with context
       const allHostMessages = this.collectHostMessages(conversations, messagesByConversation);
-      console.log(`[AITraining] Collected ${allHostMessages.length} host messages`);
+      console.log(`[AITraining] Collected ${allHostMessages.length} host messages from ${conversations.length} conversations`);
+
+      if (allHostMessages.length === 0) {
+        console.warn(`[AITraining] No host messages found in ${conversations.length} conversations. Check isIncoming field parsing.`);
+        // Log a sample message for debugging
+        const firstConv = conversations[0];
+        if (firstConv) {
+          const msgs = messagesByConversation[firstConv.id];
+          if (msgs && msgs.length > 0) {
+            const sample = msgs[0];
+            console.warn(`[AITraining] Sample message: isIncoming=${sample.isIncoming} (type: ${typeof sample.isIncoming}), body length=${sample.body?.length || 0}`);
+          }
+        }
+        return this.getEmptyResult();
+      }
 
       // Phase 1: Smart sampling for style training (large datasets)
       this.state.phase = 'sampling';
