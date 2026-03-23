@@ -178,47 +178,49 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
         {step === 0 ? (
           <Animated.View entering={FadeIn.duration(500)} style={ob.stepWrap}>
-            <Animated.View entering={FadeInDown.delay(150).duration(500)} style={ob.logoWrap}>
-              <View style={ob.logoBox}>
-                <MessageSquare size={40} color="#FFFFFF" />
-              </View>
-              <Text style={ob.heroTitle}>Rental Voice</Text>
-              <Text style={ob.heroSub}>Smart guest communication for vacation rentals</Text>
-            </Animated.View>
-
-            <View style={ob.featureList}>
-              {FEATURE_CARDS.map((feature, index) => (
-                <Animated.View
-                  key={feature.title}
-                  entering={FadeInDown.delay(250 + index * 120).duration(450)}
-                  style={ob.featureRow}
-                >
-                  <View style={ob.featureIcon}>
-                    <feature.icon size={24} color={colors.accent.DEFAULT} />
-                  </View>
-                  <View style={ob.featureCopy}>
-                    <Text style={ob.featureTitle}>{feature.title}</Text>
-                    <Text style={ob.featureSub}>{feature.desc}</Text>
-                  </View>
-                </Animated.View>
-              ))}
-            </View>
-
-            <View style={ob.heroFooter}>
-              <Animated.View entering={FadeInUp.delay(700).duration(400)}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setStep(1);
-                  }}
-                  style={({ pressed }) => [ob.primaryButton, pressed && ob.pressed]}
-                  testID="onboarding-get-started"
-                >
-                  <Text style={ob.primaryButtonText}>Get Started</Text>
-                  <ArrowRight size={20} color={colors.text.inverse} />
-                </Pressable>
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} bounces={false}>
+              <Animated.View entering={FadeInDown.delay(150).duration(500)} style={ob.logoWrap}>
+                <View style={ob.logoBox}>
+                  <MessageSquare size={40} color={colors.text.inverse} />
+                </View>
+                <Text style={ob.heroTitle}>Rental Voice</Text>
+                <Text style={ob.heroSub}>Smart guest communication for vacation rentals</Text>
               </Animated.View>
-            </View>
+
+              <View style={ob.featureList}>
+                {FEATURE_CARDS.map((feature, index) => (
+                  <Animated.View
+                    key={feature.title}
+                    entering={FadeInDown.delay(250 + index * 120).duration(450)}
+                    style={ob.featureRow}
+                  >
+                    <View style={ob.featureIcon}>
+                      <feature.icon size={24} color={colors.accent.DEFAULT} />
+                    </View>
+                    <View style={ob.featureCopy}>
+                      <Text style={ob.featureTitle}>{feature.title}</Text>
+                      <Text style={ob.featureSub}>{feature.desc}</Text>
+                    </View>
+                  </Animated.View>
+                ))}
+              </View>
+
+              <View style={ob.heroFooter}>
+                <Animated.View entering={FadeInUp.delay(700).duration(400)}>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStep(1);
+                    }}
+                    style={({ pressed }) => [ob.primaryButton, pressed && ob.pressed]}
+                    testID="onboarding-get-started"
+                  >
+                    <Text style={ob.primaryButtonText}>Get Started</Text>
+                    <ArrowRight size={20} color={colors.text.inverse} />
+                  </Pressable>
+                </Animated.View>
+              </View>
+            </ScrollView>
           </Animated.View>
         ) : (
           <KeyboardAvoidingView
@@ -466,8 +468,7 @@ const ob = StyleSheet.create({
     marginTop: 2,
   },
   heroFooter: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    paddingTop: spacing['8'],
     paddingBottom: spacing['8'],
   },
   formShell: {
