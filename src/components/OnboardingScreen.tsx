@@ -215,7 +215,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   testID="onboarding-get-started"
                 >
                   <Text style={ob.primaryButtonText}>Get Started</Text>
-                  <ArrowRight size={20} color="#FFFFFF" />
+                  <ArrowRight size={20} color={colors.text.inverse} />
                 </Pressable>
               </Animated.View>
             </View>
@@ -405,7 +405,7 @@ const ob = StyleSheet.create({
   stepWrap: {
     flex: 1,
     paddingHorizontal: spacing['6'],
-    paddingTop: spacing['10'],
+    paddingTop: spacing['6'],
   },
   logoWrap: {
     alignItems: 'center',
@@ -468,7 +468,7 @@ const ob = StyleSheet.create({
   heroFooter: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingBottom: spacing['6'],
+    paddingBottom: spacing['8'],
   },
   formShell: {
     flex: 1,
