@@ -1853,7 +1853,7 @@ async function callGeminiAPI(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('[AI Enhanced] Gemini API error:', error);
+      console.warn('[AI Enhanced] Gemini API unavailable (falling back):', error);
       return null;
     }
 
@@ -1861,13 +1861,13 @@ async function callGeminiAPI(
     const generatedContent = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     if (!generatedContent) {
-      console.error('[AI Enhanced] Empty response from Gemini');
+      console.warn('[AI Enhanced] Empty response from Gemini');
       return null;
     }
 
     return generatedContent.trim();
   } catch (error) {
-    console.error('[AI Enhanced] Gemini error:', error);
+    console.warn('[AI Enhanced] Gemini error:', error);
     return null;
   }
 }
@@ -1909,7 +1909,7 @@ async function callClaudeAPI(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('[AI Enhanced] Claude API error:', error);
+      console.warn('[AI Enhanced] Claude API unavailable (falling back):', error);
       return null;
     }
 
@@ -1917,13 +1917,13 @@ async function callClaudeAPI(
     const generatedContent = data.content?.[0]?.text || '';
 
     if (!generatedContent) {
-      console.error('[AI Enhanced] Empty response from Claude');
+      console.warn('[AI Enhanced] Empty response from Claude');
       return null;
     }
 
     return generatedContent.trim();
   } catch (error) {
-    console.error('[AI Enhanced] Claude error:', error);
+    console.warn('[AI Enhanced] Claude error:', error);
     return null;
   }
 }
@@ -1964,7 +1964,7 @@ async function callOpenAIAPI(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('[AI Enhanced] OpenAI API error:', error);
+      console.warn('[AI Enhanced] OpenAI API unavailable (falling back):', error);
       return null;
     }
 
@@ -1972,13 +1972,13 @@ async function callOpenAIAPI(
     const generatedContent = data.choices?.[0]?.message?.content || '';
 
     if (!generatedContent) {
-      console.error('[AI Enhanced] Empty response from OpenAI');
+      console.warn('[AI Enhanced] Empty response from OpenAI');
       return null;
     }
 
     return generatedContent.trim();
   } catch (error) {
-    console.error('[AI Enhanced] OpenAI error:', error);
+    console.warn('[AI Enhanced] OpenAI error:', error);
     return null;
   }
 }
