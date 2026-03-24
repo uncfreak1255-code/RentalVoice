@@ -25,6 +25,7 @@ import {
   type EntitlementsResponse,
   type UsageResponse,
 } from '@/lib/api-client';
+import { syncLearningToCloud, canSync } from '@/lib/learning-sync';
 
 // ── Build stamp — changes with every OTA push, verifies update applied ──
 const BUILD_STAMP = '2026-03-01T13:45';  // Update this each OTA push
@@ -134,6 +135,37 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           style: 'destructive',
           onPress: async () => {
             setIsDisconnecting(true);
+
+            // Sync learning data to cloud before disconnecting
+            if (!isDemoMode) {
+              const session = await canSync();
+              if (session) {
+                try {
+                  const syncPromise = syncLearningToCloud();
+                  const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Sync timeout')), 10000)
+                  );
+                  await Promise.race([syncPromise, timeoutPromise]);
+                  console.log('[Settings] Learning synced before disconnect');
+                } catch (err) {
+                  const proceed = await new Promise<boolean>((resolve) => {
+                    Alert.alert(
+                      'Learning data may not be saved',
+                      'Could not sync your voice profile to the cloud. Disconnect anyway?',
+                      [
+                        { text: 'Cancel', onPress: () => resolve(false) },
+                        { text: 'Disconnect', style: 'destructive', onPress: () => resolve(true) },
+                      ]
+                    );
+                  });
+                  if (!proceed) {
+                    setIsDisconnecting(false);
+                    return;
+                  }
+                }
+              }
+            }
+
             if (!isDemoMode) {
               if (features.serverProxiedAI) {
                 await disconnectHostawayServer();
