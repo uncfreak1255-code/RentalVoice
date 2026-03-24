@@ -379,7 +379,7 @@ authRouter.post('/auto-provision', async (c) => {
     const authClient = getSupabaseAuthClient();
 
     // Try sign-in first — user may already exist
-    const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
+    const { data: signInData } = await authClient.auth.signInWithPassword({
       email,
       password,
     });

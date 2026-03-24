@@ -668,7 +668,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                 {isDeleting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
               </Pressable>
             </View>
-            <Text style={{ color: colors.text.tertiary, fontSize: 13, fontFamily: typography.fontFamily.regular, paddingHorizontal: spacing['4'], paddingTop: spacing['1.5'] }}>
+            <Text style={{ color: colors.text.muted, fontSize: 13, fontFamily: typography.fontFamily.regular, paddingHorizontal: spacing['4'], paddingTop: spacing['1.5'] }}>
               Permanently deletes your voice profile and all training data from our servers.
             </Text>
           </View>
