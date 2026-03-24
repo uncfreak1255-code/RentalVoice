@@ -11,6 +11,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------- Mocks ----------
 
 const mockCreateUser = vi.fn();
+const mockDeleteUser = vi.fn();
+const mockGetUser = vi.fn();
 const mockAuthClientSignIn = vi.fn();
 
 // Track per-table mock results via a queue
@@ -26,6 +28,7 @@ function makeChain() {
   };
   // Each method returns chain for chaining, except single which resolves
   chain.insert = vi.fn(() => chain);
+  chain.delete = vi.fn(() => chain);
   chain.select = vi.fn(() => chain);
   chain.eq = vi.fn(() => chain);
   chain.single = vi.fn(() => resolve());
@@ -63,8 +66,10 @@ function makeChain() {
 const mockSupabaseAdmin = {
   from: vi.fn(() => makeChain()),
   auth: {
+    getUser: mockGetUser,
     admin: {
       createUser: mockCreateUser,
+      deleteUser: mockDeleteUser,
     },
   },
 };
@@ -273,5 +278,109 @@ describe('POST /api/auth/auto-provision', () => {
     expect(res.status).toBe(429);
     const json = await res.json();
     expect(json.code).toBe('RATE_LIMITED');
+  });
+});
+
+// ---------- Account Deletion Tests ----------
+
+describe('DELETE /api/auth/account-data', () => {
+  beforeEach(() => {
+    resetMocks();
+  });
+
+  function deleteAccountData(token: string) {
+    return app.request('/api/auth/account-data', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  }
+
+  it('deletes all data and auth user on success', async () => {
+    const fakeUserId = 'uuid-delete-user';
+    const fakeOrgId = 'uuid-delete-org';
+
+    // requireAuth: auth.getUser
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: { id: fakeUserId, email: 'test@rv.internal' } },
+      error: null,
+    });
+
+    // Queue of from() call results:
+    // 1. requireAuth: org_members select -> single
+    // 2-6. Five learning table deletes (delete().eq() -> then)
+    // 7. organizations delete (delete().eq() -> then)
+    fromCallResults = [
+      { data: { org_id: fakeOrgId, role: 'owner' }, error: null }, // org_members lookup (requireAuth)
+      { data: null, error: null }, // learning_profiles delete
+      { data: null, error: null }, // few_shot_examples delete
+      { data: null, error: null }, // host_style_profiles delete
+      { data: null, error: null }, // edit_patterns delete
+      { data: null, error: null }, // learning_migration_snapshots delete
+      { data: null, error: null }, // organizations delete
+    ];
+
+    // auth.admin.deleteUser succeeds
+    mockDeleteUser.mockResolvedValueOnce({ data: null, error: null });
+
+    const res = await deleteAccountData('valid-token');
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.deleted).toBe(true);
+    expect(json.tablesCleared).toEqual([
+      'learning_profiles',
+      'few_shot_examples',
+      'host_style_profiles',
+      'edit_patterns',
+      'learning_migration_snapshots',
+      'organizations',
+      'auth_user',
+    ]);
+
+    // deleteUser called with the right userId
+    expect(mockDeleteUser).toHaveBeenCalledWith(fakeUserId);
+  });
+
+  it('returns 401 without Authorization header', async () => {
+    const res = await app.request('/api/auth/account-data', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json.code).toBe('UNAUTHORIZED');
+  });
+
+  it('does not delete auth user when a table delete fails (partial failure)', async () => {
+    const fakeUserId = 'uuid-partial-user';
+    const fakeOrgId = 'uuid-partial-org';
+
+    // requireAuth: auth.getUser
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: { id: fakeUserId, email: 'test@rv.internal' } },
+      error: null,
+    });
+
+    // Queue: requireAuth org_members, then 2 successful deletes, then failure on 3rd
+    fromCallResults = [
+      { data: { org_id: fakeOrgId, role: 'owner' }, error: null },    // org_members (requireAuth)
+      { data: null, error: null },                                      // learning_profiles OK
+      { data: null, error: null },                                      // few_shot_examples OK
+      { data: null, error: { message: 'permission denied' } },         // host_style_profiles FAIL
+    ];
+
+    const res = await deleteAccountData('valid-token');
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.code).toBe('PARTIAL_FAILURE');
+    expect(json.tablesCleared).toEqual(['learning_profiles', 'few_shot_examples']);
+
+    // Auth user must NOT be deleted
+    expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 });

@@ -512,5 +512,70 @@ authRouter.post('/auto-provision', async (c) => {
   }
 });
 
+// ============================================================
+// DELETE /api/auth/account-data
+// Deletes all user data and the auth user. App Store 5.1.1(v).
+// Sequential: learning tables → org (cascades) → auth user.
+// If a table delete fails, auth user is NOT deleted (retryable).
+// ============================================================
+
+const LEARNING_TABLES = [
+  'learning_profiles',
+  'few_shot_examples',
+  'host_style_profiles',
+  'edit_patterns',
+  'learning_migration_snapshots',
+] as const;
+
+authRouter.delete('/account-data', requireAuth, async (c) => {
+  try {
+    const orgId = c.get('orgId');
+    const userId = c.get('userId');
+    const supabaseAdmin = getSupabaseAdmin();
+    const tablesCleared: string[] = [];
+
+    // Step 1: Delete learning tables
+    for (const table of LEARNING_TABLES) {
+      const { error } = await supabaseAdmin.from(table).delete().eq('org_id', orgId);
+      if (error) {
+        console.error(`[Auth] account-data: failed to delete ${table}:`, error);
+        return c.json(
+          { message: `Failed to delete ${table}`, code: 'PARTIAL_FAILURE', tablesCleared, status: 500 },
+          500
+        );
+      }
+      tablesCleared.push(table);
+    }
+
+    // Step 2: Delete organization (cascades to org_members, org_settings, ai_configs)
+    const { error: orgError } = await supabaseAdmin.from('organizations').delete().eq('id', orgId);
+    if (orgError) {
+      console.error('[Auth] account-data: failed to delete organization:', orgError);
+      return c.json(
+        { message: 'Failed to delete organization', code: 'PARTIAL_FAILURE', tablesCleared, status: 500 },
+        500
+      );
+    }
+    tablesCleared.push('organizations');
+
+    // Step 3 (last): Delete Supabase auth user
+    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authDeleteError) {
+      console.error('[Auth] account-data: failed to delete auth user:', authDeleteError);
+      return c.json(
+        { message: 'Failed to delete auth user', code: 'PARTIAL_FAILURE', tablesCleared, status: 500 },
+        500
+      );
+    }
+    tablesCleared.push('auth_user');
+
+    console.log(`[Auth] account-data: fully deleted userId=${userId} orgId=${orgId}`);
+    return c.json({ deleted: true, tablesCleared });
+  } catch (err) {
+    console.error('[Auth] account-data error:', err);
+    return c.json({ message: 'Account deletion failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
+  }
+});
+
 // Export rate limiter for testing
 export { checkRateLimit, autoProvisionRateLimit };
