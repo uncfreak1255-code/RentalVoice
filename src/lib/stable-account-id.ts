@@ -16,6 +16,7 @@ import {
   storeStableAccountIdForAccount as secureStoreStableIdForAccount,
   getStableAccountId as secureGetStableId,
 } from './secure-storage';
+import { autoProvisionIdentity } from './auto-provision';
 
 const HOSTAWAY_API_BASE = 'https://api.hostaway.com/v1';
 
@@ -125,6 +126,14 @@ export async function resolveStableAccountId(
     // Cache in both stores
     useAppStore.getState().setStableAccountId(fetchedId);
     await secureStoreStableIdForAccount(fetchedId, accountId);
+
+    // Fire-and-forget: provision Supabase identity for this Hostaway account
+    if (accountId && fetchedId) {
+      autoProvisionIdentity(accountId, fetchedId).catch(err =>
+        console.warn('[StableAccountId] Auto-provision failed (non-critical):', err)
+      );
+    }
+
     return fetchedId;
   }
 
