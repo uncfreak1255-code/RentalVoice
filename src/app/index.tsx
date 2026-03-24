@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, Text, StyleSheet, AppState, type AppStateStatus } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAppStore } from '@/lib/store';
@@ -15,7 +15,7 @@ import {
   isCommercialLearningImportDone,
   setCommercialLearningImportDone,
 } from '@/lib/secure-storage';
-import { canSync, isLocalLearningEmpty, restoreLearningFromCloud } from '@/lib/learning-sync';
+import { canSync, isLocalLearningEmpty, restoreLearningFromCloud, syncLearningToCloud, getSyncStatus } from '@/lib/learning-sync';
 import { colors, typography, spacing } from '@/lib/design-tokens';
 import { StatusBar } from 'expo-status-bar';
 import { getAppEntryDestination, type RestoreOutcome } from '@/lib/session-gate';
@@ -78,6 +78,27 @@ export default function AppEntry() {
       mounted = false;
     };
   }, [isDemoMode, isOnboarded, router, setCredentials, setOnboarded]);
+
+  // Sync learning data when app returns to foreground
+  React.useEffect(() => {
+    const handleAppStateChange = async (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+
+      const session = await canSync();
+      if (!session) return;
+
+      const status = await getSyncStatus();
+      const fiveMinutes = 5 * 60 * 1000;
+      if (status.lastSyncedAt && Date.now() - new Date(status.lastSyncedAt).getTime() < fiveMinutes) return;
+
+      syncLearningToCloud().catch(err =>
+        console.warn('[AppEntry] Foreground sync failed (non-critical):', err)
+      );
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, []);
 
   return (
     <View style={styles.loadingContainer}>

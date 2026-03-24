@@ -30,6 +30,7 @@ import { scopedKey } from './account-scoped-storage';
 import { loadFounderSession, type FounderSessionData } from './secure-storage';
 import { API_BASE_URL } from './config';
 import { useAppStore } from './store';
+import { ensureFreshToken } from './auto-provision';
 
 // ─── Storage keys (must match advanced-training.ts) ─────
 const STORAGE_KEYS = {
@@ -246,6 +247,12 @@ export async function syncLearningToCloud(): Promise<SyncResult> {
   }
   // Set immediately to prevent concurrent calls from passing the throttle check
   lastSyncTimestamp = now;
+
+  // Refresh expired tokens before attempting sync
+  const tokenValid = await ensureFreshToken();
+  if (!tokenValid) {
+    return { success: false, profileSynced: false, examplesSynced: 0, error: 'Token refresh failed' };
+  }
 
   const session = await canSync();
   if (!session) {

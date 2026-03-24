@@ -25,6 +25,9 @@ import {
   type EntitlementsResponse,
   type UsageResponse,
 } from '@/lib/api-client';
+import { syncLearningToCloud, canSync } from '@/lib/learning-sync';
+import { loadFounderSession, clearFounderSession } from '@/lib/secure-storage';
+import { API_BASE_URL } from '@/lib/config';
 
 // ── Build stamp — changes with every OTA push, verifies update applied ──
 const BUILD_STAMP = '2026-03-01T13:45';  // Update this each OTA push
@@ -39,6 +42,8 @@ interface SettingsScreenProps {
 
 export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenProps) {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const resetStore = useAppStore((s) => s.resetStore);
 
   const settings = useAppStore((s) => s.settings);
   const pushNotificationsEnabled = useAppStore((s) => s.settings.pushNotificationsEnabled);
@@ -134,6 +139,37 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           style: 'destructive',
           onPress: async () => {
             setIsDisconnecting(true);
+
+            // Sync learning data to cloud before disconnecting
+            if (!isDemoMode) {
+              const session = await canSync();
+              if (session) {
+                try {
+                  const syncPromise = syncLearningToCloud();
+                  const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Sync timeout')), 10000)
+                  );
+                  await Promise.race([syncPromise, timeoutPromise]);
+                  console.log('[Settings] Learning synced before disconnect');
+                } catch (err) {
+                  const proceed = await new Promise<boolean>((resolve) => {
+                    Alert.alert(
+                      'Learning data may not be saved',
+                      'Could not sync your voice profile to the cloud. Disconnect anyway?',
+                      [
+                        { text: 'Cancel', onPress: () => resolve(false) },
+                        { text: 'Disconnect', style: 'destructive', onPress: () => resolve(true) },
+                      ]
+                    );
+                  });
+                  if (!proceed) {
+                    setIsDisconnecting(false);
+                    return;
+                  }
+                }
+              }
+            }
+
             if (!isDemoMode) {
               if (features.serverProxiedAI) {
                 await disconnectHostawayServer();
@@ -142,6 +178,56 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               }
             }
             onLogout();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteMyData = () => {
+    Alert.alert(
+      'Delete All Data',
+      'This permanently deletes your voice profile, learned patterns, and all training data from our servers. Your Hostaway connection is not affected. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const session = await loadFounderSession();
+              if (!session) {
+                // No cloud account — just reset local state
+                resetStore();
+                setIsDeleting(false);
+                return;
+              }
+
+              const res = await fetch(`${API_BASE_URL}/api/auth/account-data`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.accessToken}`,
+                },
+              });
+
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                Alert.alert('Deletion Failed', body.message || 'Could not delete your data. Please try again.');
+                setIsDeleting(false);
+                return;
+              }
+
+              await clearFounderSession();
+              resetStore();
+              console.log('[Settings] All user data deleted');
+            } catch (err) {
+              console.error('[Settings] Delete my data error:', err);
+              Alert.alert('Deletion Failed', 'A network error occurred. Please try again.');
+            } finally {
+              setIsDeleting(false);
+            }
           },
         },
       ]
@@ -547,7 +633,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           </View>
 
           {/* ── Disconnect ── */}
-          <View style={{ marginTop: spacing['7'], marginBottom: spacing['10'], paddingHorizontal: spacing['4'] }}>
+          <View style={{ marginTop: spacing['7'], paddingHorizontal: spacing['4'] }}>
             <View style={s.card}>
               <Pressable
                 onPress={handleLogout}
@@ -563,6 +649,28 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                 {isDisconnecting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
               </Pressable>
             </View>
+          </View>
+
+          {/* ── Delete My Data ── */}
+          <View style={{ marginTop: spacing['3'], marginBottom: spacing['10'], paddingHorizontal: spacing['4'] }}>
+            <View style={s.card}>
+              <Pressable
+                onPress={handleDeleteMyData}
+                disabled={isDeleting}
+                style={({ pressed }) => [s.row, { opacity: pressed ? 0.8 : 1 }]}
+              >
+                <View style={[s.iconBox, { backgroundColor: colors.danger.muted }]}>
+                  <Shield size={18} color={colors.danger.DEFAULT} />
+                </View>
+                <Text style={{ flex: 1, fontSize: 16, fontFamily: typography.fontFamily.regular, color: colors.danger.DEFAULT }}>
+                  {isDeleting ? 'Deleting...' : 'Delete My Data'}
+                </Text>
+                {isDeleting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
+              </Pressable>
+            </View>
+            <Text style={{ color: colors.text.muted, fontSize: 13, fontFamily: typography.fontFamily.regular, paddingHorizontal: spacing['4'], paddingTop: spacing['1.5'] }}>
+              Permanently deletes your voice profile and all training data from our servers.
+            </Text>
           </View>
 
         </ScrollView>
