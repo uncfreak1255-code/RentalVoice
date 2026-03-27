@@ -39,11 +39,17 @@ import { initializeConnection, validateCredentials } from '@/lib/hostaway';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { startAutoImportAfterConnect } from '@/lib/auto-import';
 import { features as appFeatures } from '@/lib/config';
-import { connectHostaway as connectHostawayServer } from '@/lib/api-client';
+import {
+  connectHostaway as connectHostawayServer,
+  getHostawayHistorySyncStatusViaServer,
+  type HostawayHistorySyncJob,
+} from '@/lib/api-client';
+import { VoiceLearningBanner } from './VoiceLearningBanner';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
   skipIntro?: boolean;
+  managedModeOverride?: boolean;
 }
 
 const FEATURE_CARDS = [
@@ -71,7 +77,11 @@ const HELP_STEPS = [
   '4. Paste both values here to connect Rental Voice.',
 ];
 
-export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingScreenProps) {
+export function OnboardingScreen({
+  onComplete,
+  skipIntro = false,
+  managedModeOverride,
+}: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(skipIntro ? 1 : 0);
   const [accountId, setAccountId] = useState('');
@@ -80,6 +90,7 @@ export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingSc
   const [error, setError] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showCredentialHelp, setShowCredentialHelp] = useState(false);
+  const [managedHistorySyncJob, setManagedHistorySyncJob] = useState<HostawayHistorySyncJob | null>(null);
   const progress = useSharedValue(0.5);
 
   const setOnboarded = useAppStore((s) => s.setOnboarded);
@@ -88,6 +99,7 @@ export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingSc
   const setConversations = useAppStore((s) => s.setConversations);
   const setProperties = useAppStore((s) => s.setProperties);
   const updateSettings = useAppStore((s) => s.updateSettings);
+  const setVoiceReadiness = useAppStore((s) => s.setVoiceReadiness);
 
   useEffect(() => {
     progress.value = withSpring(skipIntro ? 1 : (step + 1) / 2, { damping: 15 });
@@ -104,6 +116,75 @@ export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingSc
 
   const hasInput = accountId.trim().length > 0 && apiKey.trim().length > 0;
   const isConnectDisabled = !hasInput || isValidating;
+  const isServerManaged = managedModeOverride ?? (appFeatures?.serverProxiedAI === true);
+  const showingManagedLearning = isServerManaged && managedHistorySyncJob !== null;
+
+  useEffect(() => {
+    if (!showingManagedLearning || !managedHistorySyncJob) {
+      return;
+    }
+
+    const updateVoiceReadiness = (job: HostawayHistorySyncJob) => {
+      const status =
+        job.status === 'completed' || job.phase === 'complete'
+          ? 'ready'
+          : job.status === 'failed' || job.status === 'cancelled' || job.phase === 'error'
+            ? 'blocked'
+            : 'learning';
+
+      const reason =
+        status === 'ready'
+          ? 'Voice grounding is ready on the server.'
+          : status === 'blocked'
+            ? job.lastError || 'History sync needs attention.'
+            : 'Importing Hostaway history and learning your voice.';
+
+      setVoiceReadiness({
+        status,
+        reason,
+        updatedAt: new Date().toISOString(),
+      });
+    };
+
+    let cancelled = false;
+    updateVoiceReadiness(managedHistorySyncJob);
+
+    if (
+      managedHistorySyncJob.status === 'completed' ||
+      managedHistorySyncJob.status === 'failed' ||
+      managedHistorySyncJob.status === 'cancelled' ||
+      managedHistorySyncJob.phase === 'complete' ||
+      managedHistorySyncJob.phase === 'error'
+    ) {
+      return;
+    }
+
+    const poll = async () => {
+      try {
+        const latestJob = await getHostawayHistorySyncStatusViaServer();
+        if (!latestJob || cancelled) return;
+        setManagedHistorySyncJob(latestJob);
+        updateVoiceReadiness(latestJob);
+      } catch (pollError) {
+        console.warn('[Onboarding] Failed to poll Hostaway history sync status:', pollError);
+      }
+    };
+
+    void poll();
+    const interval = setInterval(() => {
+      void poll();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [managedHistorySyncJob, setVoiceReadiness, showingManagedLearning]);
+
+  const handleManagedContinue = () => {
+    setOnboarded(true);
+    onComplete();
+  };
 
   const handleStartDemo = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -122,9 +203,21 @@ export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingSc
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      if (appFeatures.serverProxiedAI) {
-        await connectHostawayServer(accountId.trim(), apiKey.trim());
+      if (isServerManaged) {
+        const connection = await connectHostawayServer(accountId.trim(), apiKey.trim());
         setCredentials('', '');
+        setDemoMode(false);
+        updateSettings({ pmsProvider: 'hostaway' });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        if (connection.historySyncJob) {
+          setManagedHistorySyncJob(connection.historySyncJob);
+          return;
+        }
+
+        setOnboarded(true);
+        onComplete();
+        return;
       } else {
         const isValid = await validateCredentials(accountId.trim(), apiKey.trim());
         if (!isValid) {
@@ -148,7 +241,7 @@ export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingSc
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete();
 
-      if (!appFeatures.serverProxiedAI) {
+      if (!isServerManaged) {
         startAutoImportAfterConnect(accountId.trim(), apiKey.trim()).catch((syncError) => {
           console.warn('[Onboarding] Background sync failed to start:', syncError);
         });
@@ -241,138 +334,174 @@ export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingSc
                     <View style={ob.keyBox}>
                       <Key size={32} color={colors.primary.DEFAULT} />
                     </View>
-                    <Text style={ob.stepTitle}>Connect Hostaway</Text>
+                    <Text style={ob.stepTitle}>
+                      {showingManagedLearning ? 'Learning In Progress' : 'Connect Hostaway'}
+                    </Text>
                     <Text style={ob.stepSub}>
-                      Enter your Hostaway Account ID and API Secret Key. We will connect first and sync the rest in the background.
+                      {showingManagedLearning
+                        ? 'Your account is connected. We are syncing past conversations so server drafts can learn your voice without blocking entry.'
+                        : 'Enter your Hostaway Account ID and API Secret Key. We will connect first and sync the rest in the background.'}
                     </Text>
                   </View>
 
-                  <View style={ob.providerBadge}>
-                    <Text style={ob.providerBadgeText}>Hostaway</Text>
-                    <Text style={ob.providerBadgeSub}>Current supported PMS</Text>
-                  </View>
+                  {showingManagedLearning ? (
+                    <>
+                      <VoiceLearningBanner job={managedHistorySyncJob} />
+                      <View style={ob.infoCard}>
+                        <CheckCircle2 size={18} color={colors.primary.DEFAULT} style={ob.infoIcon} />
+                        <View style={ob.infoCopy}>
+                          <Text style={ob.infoTitle}>What happens next</Text>
+                          <Text style={ob.infoText}>Drafts are available now while the server keeps learning from past replies.</Text>
+                          <Text style={ob.infoText}>Autopilot stays off until your voice model reaches the readiness gate.</Text>
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={ob.providerBadge}>
+                        <Text style={ob.providerBadgeText}>Hostaway</Text>
+                        <Text style={ob.providerBadgeSub}>Current supported PMS</Text>
+                      </View>
 
-                  <View style={ob.inputCard}>
-                    <Text style={ob.inputLabel}>Account ID</Text>
-                    <View style={ob.inputRow}>
-                      <User size={18} color={colors.text.disabled} />
-                      <TextInput
-                        value={accountId}
-                        onChangeText={(value) => setAccountId(value.replace(/\D/g, ''))}
-                        placeholder="Enter your Account ID"
-                        placeholderTextColor={colors.text.disabled}
-                        style={ob.input}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        keyboardType="number-pad"
-                        returnKeyType="next"
-                        testID="onboarding-account-id"
-                      />
-                    </View>
-                  </View>
+                      <View style={ob.inputCard}>
+                        <Text style={ob.inputLabel}>Account ID</Text>
+                        <View style={ob.inputRow}>
+                          <User size={18} color={colors.text.disabled} />
+                          <TextInput
+                            value={accountId}
+                            onChangeText={(value) => setAccountId(value.replace(/\D/g, ''))}
+                            placeholder="Enter your Account ID"
+                            placeholderTextColor={colors.text.disabled}
+                            style={ob.input}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            keyboardType="number-pad"
+                            returnKeyType="next"
+                            testID="onboarding-account-id"
+                          />
+                        </View>
+                      </View>
 
-                  <View style={ob.inputCard}>
-                    <Text style={ob.inputLabel}>API Secret Key</Text>
-                    <View style={ob.inputRow}>
-                      <Key size={18} color={colors.text.disabled} />
-                      <TextInput
-                        value={apiKey}
-                        onChangeText={setApiKey}
-                        placeholder="Enter your Hostaway API Secret Key"
-                        placeholderTextColor={colors.text.disabled}
-                        style={ob.input}
-                        secureTextEntry={!showApiKey}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        returnKeyType="done"
-                        testID="onboarding-api-key"
-                      />
-                      <Pressable
-                        onPress={() => setShowApiKey((current) => !current)}
-                        hitSlop={10}
-                        style={ob.eyeToggle}
-                        testID="onboarding-eye-toggle"
-                      >
-                        <Text style={ob.eyeToggleText}>{showApiKey ? 'Hide' : 'Show'}</Text>
-                      </Pressable>
-                    </View>
-                  </View>
+                      <View style={ob.inputCard}>
+                        <Text style={ob.inputLabel}>API Secret Key</Text>
+                        <View style={ob.inputRow}>
+                          <Key size={18} color={colors.text.disabled} />
+                          <TextInput
+                            value={apiKey}
+                            onChangeText={setApiKey}
+                            placeholder="Enter your Hostaway API Secret Key"
+                            placeholderTextColor={colors.text.disabled}
+                            style={ob.input}
+                            secureTextEntry={!showApiKey}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            returnKeyType="done"
+                            testID="onboarding-api-key"
+                          />
+                          <Pressable
+                            onPress={() => setShowApiKey((current) => !current)}
+                            hitSlop={10}
+                            style={ob.eyeToggle}
+                            testID="onboarding-eye-toggle"
+                          >
+                            <Text style={ob.eyeToggleText}>{showApiKey ? 'Hide' : 'Show'}</Text>
+                          </Pressable>
+                        </View>
+                      </View>
 
-                  {error ? (
-                    <View style={ob.errorRow}>
-                      <AlertCircle size={18} color={colors.danger.DEFAULT} />
-                      <Text style={ob.errorText}>{error}</Text>
-                    </View>
-                  ) : null}
+                      {error ? (
+                        <View style={ob.errorRow}>
+                          <AlertCircle size={18} color={colors.danger.DEFAULT} />
+                          <Text style={ob.errorText}>{error}</Text>
+                        </View>
+                      ) : null}
 
-                  <View style={ob.infoCard}>
-                    <CheckCircle2 size={18} color={colors.primary.DEFAULT} style={ob.infoIcon} />
-                    <View style={ob.infoCopy}>
-                      <Text style={ob.infoTitle}>What happens next</Text>
-                      <Text style={ob.infoText}>You enter the app immediately after connection.</Text>
-                      <Text style={ob.infoText}>Recent conversations and AI training sync in the background.</Text>
-                      <Text style={ob.infoText}>Detailed progress stays available from Sync Data and AI Learning.</Text>
-                    </View>
-                  </View>
+                      <View style={ob.infoCard}>
+                        <CheckCircle2 size={18} color={colors.primary.DEFAULT} style={ob.infoIcon} />
+                        <View style={ob.infoCopy}>
+                          <Text style={ob.infoTitle}>What happens next</Text>
+                          <Text style={ob.infoText}>You enter the app immediately after connection.</Text>
+                          <Text style={ob.infoText}>Recent conversations and AI training sync in the background.</Text>
+                          <Text style={ob.infoText}>Detailed progress stays available from Sync Data and AI Learning.</Text>
+                        </View>
+                      </View>
 
-                  <View style={ob.securityRow}>
-                    <Shield size={18} color={colors.primary.DEFAULT} style={ob.infoIcon} />
-                    <Text style={ob.securityText}>
-                      Your Hostaway credentials are stored securely on your device in personal mode.
-                    </Text>
-                  </View>
-
-                  <Pressable
-                    onPress={() => setShowCredentialHelp((current) => !current)}
-                    style={ob.helpLink}
-                  >
-                    <Text style={ob.helpText}>Where do I find my API credentials?</Text>
-                    <ChevronRight size={16} color={colors.accent.DEFAULT} />
-                  </Pressable>
-
-                  {showCredentialHelp ? (
-                    <View style={ob.helpCard}>
-                      <Text style={ob.helpCardTitle}>Find your Hostaway API credentials</Text>
-                      {HELP_STEPS.map((stepText) => (
-                        <Text key={stepText} style={ob.helpCardText}>
-                          {stepText}
+                      <View style={ob.securityRow}>
+                        <Shield size={18} color={colors.primary.DEFAULT} style={ob.infoIcon} />
+                        <Text style={ob.securityText}>
+                          {isServerManaged
+                            ? 'Your Hostaway connection is validated server-side so message history can train your account-backed voice model.'
+                            : 'Your Hostaway credentials are stored securely on your device in personal mode.'}
                         </Text>
-                      ))}
-                    </View>
-                  ) : null}
+                      </View>
+
+                      <Pressable
+                        onPress={() => setShowCredentialHelp((current) => !current)}
+                        style={ob.helpLink}
+                      >
+                        <Text style={ob.helpText}>Where do I find my API credentials?</Text>
+                        <ChevronRight size={16} color={colors.accent.DEFAULT} />
+                      </Pressable>
+
+                      {showCredentialHelp ? (
+                        <View style={ob.helpCard}>
+                          <Text style={ob.helpCardTitle}>Find your Hostaway API credentials</Text>
+                          {HELP_STEPS.map((stepText) => (
+                            <Text key={stepText} style={ob.helpCardText}>
+                              {stepText}
+                            </Text>
+                          ))}
+                        </View>
+                      ) : null}
+                    </>
+                  )}
                 </Animated.View>
               </ScrollView>
 
               <View style={[ob.footer, { paddingBottom: footerPadding }]}> 
-                <Pressable
-                  onPress={handleConnectHostaway}
-                  accessibilityLabel="Connect Hostaway"
-                  disabled={isConnectDisabled}
-                  style={({ pressed }) => [
-                    ob.primaryButton,
-                    ob.footerButton,
-                    isConnectDisabled ? ob.primaryButtonDisabled : null,
-                    pressed && !isConnectDisabled ? ob.pressed : null,
-                  ]}
-                  testID="onboarding-connect"
-                >
-                  <Text style={[ob.primaryButtonText, isConnectDisabled ? ob.primaryButtonTextDisabled : null]}>
-                    {isValidating ? 'Connecting Hostaway...' : 'Connect Hostaway'}
-                  </Text>
-                  {!isValidating ? (
-                    <ArrowRight size={20} color={isConnectDisabled ? colors.text.muted : '#FFFFFF'} />
-                  ) : null}
-                </Pressable>
+                {showingManagedLearning ? (
+                  <Pressable
+                    onPress={handleManagedContinue}
+                    accessibilityLabel="Continue to inbox"
+                    style={({ pressed }) => [ob.primaryButton, ob.footerButton, pressed && ob.pressed]}
+                    testID="onboarding-managed-continue"
+                  >
+                    <Text style={ob.primaryButtonText}>Continue to Inbox</Text>
+                    <ArrowRight size={20} color="#FFFFFF" />
+                  </Pressable>
+                ) : (
+                  <>
+                    <Pressable
+                      onPress={handleConnectHostaway}
+                      accessibilityLabel="Connect Hostaway"
+                      disabled={isConnectDisabled}
+                      style={({ pressed }) => [
+                        ob.primaryButton,
+                        ob.footerButton,
+                        isConnectDisabled ? ob.primaryButtonDisabled : null,
+                        pressed && !isConnectDisabled ? ob.pressed : null,
+                      ]}
+                      testID="onboarding-connect"
+                    >
+                      <Text style={[ob.primaryButtonText, isConnectDisabled ? ob.primaryButtonTextDisabled : null]}>
+                        {isValidating ? 'Connecting Hostaway...' : 'Connect Hostaway'}
+                      </Text>
+                      {!isValidating ? (
+                        <ArrowRight size={20} color={isConnectDisabled ? colors.text.muted : '#FFFFFF'} />
+                      ) : null}
+                    </Pressable>
 
-                <Pressable
-                  onPress={handleStartDemo}
-                  disabled={isValidating}
-                  style={({ pressed }) => [ob.secondaryButton, (pressed || isValidating) && ob.secondaryPressed]}
-                  testID="onboarding-demo-mode"
-                >
-                  <Sparkles size={18} color={colors.accent.DEFAULT} />
-                  <Text style={ob.secondaryButtonText}>Try Demo Mode</Text>
-                </Pressable>
+                    <Pressable
+                      onPress={handleStartDemo}
+                      disabled={isValidating}
+                      style={({ pressed }) => [ob.secondaryButton, (pressed || isValidating) && ob.secondaryPressed]}
+                      testID="onboarding-demo-mode"
+                    >
+                      <Sparkles size={18} color={colors.accent.DEFAULT} />
+                      <Text style={ob.secondaryButtonText}>Try Demo Mode</Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
             </View>
           </KeyboardAvoidingView>
