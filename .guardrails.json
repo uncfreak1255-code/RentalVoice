@@ -1,0 +1,23 @@
+{
+  "workflow": "feature-branch",
+  "protectedBranches": [
+    "main",
+    "master"
+  ],
+  "generatedPaths": [
+    "_site/",
+    "_site_verify",
+    "tmp/",
+    "dist/",
+    "build/",
+    "coverage/",
+    "server/dist/",
+    "web-build/",
+    "ops/checkpoints/",
+    "ops/logs/",
+    "ops/manifests/"
+  ],
+  "testCommand": "npm run lint && npm run typecheck",
+  "buildCommand": "cd server && npm run build",
+  "mergeBase": "origin/main...HEAD"
+}

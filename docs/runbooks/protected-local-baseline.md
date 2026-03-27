@@ -1,13 +1,14 @@
 # Protected local baseline
 
-This runbook defines the current source of truth for Rental Voice while commercialization remains staged.
+This runbook defines the rollback contract for Rental Voice while commercialization remains staged and GitHub remains canonical.
 
 ## Current contract
 
-- Canonical source: local workspace at `/Users/sawbeck/Projects/RentalVoice`
+- Canonical source: GitHub `main` / `origin/main`
+- Primary local sync checkout: `/Users/sawbeck/Projects/RentalVoice`
 - Current user-facing mode: `personal`
 - Current onboarding/login UX: Hostaway Account ID + API key
-- GitHub remote: behind local, not canonical
+- Protected local baseline: rollback anchor for risky local/live changes
 - Current Supabase projects:
   - `gqnocsoouudbogwislsl`: linked `test` project with test/smoke app users
   - `cqbzsntmlwpsaxwnoath`: legacy non-live project with no app auth users
@@ -39,7 +40,7 @@ Artifacts created:
 - device-local PMS behavior in personal mode
 - current local learning data as the source for later founder migration
 - current linked `test` environment as the safe default runtime
-- current local workspace as the rollback anchor until GitHub promotion is done
+- a local rollback point and data snapshot before risky operations; it does not replace GitHub as canonical code history
 
 ## What this runbook forbids
 
@@ -58,6 +59,5 @@ Artifacts created:
 
 ## Live-founder execution note
 
-- as of `2026-03-09`, fresh baseline creation is blocked on this machine because `pg_dump` is not installed
-- existing protected baselines are planning anchors only
-- do not execute founder bootstrap live until PostgreSQL client tooling is installed and a fresh baseline is created immediately before the execute step
+- `pg_dump` is available locally via Homebrew `libpq`
+- create a fresh protected baseline immediately before live founder bootstrap, restore, or promotion work

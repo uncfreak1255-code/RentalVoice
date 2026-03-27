@@ -7,12 +7,14 @@ import { useNetworkStatus } from '@/lib/useNetworkStatus';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { colors } from '@/lib/design-tokens';
 import { StatusBar } from 'expo-status-bar';
+import { canAccessTabs } from '@/lib/session-gate';
 
 export default function InboxTab() {
   const router = useRouter();
 
   const isOnboarded = useAppStore((s) => s.settings.isOnboarded);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const founderSession = useAppStore((s) => s.founderSession);
   const activeConversationId = useAppStore((s) => s.activeConversationId);
   const setActiveConversation = useAppStore((s) => s.setActiveConversation);
 
@@ -20,12 +22,16 @@ export default function InboxTab() {
 
   // Handle deep linking from notification tap
   useEffect(() => {
-    if (activeConversationId && isOnboarded) {
+    if (activeConversationId && canAccessTabs({
+      hasFounderSession: !!founderSession,
+      isOnboarded,
+      isDemoMode,
+    })) {
       console.log('[InboxTab] Deep linking to conversation:', activeConversationId);
       router.push(`/chat/${activeConversationId}`);
       setActiveConversation(null);
     }
-  }, [activeConversationId, isOnboarded, setActiveConversation, router]);
+  }, [activeConversationId, founderSession, isDemoMode, isOnboarded, setActiveConversation, router]);
 
   const handleSelectConversation = useCallback((id: string) => {
     router.push(`/chat/${id}`);
@@ -39,7 +45,11 @@ export default function InboxTab() {
     router.navigate('/(tabs)/calendar');
   }, [router]);
 
-  if (!isOnboarded && !isDemoMode) {
+  if (!canAccessTabs({
+    hasFounderSession: !!founderSession,
+    isOnboarded,
+    isDemoMode,
+  })) {
     return <View style={styles.container} />;
   }
 

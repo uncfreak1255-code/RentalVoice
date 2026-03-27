@@ -48,7 +48,11 @@ jest.mock('expo-haptics', () => ({
 // Mock lucide icons
 jest.mock('lucide-react-native', () => {
   const { View } = require('react-native');
-  const icon = (name: string) => (props: any) => <View testID={`icon-${name}`} {...props} />;
+  const icon = (name: string) => {
+    const Icon = (props: any) => <View testID={`icon-${name}`} {...props} />;
+    Icon.displayName = `Mock${name[0].toUpperCase()}${name.slice(1)}Icon`;
+    return Icon;
+  };
   return {
     Send: icon('send'),
     Sparkles: icon('sparkles'),
