@@ -7,11 +7,34 @@ describe('getAppEntryDestination', () => {
         isOnboarded: true,
         isDemoMode: true,
         restoreResult: null,
+        hasAccountSession: false,
       })
     ).toEqual({ route: '/(tabs)', shouldRecoverSession: false });
   });
 
-  it('routes to tabs when secure credentials restore even if onboarding state was lost', () => {
+  it('routes to tabs when an account session exists and onboarding is already complete', () => {
+    expect(
+      getAppEntryDestination({
+        isOnboarded: true,
+        isDemoMode: false,
+        restoreResult: null,
+        hasAccountSession: true,
+      })
+    ).toEqual({ route: '/(tabs)', shouldRecoverSession: false });
+  });
+
+  it('routes to onboarding when an account session exists but Hostaway still needs connection', () => {
+    expect(
+      getAppEntryDestination({
+        isOnboarded: false,
+        isDemoMode: false,
+        restoreResult: null,
+        hasAccountSession: true,
+      })
+    ).toEqual({ route: '/onboarding', shouldRecoverSession: false });
+  });
+
+  it('routes to onboarding when only legacy Hostaway credentials restore', () => {
     const restoreResult: RestoreOutcome = {
       connected: true,
       accountId: '51916',
@@ -20,11 +43,12 @@ describe('getAppEntryDestination', () => {
 
     expect(
       getAppEntryDestination({
-        isOnboarded: false,
+        isOnboarded: true,
         isDemoMode: false,
         restoreResult,
+        hasAccountSession: false,
       })
-    ).toEqual({ route: '/(tabs)', shouldRecoverSession: true });
+    ).toEqual({ route: '/onboarding', shouldRecoverSession: false });
   });
 
   it('routes to onboarding when re-authentication is required', () => {
@@ -33,6 +57,7 @@ describe('getAppEntryDestination', () => {
         isOnboarded: true,
         isDemoMode: false,
         restoreResult: { connected: false, needsReauth: true },
+        hasAccountSession: false,
       })
     ).toEqual({ route: '/onboarding', shouldRecoverSession: false });
   });
@@ -43,6 +68,7 @@ describe('getAppEntryDestination', () => {
         isOnboarded: false,
         isDemoMode: false,
         restoreResult: { connected: false },
+        hasAccountSession: false,
       })
     ).toEqual({ route: '/onboarding', shouldRecoverSession: false });
   });

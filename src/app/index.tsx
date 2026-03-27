@@ -24,6 +24,8 @@ export default function AppEntry() {
   const router = useRouter();
   const isOnboarded = useAppStore((s) => s.settings.isOnboarded);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const accountSession = useAppStore((s) => s.accountSession);
+  const restoreAccountSession = useAppStore((s) => s.restoreAccountSession);
   const setCredentials = useAppStore((s) => s.setCredentials);
   const setOnboarded = useAppStore((s) => s.setOnboarded);
 
@@ -32,8 +34,13 @@ export default function AppEntry() {
 
     async function boot(): Promise<void> {
       let restoreResult: RestoreOutcome | null = null;
+      let restoredAccountSession = accountSession;
 
       try {
+        if (!isDemoMode && !restoredAccountSession) {
+          restoredAccountSession = await restoreAccountSession();
+        }
+
         if (!isDemoMode) {
           restoreResult = await restoreConnection();
         }
@@ -42,6 +49,7 @@ export default function AppEntry() {
           isOnboarded,
           isDemoMode,
           restoreResult,
+          hasAccountSession: Boolean(restoredAccountSession),
         });
 
         if (restoreResult?.connected && restoreResult.accountId && restoreResult.apiKey) {
@@ -77,7 +85,7 @@ export default function AppEntry() {
     return () => {
       mounted = false;
     };
-  }, [isDemoMode, isOnboarded, router, setCredentials, setOnboarded]);
+  }, [accountSession, isDemoMode, isOnboarded, restoreAccountSession, router, setCredentials, setOnboarded]);
 
   // Sync learning data when app returns to foreground
   React.useEffect(() => {

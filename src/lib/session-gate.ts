@@ -9,6 +9,7 @@ interface SessionGateInput {
   isOnboarded: boolean;
   isDemoMode: boolean;
   restoreResult: RestoreOutcome | null;
+  hasAccountSession: boolean;
 }
 
 interface SessionGateOutput {
@@ -20,16 +21,22 @@ export function getAppEntryDestination({
   isOnboarded,
   isDemoMode,
   restoreResult,
+  hasAccountSession,
 }: SessionGateInput): SessionGateOutput {
   if (isDemoMode && isOnboarded) {
     return { route: '/(tabs)', shouldRecoverSession: false };
   }
 
+  if (hasAccountSession && isOnboarded) {
+    return { route: '/(tabs)', shouldRecoverSession: false };
+  }
+
+  if (hasAccountSession) {
+    return { route: '/onboarding', shouldRecoverSession: false };
+  }
+
   if (restoreResult?.connected && restoreResult.accountId && restoreResult.apiKey) {
-    return {
-      route: '/(tabs)',
-      shouldRecoverSession: !isOnboarded,
-    };
+    return { route: '/onboarding', shouldRecoverSession: false };
   }
 
   if (restoreResult?.needsReauth) {
