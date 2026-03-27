@@ -43,6 +43,7 @@ import { connectHostaway as connectHostawayServer } from '@/lib/api-client';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
+  skipIntro?: boolean;
 }
 
 const FEATURE_CARDS = [
@@ -70,9 +71,9 @@ const HELP_STEPS = [
   '4. Paste both values here to connect Rental Voice.',
 ];
 
-export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+export function OnboardingScreen({ onComplete, skipIntro = false }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(skipIntro ? 1 : 0);
   const [accountId, setAccountId] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [isValidating, setIsValidating] = useState(false);
@@ -89,8 +90,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const updateSettings = useAppStore((s) => s.updateSettings);
 
   useEffect(() => {
-    progress.value = withSpring((step + 1) / 2, { damping: 15 });
-  }, [progress, step]);
+    progress.value = withSpring(skipIntro ? 1 : (step + 1) / 2, { damping: 15 });
+  }, [progress, skipIntro, step]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -176,7 +177,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           </View>
         </View>
 
-        {step === 0 ? (
+        {!skipIntro && step === 0 ? (
           <Animated.View entering={FadeIn.duration(500)} style={ob.stepWrap}>
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} bounces={false}>
               <Animated.View entering={FadeInDown.delay(150).duration(500)} style={ob.logoWrap}>

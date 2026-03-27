@@ -152,6 +152,15 @@ describe('OnboardingScreen', () => {
     expect(queryByText('Lodgify')).toBeNull();
   });
 
+  it('renders the Hostaway connect form immediately when intro is skipped', () => {
+    const { getByTestId, queryByTestId } = render(
+      <OnboardingScreen onComplete={jest.fn()} skipIntro />
+    );
+
+    expect(getByTestId('onboarding-account-id')).toBeTruthy();
+    expect(queryByTestId('onboarding-get-started')).toBeNull();
+  });
+
   it('opens inline credential help instead of leaving the link dead', () => {
     const { getByTestId, getByText } = render(<OnboardingScreen onComplete={jest.fn()} />);
 
