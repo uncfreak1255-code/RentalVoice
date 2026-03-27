@@ -5,6 +5,11 @@
 import { fetchStableAccountId, resolveStableAccountId } from '../stable-account-id';
 import { useAppStore } from '../store';
 
+jest.mock('../cold-storage', () => ({
+  saveCold: jest.fn(),
+  removeCold: jest.fn(),
+}));
+
 // Mock dependencies
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
@@ -28,13 +33,19 @@ jest.mock('../hostaway', () => ({
   getAccessToken: jest.fn().mockResolvedValue('mock-access-token'),
 }));
 
+const mockAutoProvisionIdentity = jest.fn().mockResolvedValue({ success: false, error: 'disabled' });
+
+jest.mock('../auto-provision', () => ({
+  autoProvisionIdentity: (...args: unknown[]) => mockAutoProvisionIdentity(...args),
+}));
+
 // Mock secure-storage stable ID functions
 const mockStoreStableId = jest.fn().mockResolvedValue(undefined);
 const mockGetStableId = jest.fn().mockResolvedValue(null);
 
 jest.mock('../secure-storage', () => ({
   ...jest.requireActual('../secure-storage'),
-  storeStableAccountId: (...args: unknown[]) => mockStoreStableId(...args),
+  storeStableAccountIdForAccount: (...args: unknown[]) => mockStoreStableId(...args),
   getStableAccountId: (...args: unknown[]) => mockGetStableId(...args),
 }));
 
@@ -47,6 +58,7 @@ beforeEach(() => {
   useAppStore.setState(useAppStore.getInitialState());
   jest.clearAllMocks();
   mockGetStableId.mockResolvedValue(null);
+  delete process.env.EXPO_PUBLIC_ENABLE_UNSAFE_AUTO_PROVISION;
 });
 
 // ── fetchStableAccountId ──
@@ -112,17 +124,24 @@ describe('fetchStableAccountId', () => {
 // ── resolveStableAccountId ──
 
 describe('resolveStableAccountId', () => {
-  it('should return cached ID from Zustand store if available', async () => {
+  it('treats in-memory stable ID as stale until secure storage confirms the source account', async () => {
     useAppStore.setState({
-      settings: { ...useAppStore.getState().settings, stableAccountId: '42' },
+      settings: { ...useAppStore.getState().settings, stableAccountId: '41' },
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'success',
+        result: [{ id: 1, accountId: 42 }],
+      }),
     });
 
     const result = await resolveStableAccountId('79597', 'fake-key');
 
     expect(result).toBe('42');
-    // Should NOT have called fetch or secure storage
-    expect(mockFetch).not.toHaveBeenCalled();
-    expect(mockGetStableId).not.toHaveBeenCalled();
+    expect(mockGetStableId).toHaveBeenCalledWith('79597');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(useAppStore.getState().settings.stableAccountId).toBe('42');
   });
 
   it('should restore from secure storage if not in Zustand', async () => {
@@ -149,9 +168,24 @@ describe('resolveStableAccountId', () => {
     const result = await resolveStableAccountId('79597', 'fake-key');
 
     expect(result).toBe('42');
-    // Should have cached in both stores
     expect(useAppStore.getState().settings.stableAccountId).toBe('42');
-    expect(mockStoreStableId).toHaveBeenCalledWith('42');
+    expect(mockGetStableId).toHaveBeenCalledWith('79597');
+    expect(mockStoreStableId).toHaveBeenCalledWith('42', '79597');
+    expect(mockAutoProvisionIdentity).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-provision identities from the client by default', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: 'success',
+        result: [{ id: 1, accountId: 42 }],
+      }),
+    });
+
+    await resolveStableAccountId('79597', 'fake-key');
+
+    expect(mockAutoProvisionIdentity).not.toHaveBeenCalled();
   });
 
   it('should return null if all resolution methods fail', async () => {

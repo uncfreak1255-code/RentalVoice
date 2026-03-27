@@ -9,12 +9,12 @@ Then use this order:
 3. `/Users/sawbeck/Projects/RentalVoice/docs/status/next-batch.md`
 4. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
 5. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
-6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
+6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/github-canonical-promotion.md`
 7. task-specific runbooks or code
 
 ## Non-negotiable repo truths
 
-- Canonical source of truth is the local workspace, not GitHub
+- Canonical source of truth is GitHub `main`; local checkouts and worktrees are implementation sandboxes until pushed and merged
 - Current user-facing app path stays in `personal` mode until an explicit cutover
 - Current visible auth/onboarding remains Hostaway-first
 - The protected local baseline is the rollback anchor
@@ -32,6 +32,7 @@ Then use this order:
 ## When working in this repo
 
 - prefer the existing runbooks over inventing new ad hoc workflows
+- keep local `main` as a sync checkout; do feature work on isolated branches or worktrees
 - keep personal-mode UX stable unless the task explicitly says otherwise
 - keep commercialization work staged and isolated
 - document source-of-truth, migration, and rollback assumptions clearly

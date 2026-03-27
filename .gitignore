@@ -57,7 +57,8 @@ server/.env
 
 # Coverage
 coverage/
-src/components/AILearningScreen.tsx.bak
+*.bak
+*.backup
 arch-previews.html
 .skills
 

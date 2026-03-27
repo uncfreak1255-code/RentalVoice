@@ -19,8 +19,9 @@ Use this workflow for:
 
 ## Current rules
 
-- local workspace is canonical
-- GitHub is behind local until controlled promotion
+- GitHub `main` is canonical
+- protected local baseline is the rollback anchor
+- do risky work on isolated branches or worktrees, not local `main`
 - current app remains `personal` mode
 - current visible auth remains Hostaway-first
 - neither current Supabase project is the founder/live app-auth environment
