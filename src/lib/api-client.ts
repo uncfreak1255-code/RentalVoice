@@ -842,12 +842,14 @@ export async function connectHostaway(accountId: string, apiKey: string): Promis
   provider: string;
   accountId: string;
   connectedAt: string;
+  historySyncJob?: HostawayHistorySyncJob | null;
 }> {
   const { data } = await apiClient.post<{
     status: string;
     provider: string;
     accountId: string;
     connectedAt: string;
+    historySyncJob?: HostawayHistorySyncJob | null;
   }>('/api/hostaway', { accountId, apiKey });
   return data;
 }
