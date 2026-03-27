@@ -15,6 +15,11 @@ import { API_BASE_URL, isPersonal } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import {
+  clearAccountSession,
+  persistAccountSession,
+  type AccountSession,
+} from './account-session';
 
 const AUTH_TOKEN_KEY = 'rv-auth-token';
 const REFRESH_TOKEN_KEY = 'rv-refresh-token';
@@ -480,15 +485,56 @@ export interface AuthResponseData {
   user: AuthUser;
 }
 
+export interface PasswordlessAuthResponseData extends AuthResponseData {
+  founderAccess?: boolean;
+}
+
+function toAccountSession(data: AuthResponseData): AccountSession {
+  return {
+    token: data.token,
+    refreshToken: data.refreshToken,
+    user: data.user,
+  };
+}
+
 export async function signup(req: SignupRequest): Promise<AuthResponseData> {
   const { data } = await apiClient.post<AuthResponseData>('/api/auth/signup', req as unknown as Record<string, unknown>);
   await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
   return data;
 }
 
 export async function login(req: LoginRequest): Promise<AuthResponseData> {
   const { data } = await apiClient.post<AuthResponseData>('/api/auth/login', req as unknown as Record<string, unknown>);
   await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
+  return data;
+}
+
+export async function requestEmailCode(email: string, name?: string): Promise<{ success: boolean }> {
+  const { data } = await apiClient.post<{ success: boolean }>('/api/auth/request-code', {
+    email,
+    ...(name ? { name } : {}),
+  });
+  return data;
+}
+
+export async function verifyEmailCode(email: string, code: string): Promise<PasswordlessAuthResponseData> {
+  const { data } = await apiClient.post<PasswordlessAuthResponseData>('/api/auth/verify-code', {
+    email,
+    code,
+  });
+  await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
+  return data;
+}
+
+export async function consumeMagicLink(code: string): Promise<PasswordlessAuthResponseData> {
+  const { data } = await apiClient.post<PasswordlessAuthResponseData>('/api/auth/consume-link', {
+    code,
+  });
+  await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
   return data;
 }
 
@@ -513,6 +559,7 @@ export async function refreshTokens(): Promise<{ token: string; refreshToken: st
 
 export async function logout(): Promise<void> {
   await clearAuthTokens();
+  await clearAccountSession();
 }
 
 // ============================================================

@@ -9,6 +9,13 @@ import {
   clearFounderSession as clearFounderSessionFromStorage,
   type FounderMigrationState,
 } from './secure-storage';
+import {
+  clearAccountSession as clearStoredAccountSession,
+  persistAccountSession as persistAccountSessionToStorage,
+  restoreAccountSession as restoreAccountSessionFromStorage,
+  type AccountSession,
+} from './account-session';
+import { clearAuthTokens, setAuthTokens } from './api-client';
 
 // Types
 export interface Guest {
@@ -497,6 +504,18 @@ export interface FounderSession {
   migrationState: FounderMigrationState;
 }
 
+export interface VoiceReadiness {
+  status: 'unknown' | 'learning' | 'ready' | 'blocked';
+  reason: string | null;
+  updatedAt: string | null;
+}
+
+const initialVoiceReadiness: VoiceReadiness = {
+  status: 'unknown',
+  reason: null,
+  updatedAt: null,
+};
+
 interface AppState {
   // Settings
   settings: AppSettings;
@@ -643,6 +662,15 @@ interface AppState {
   setFounderSession: (session: FounderSession) => void;
   clearFounderSession: () => void;
   restoreFounderSession: () => Promise<FounderSession | null>;
+
+  // Account Session
+  accountSession: AccountSession | null;
+  accountSessionLoading: boolean;
+  voiceReadiness: VoiceReadiness;
+  setAccountSession: (session: AccountSession) => void;
+  clearAccountSession: () => void;
+  restoreAccountSession: () => Promise<AccountSession | null>;
+  setVoiceReadiness: (readiness: VoiceReadiness) => void;
 
   // Reset
   resetStore: () => void;
@@ -1357,6 +1385,55 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      // Account Session
+      accountSession: null,
+      accountSessionLoading: false,
+      voiceReadiness: initialVoiceReadiness,
+      setAccountSession: (session) => {
+        set({
+          accountSession: session,
+          accountSessionLoading: false,
+        });
+        setAuthTokens(session.token, session.refreshToken).catch((err) => {
+          console.error('[Store] Failed to sync auth tokens for account session:', err);
+        });
+        persistAccountSessionToStorage(session).catch((err) => {
+          console.error('[Store] Failed to persist account session:', err);
+        });
+      },
+      clearAccountSession: () => {
+        set({
+          accountSession: null,
+          accountSessionLoading: false,
+          voiceReadiness: initialVoiceReadiness,
+        });
+        clearAuthTokens().catch((err) => {
+          console.error('[Store] Failed to clear auth tokens:', err);
+        });
+        clearStoredAccountSession().catch((err) => {
+          console.error('[Store] Failed to clear account session from storage:', err);
+        });
+      },
+      restoreAccountSession: async () => {
+        set({ accountSessionLoading: true });
+        try {
+          const session = await restoreAccountSessionFromStorage();
+          if (session) {
+            await setAuthTokens(session.token, session.refreshToken);
+            set({ accountSession: session, accountSessionLoading: false });
+            console.log('[Store] Account session restored for', session.user.email);
+            return session;
+          }
+          set({ accountSessionLoading: false });
+          return null;
+        } catch (error) {
+          console.error('[Store] Failed to restore account session:', error);
+          set({ accountSessionLoading: false });
+          return null;
+        }
+      },
+      setVoiceReadiness: (readiness) => set({ voiceReadiness: readiness }),
+
       // Reset
       resetStore: () => {
         // Clear cold storage to prevent zombie data on next mount
@@ -1427,6 +1504,9 @@ export const useAppStore = create<AppState>()(
           replyDeltas: [],
           activeConversationId: null,
           isDemoMode: false,
+          accountSession: null,
+          accountSessionLoading: false,
+          voiceReadiness: initialVoiceReadiness,
           // Note: founderSession in-memory state is cleared, but secure storage
           // is NOT cleared here. Founder session survives Hostaway disconnects.
           // Use clearFounderSession() explicitly to wipe stored founder tokens.
