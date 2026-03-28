@@ -23,6 +23,7 @@ export default function AppEntry() {
   const restoreAccountSession = useAppStore((s) => s.restoreAccountSession);
   const setCredentials = useAppStore((s) => s.setCredentials);
   const setOnboarded = useAppStore((s) => s.setOnboarded);
+  const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
 
   React.useEffect(() => {
     let mounted = true;
@@ -30,6 +31,7 @@ export default function AppEntry() {
     async function boot(): Promise<void> {
       let restoreResult: RestoreOutcome | null = null;
       let restoredAccountSession = accountSession;
+      let hasFounderSession = false;
 
       try {
         if (!isDemoMode && !restoredAccountSession) {
@@ -39,17 +41,27 @@ export default function AppEntry() {
         let hostawayMigrationPromise: Promise<string | undefined> = Promise.resolve(undefined);
 
         if (!isDemoMode) {
-          restoreResult = await restoreConnection();
+          const founderSession = await restoreFounderSession();
+          hasFounderSession = !!founderSession;
+
+          if (!hasFounderSession) {
+            restoreResult = await restoreConnection();
+          }
         }
 
         const destination = getAppEntryDestination({
+          hasFounderSession,
           isOnboarded,
           isDemoMode,
           restoreResult,
           hasAccountSession: Boolean(restoredAccountSession),
         });
 
-        if (restoreResult?.connected && restoreResult.accountId && restoreResult.apiKey) {
+        if (hasFounderSession) {
+          restoreLearningIfNeeded().catch((error) => {
+            console.warn('[AppEntry] Founder learning restore error (non-fatal):', error);
+          });
+        } else if (restoreResult?.connected && restoreResult.accountId && restoreResult.apiKey) {
           setCredentials(restoreResult.accountId, restoreResult.apiKey);
           if (destination.shouldRecoverSession) {
             setOnboarded(true);
@@ -100,7 +112,16 @@ export default function AppEntry() {
     return () => {
       mounted = false;
     };
-  }, [accountSession, isDemoMode, isOnboarded, restoreAccountSession, router, setCredentials, setOnboarded]);
+  }, [
+    accountSession,
+    isDemoMode,
+    isOnboarded,
+    restoreAccountSession,
+    restoreFounderSession,
+    router,
+    setCredentials,
+    setOnboarded,
+  ]);
 
   // Sync learning data when app returns to foreground
   React.useEffect(() => {

@@ -15,9 +15,10 @@ Primary folders:
 
 ## Canonical source of truth
 
-- Current canonical codebase: local workspace at `/Users/sawbeck/Projects/RentalVoice`
-- GitHub remote is behind local and should not be treated as canonical until a controlled promotion happens
-- Protected local baseline is now the rollback anchor
+- Canonical release truth: GitHub `main` / `origin/main`
+- Local workspace at `/Users/sawbeck/Projects/RentalVoice` is the primary sync and recovery checkout, not a local-only canonical override
+- New implementation work should happen on isolated feature branches or worktrees, not directly on local `main`
+- Protected local baseline is the rollback anchor for risky local/live operations
 
 Protected baseline artifacts:
 
@@ -154,7 +155,7 @@ Read these in order:
 4. `/Users/sawbeck/Projects/RentalVoice/docs/status/next-batch.md`
 5. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
 6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
-7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/local-canonical-promotion.md`
+7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/github-canonical-promotion.md`
 8. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
 9. task-specific files
 

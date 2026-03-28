@@ -406,6 +406,15 @@ const autoProvisionRateLimit = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 5;
 
+function autoProvisionEnabled(): boolean {
+  return process.env.ENABLE_INTERNAL_AUTO_PROVISION === 'true';
+}
+
+function getAutoProvisionInternalToken(): string | null {
+  const token = process.env.AUTO_PROVISION_INTERNAL_TOKEN?.trim();
+  return token || null;
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const timestamps = autoProvisionRateLimit.get(ip) ?? [];
@@ -441,6 +450,30 @@ setInterval(() => {
 
 authRouter.post('/auto-provision', async (c) => {
   try {
+    if (!autoProvisionEnabled()) {
+      return c.json(
+        { message: 'Auto-provision is disabled', code: 'AUTO_PROVISION_DISABLED', status: 403 },
+        403
+      );
+    }
+
+    const internalToken = getAutoProvisionInternalToken();
+    if (!internalToken) {
+      console.error('[Auth] AUTO_PROVISION_INTERNAL_TOKEN is not configured');
+      return c.json(
+        { message: 'Server misconfigured', code: 'INTERNAL_ERROR', status: 500 },
+        500
+      );
+    }
+
+    const providedToken = c.req.header('x-rv-internal-provision');
+    if (providedToken !== internalToken) {
+      return c.json(
+        { message: 'Internal provisioning header required', code: 'AUTO_PROVISION_FORBIDDEN', status: 403 },
+        403
+      );
+    }
+
     // Rate limit check
     const ip = c.req.header('x-forwarded-for')?.split(',')[0].trim() ?? c.req.header('x-real-ip') ?? 'unknown';
     if (!checkRateLimit(ip)) {

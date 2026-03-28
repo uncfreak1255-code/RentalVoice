@@ -16,7 +16,6 @@ import {
   storeStableAccountIdForAccount as secureStoreStableIdForAccount,
   getStableAccountId as secureGetStableId,
 } from './secure-storage';
-import { autoProvisionIdentity } from './auto-provision';
 
 const HOSTAWAY_API_BASE = 'https://api.hostaway.com/v1';
 
@@ -91,8 +90,8 @@ export async function fetchStableAccountId(
  * Resolve the stable account ID, using cache when available.
  *
  * Check order:
- *   1. Zustand store (in-memory, fastest)
- *   2. Secure storage (persisted across restarts)
+ *   1. Secure storage with source-account binding (persisted across restarts)
+ *   2. Zustand store hydration from trusted secure storage
  *   3. API call to /v1/users (network, slowest — result is then cached)
  *
  * @returns The stable account ID, or null if resolution fails.
@@ -126,13 +125,6 @@ export async function resolveStableAccountId(
     // Cache in both stores
     useAppStore.getState().setStableAccountId(fetchedId);
     await secureStoreStableIdForAccount(fetchedId, accountId);
-
-    // Fire-and-forget: provision Supabase identity for this Hostaway account
-    if (accountId && fetchedId) {
-      autoProvisionIdentity(accountId, fetchedId).catch(err =>
-        console.warn('[StableAccountId] Auto-provision failed (non-critical):', err)
-      );
-    }
 
     return fetchedId;
   }

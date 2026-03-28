@@ -112,7 +112,10 @@ const { autoProvisionRateLimit } = await import('../routes/auth.js');
 function postAutoProvision(body: unknown) {
   return app.request('/api/auth/auto-provision', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-rv-internal-provision': 'internal-test-token',
+    },
     body: JSON.stringify(body),
   });
 }
@@ -129,10 +132,48 @@ function resetMocks() {
 describe('POST /api/auth/auto-provision', () => {
   beforeEach(() => {
     resetMocks();
+    delete process.env.ENABLE_INTERNAL_AUTO_PROVISION;
+    delete process.env.AUTO_PROVISION_INTERNAL_TOKEN;
+  });
+
+  it('is disabled by default even with a well-formed request', async () => {
+    const res = await app.request('/api/auth/auto-provision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostawayAccountId: 'HA-12345',
+        stableAccountId: 'stable-abc',
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.code).toBe('AUTO_PROVISION_DISABLED');
+  });
+
+  it('rejects requests that do not present the internal provisioning header', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
+    const res = await app.request('/api/auth/auto-provision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hostawayAccountId: 'HA-12345',
+        stableAccountId: 'stable-abc',
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.code).toBe('AUTO_PROVISION_FORBIDDEN');
   });
 
   // ------- New user creation -------
   it('creates new user when stableAccountId is unknown', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
     // Sign-in fails (user doesn't exist)
     mockAuthClientSignIn.mockResolvedValueOnce({
       data: { session: null, user: null },
@@ -198,6 +239,9 @@ describe('POST /api/auth/auto-provision', () => {
 
   // ------- Re-provision (existing user) -------
   it('returns existing session when stableAccountId is known', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
     const existingUserId = 'uuid-existing-user';
     const existingOrgId = 'uuid-existing-org';
 
@@ -238,6 +282,9 @@ describe('POST /api/auth/auto-provision', () => {
 
   // ------- Validation errors -------
   it('rejects request with missing stableAccountId (400)', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
     const res = await postAutoProvision({
       hostawayAccountId: 'HA-12345',
     });
@@ -248,6 +295,9 @@ describe('POST /api/auth/auto-provision', () => {
   });
 
   it('rejects request with missing hostawayAccountId (400)', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
     const res = await postAutoProvision({
       stableAccountId: 'stable-abc',
     });
@@ -258,6 +308,9 @@ describe('POST /api/auth/auto-provision', () => {
   });
 
   it('rejects request with empty body (400)', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
     const res = await postAutoProvision({});
 
     expect(res.status).toBe(400);
@@ -267,6 +320,9 @@ describe('POST /api/auth/auto-provision', () => {
 
   // ------- Rate limiting -------
   it('rate-limits after 5 requests from same IP', async () => {
+    process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
+    process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
+
     // Pre-fill the rate limiter for 'unknown' IP (default when no x-forwarded-for header)
     autoProvisionRateLimit.set('unknown', Array.from({ length: 5 }, () => Date.now()));
 

@@ -6,6 +6,7 @@ export interface RestoreOutcome {
 }
 
 interface SessionGateInput {
+  hasFounderSession: boolean;
   isOnboarded: boolean;
   isDemoMode: boolean;
   restoreResult: RestoreOutcome | null;
@@ -18,11 +19,16 @@ interface SessionGateOutput {
 }
 
 export function getAppEntryDestination({
+  hasFounderSession,
   isOnboarded,
   isDemoMode,
   restoreResult,
   hasAccountSession,
 }: SessionGateInput): SessionGateOutput {
+  if (hasFounderSession) {
+    return { route: '/(tabs)', shouldRecoverSession: false };
+  }
+
   if (isDemoMode && isOnboarded) {
     return { route: '/(tabs)', shouldRecoverSession: false };
   }
@@ -44,4 +50,12 @@ export function getAppEntryDestination({
   }
 
   return { route: '/onboarding', shouldRecoverSession: false };
+}
+
+export function canAccessTabs({
+  hasFounderSession,
+  isOnboarded,
+  isDemoMode,
+}: Pick<SessionGateInput, 'hasFounderSession' | 'isOnboarded' | 'isDemoMode'>): boolean {
+  return hasFounderSession || isOnboarded || isDemoMode;
 }

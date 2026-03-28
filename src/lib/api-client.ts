@@ -20,6 +20,7 @@ import {
   persistAccountSession,
   type AccountSession,
 } from './account-session';
+import { loadFounderSession } from './secure-storage';
 
 const AUTH_TOKEN_KEY = 'rv-auth-token';
 const REFRESH_TOKEN_KEY = 'rv-refresh-token';
@@ -81,7 +82,13 @@ interface ApiError {
  */
 async function getAuthToken(): Promise<string | null> {
   try {
-    return await getItem(AUTH_TOKEN_KEY);
+    const legacyToken = await getItem(AUTH_TOKEN_KEY);
+    if (legacyToken) {
+      return legacyToken;
+    }
+
+    const founderSession = await loadFounderSession();
+    return founderSession?.accessToken || null;
   } catch {
     return null;
   }

@@ -1,13 +1,14 @@
 # Rental Voice current state
 
-Last updated: 2026-03-16
+Last updated: 2026-03-26
 
 ## Canonical source of truth
 
-- Canonical workspace: `/Users/sawbeck/Projects/RentalVoice`
-- Primary branch in use: `main`
-- Current pushed HEAD should be checked directly with `git rev-parse --short HEAD`
-- GitHub is being used as a structured backup and collaboration remote, but the local workspace remains the operational source of truth during foundation work.
+- Canonical repo truth: GitHub `main` / `origin/main`
+- Primary local sync checkout: `/Users/sawbeck/Projects/RentalVoice`
+- Local `main` should normally be fast-forwarded to `origin/main` before new feature work starts
+- Current pushed canonical HEAD should be checked with `git rev-parse --short origin/main`
+- Feature work should happen on isolated branches or worktrees and becomes canonical only after merge
 
 ## Current product truth
 
