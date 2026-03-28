@@ -448,6 +448,7 @@ export interface LocalLearningMigrationStatusResponse {
     id: string;
     source: string;
     stableAccountId: string | null;
+    importedByUserId: string;
     importedAt: string;
     stats: Record<string, unknown>;
   } | null;
