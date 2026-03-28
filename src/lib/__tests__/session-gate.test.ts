@@ -37,7 +37,7 @@ describe('getAppEntryDestination', () => {
     ).toEqual({ route: '/onboarding', shouldRecoverSession: false });
   });
 
-  it('routes to onboarding when only legacy Hostaway credentials restore', () => {
+  it('routes to tabs when Hostaway credentials restore successfully', () => {
     const restoreResult: RestoreOutcome = {
       connected: true,
       accountId: '51916',
@@ -52,7 +52,7 @@ describe('getAppEntryDestination', () => {
         restoreResult,
         hasAccountSession: false,
       })
-    ).toEqual({ route: '/onboarding', shouldRecoverSession: false });
+    ).toEqual({ route: '/(tabs)', shouldRecoverSession: true });
   });
 
   it('routes to onboarding when re-authentication is required', () => {
