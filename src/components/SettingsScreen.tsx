@@ -10,8 +10,20 @@ import {
   Brain, BookOpen, Globe, Mic,
   BarChart3, BellOff,
   Plane, MessageSquare, Cpu, Zap,
-  User,
+  User, Trash2,
 } from 'lucide-react-native';
+
+// iOS system icon colors per section
+const ic = {
+  green:  { bg: '#34C75920', fg: '#34C759' },
+  blue:   { bg: '#007AFF20', fg: '#007AFF' },
+  purple: { bg: '#AF52DE20', fg: '#AF52DE' },
+  orange: { bg: '#FF950020', fg: '#FF9500' },
+  teal:   { bg: '#14B8A620', fg: '#14B8A6' },
+  red:    { bg: '#FF3B3020', fg: '#FF3B30' },
+  indigo: { bg: '#5856D620', fg: '#5856D6' },
+  gray:   { bg: '#8E8E9320', fg: '#8E8E93' },
+};
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
@@ -289,11 +301,9 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   return (
     <View style={sLocal.root}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
+        {/* Large title header — iOS style */}
         <View style={sLocal.header}>
-          <View style={{ width: spacing['5'] }} />
           <Text style={sLocal.headerTitle}>Settings</Text>
-          <View style={{ width: spacing['5'] }} />
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={sLocal.scrollContent} showsVerticalScrollIndicator={false}>
@@ -302,19 +312,21 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="Connection" />
           <View style={s.card}>
             <Row
-              icon={<Wifi size={18} color={colors.primary.DEFAULT} />}
+              icon={<Wifi size={16} color="#FFFFFF" />}
+              iconBg={ic.green.fg}
               label="PMS Status"
               right={
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, marginRight: spacing['1.5'] }} />
-                  <Text style={{ color: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, fontSize: 15, fontFamily: typography.fontFamily.medium }}>
+                  <Text style={{ color: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, fontSize: 17, fontFamily: typography.fontFamily.medium }}>
                     {isDemoMode ? 'Demo' : 'Connected'}
                   </Text>
                 </View>
               }
             />
             <LinkRow
-              icon={<Key size={18} color={colors.primary.DEFAULT} />}
+              icon={<Key size={16} color="#FFFFFF" />}
+              iconBg={ic.blue.fg}
               label="Manage PMS Connection"
               onPress={() => handleNavigate('apiSettings')}
               isLast
@@ -325,8 +337,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="Founder" />
           <View style={s.card}>
             <LinkRow
-              icon={<User size={18} color={founderSession ? colors.success.DEFAULT : colors.primary.DEFAULT} />}
-              iconBg={founderSession ? colors.success.muted : undefined}
+              icon={<User size={16} color="#FFFFFF" />}
+              iconBg={founderSession ? ic.green.fg : ic.purple.fg}
               label={founderSession ? 'Founder Account Active' : 'Founder Access'}
               onPress={() => handleNavigate('founderAccess')}
               isLast
@@ -340,7 +352,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="AI Usage" />
           <View style={s.card}>
             <Row
-              icon={<Zap size={18} color={colors.primary.DEFAULT} />}
+              icon={<Zap size={16} color="#FFFFFF" />}
+              iconBg={ic.blue.fg}
               label={usageLabel}
               right={
                 <Text style={s.tealValue}>
@@ -363,13 +376,15 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             )}
             {features.serverProxiedAI && (
               <ValueRow
-                icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
+                icon={<Cpu size={16} color="#FFFFFF" />}
+                iconBg={ic.indigo.fg}
                 label="AI Routing"
                 value={activeModelName}
               />
             )}
             <ValueRow
-              icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
+              icon={<BarChart3 size={16} color="#FFFFFF" />}
+              iconBg={ic.blue.fg}
               label="This Month"
               value={thisMonthValue}
               isLast
@@ -384,20 +399,23 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               <View style={s.card}>
                 {isLoadingCommercialEntitlements ? (
                   <Row
-                    icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+                    icon={<Brain size={16} color="#FFFFFF" />}
+                    iconBg={ic.indigo.fg}
                     label="Loading memory entitlements"
-                    right={<ActivityIndicator size="small" color={colors.primary.DEFAULT} />}
+                    right={<ActivityIndicator size="small" color={ic.indigo.fg} />}
                     isLast
                   />
                 ) : commercialEntitlements ? (
                   <>
                     <ValueRow
-                      icon={<Cpu size={18} color={colors.primary.DEFAULT} />}
+                      icon={<Cpu size={16} color="#FFFFFF" />}
+                      iconBg={ic.indigo.fg}
                       label="Plan"
                       value={`${commercialEntitlements.plan.charAt(0).toUpperCase()}${commercialEntitlements.plan.slice(1)}`}
                     />
                     <ValueRow
-                      icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+                      icon={<Brain size={16} color="#FFFFFF" />}
+                      iconBg={ic.indigo.fg}
                       label="Memory Mode"
                       value={
                         commercialEntitlements.entitlements.supermemoryMode === 'full'
@@ -415,7 +433,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                       }
                     />
                     <ValueRow
-                      icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
+                      icon={<BarChart3 size={16} color="#FFFFFF" />}
+                      iconBg={ic.indigo.fg}
                       label="Reads Remaining"
                       value={
                         commercialEntitlements.entitlements.supermemoryReadLimitMonthly > 0
@@ -424,7 +443,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                       }
                     />
                     <ValueRow
-                      icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
+                      icon={<BarChart3 size={16} color="#FFFFFF" />}
+                      iconBg={ic.indigo.fg}
                       label="Writes Remaining"
                       value={
                         commercialEntitlements.entitlements.supermemoryWriteLimitMonthly > 0
@@ -435,7 +455,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                     />
                     {commercialEntitlements.entitlements.supermemoryMode !== 'full' && (
                       <LinkRow
-                        icon={<Zap size={18} color={colors.primary.DEFAULT} />}
+                        icon={<Zap size={16} color="#FFFFFF" />}
+                        iconBg={ic.orange.fg}
                         label="Upgrade Memory Capacity"
                         onPress={() => handleNavigate(features.serverProxiedAI ? 'billingMemory' : 'upsells')}
                         isLast
@@ -445,12 +466,14 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                 ) : (
                   <>
                     <ValueRow
-                      icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+                      icon={<Brain size={16} color="#FFFFFF" />}
+                      iconBg={ic.indigo.fg}
                       label="Memory Entitlements"
                       value={commercialEntitlementsError || 'Unavailable'}
                     />
                     <LinkRow
-                      icon={<Zap size={18} color={colors.primary.DEFAULT} />}
+                      icon={<Zap size={16} color="#FFFFFF" />}
+                      iconBg={ic.orange.fg}
                       label="Retry Entitlements Check"
                       onPress={loadCommercialEntitlements}
                       isLast
@@ -467,7 +490,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               <SectionHeader title="Billing" />
               <View style={s.card}>
                 <LinkRow
-                  icon={<Shield size={18} color={colors.primary.DEFAULT} />}
+                  icon={<Shield size={16} color="#FFFFFF" />}
+                  iconBg={ic.green.fg}
                   label="Plans & Billing"
                   onPress={() => handleNavigate('billing')}
                   isLast
@@ -482,7 +506,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             {hasPaidAutoPilot ? (
               <>
                 <ToggleRow
-                  icon={<Plane size={18} color={colors.primary.DEFAULT} />}
+                  icon={<Plane size={16} color="#FFFFFF" />}
+                  iconBg={ic.orange.fg}
                   label="Auto-Pilot"
                   value={autoPilotEnabled}
                   onValueChange={(v) => {
@@ -519,7 +544,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               </>
             ) : (
               <LinkRow
-                icon={<Plane size={18} color={colors.primary.DEFAULT} />}
+                icon={<Plane size={16} color="#FFFFFF" />}
+                iconBg={ic.orange.fg}
                 label="Unlock Auto-Pilot"
                 onPress={openAutoPilotUpgrade}
                 isLast
@@ -538,40 +564,33 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="AI Learning" />
           <View style={s.card}>
             <ToggleRow
-              icon={<Globe size={18} color={colors.primary.DEFAULT} />}
+              icon={<Globe size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
               label="Cultural Tone"
               value={settings.culturalToneEnabled !== false}
               onValueChange={(v) => updateSettings({ culturalToneEnabled: v })}
             />
             <ValueRow
-              icon={<MessageSquare size={18} color={colors.primary.DEFAULT} />}
+              icon={<MessageSquare size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
               label="Messages Trained"
-              value={String(effectiveMessagesTrained)}
-            />
-            <ValueRow
-              icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
-              label="Messages Trained"
-              value={(() => {
-                const count = effectiveMessagesTrained;
-                if (count >= 500) return `${count.toLocaleString()} messages`;
-                if (count >= 50) return `${count} messages`;
-                if (count > 0) return `${count} messages`;
-                return 'None yet';
-              })()}
-              valueColor={colors.text.secondary}
+              value={effectiveMessagesTrained > 0 ? String(effectiveMessagesTrained) : 'None yet'}
             />
             <LinkRow
-              icon={<Brain size={18} color={colors.primary.DEFAULT} />}
+              icon={<Brain size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
               label="AI Training & History"
               onPress={() => handleNavigate('aiLearning')}
             />
             <LinkRow
-              icon={<BookOpen size={18} color={colors.primary.DEFAULT} />}
+              icon={<BookOpen size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
               label="Manage Knowledge Base"
               onPress={() => handleNavigate('propertyKnowledge')}
             />
             <LinkRow
-              icon={<Mic size={18} color={colors.primary.DEFAULT} />}
+              icon={<Mic size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
               label="Test My Voice"
               onPress={() => handleNavigate('testVoice')}
               isLast
@@ -583,13 +602,15 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="Notifications" />
           <View style={s.card}>
             <ToggleRow
-              icon={<Bell size={18} color={colors.primary.DEFAULT} />}
+              icon={<Bell size={16} color="#FFFFFF" />}
+              iconBg={ic.red.fg}
               label="Notifications"
               value={pushNotificationsEnabled}
               onValueChange={handlePushNotificationsToggle}
             />
             <ToggleRow
-              icon={<BellOff size={18} color={colors.primary.DEFAULT} />}
+              icon={<BellOff size={16} color="#FFFFFF" />}
+              iconBg={ic.red.fg}
               label="Priority Alerts Only"
               value={settings.notificationCategories?.newMessage === false}
               onValueChange={(v) => updateSettings({ notificationCategories: { ...settings.notificationCategories, newMessage: !v } })}
@@ -601,14 +622,16 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="Performance & Insights" />
           <View style={s.card}>
             <Row
-              icon={<BarChart3 size={18} color={colors.primary.DEFAULT} />}
+              icon={<BarChart3 size={16} color="#FFFFFF" />}
+              iconBg={ic.indigo.fg}
               label="Approval Rate"
               right={
-                <Text style={[s.tealValue, { fontSize: 17 }]}>{approvalRateValue}</Text>
+                <Text style={s.tealValue}>{approvalRateValue}</Text>
               }
             />
             <ValueRow
-              icon={<MessageSquare size={18} color={colors.primary.DEFAULT} />}
+              icon={<MessageSquare size={16} color="#FFFFFF" />}
+              iconBg={ic.indigo.fg}
               label="Messages Handled"
               value={String(analytics.totalMessagesHandled)}
               isLast
@@ -620,58 +643,55 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           <SectionHeader title="About" />
           <View style={s.card}>
             <ValueRow
-              icon={<Shield size={18} color={colors.primary.DEFAULT} />}
+              icon={<Shield size={16} color="#FFFFFF" />}
+              iconBg={ic.gray.fg}
               label="Version"
               value={`1.0.0 · Build ${BUILD_STAMP}`}
             />
             <LinkRow
-              icon={<Shield size={18} color={colors.primary.DEFAULT} />}
+              icon={<Shield size={16} color="#FFFFFF" />}
+              iconBg={ic.gray.fg}
               label="Privacy Policy"
               onPress={() => handleNavigate('privacySecurity')}
               isLast
             />
           </View>
 
-          {/* ── Disconnect ── */}
-          <View style={{ marginTop: spacing['7'], paddingHorizontal: spacing['4'] }}>
+          {/* ── Disconnect & Delete ── */}
+          <View style={{ marginTop: spacing['7'] }}>
             <View style={s.card}>
               <Pressable
                 onPress={handleLogout}
                 disabled={isDisconnecting}
-                style={({ pressed }) => [s.row, { opacity: pressed ? 0.8 : 1 }]}
+                style={({ pressed }) => [sLocal.destructiveRow, { backgroundColor: pressed ? 'rgba(120,120,128,0.08)' : 'transparent' }]}
               >
-                <View style={[s.iconBox, { backgroundColor: colors.danger.muted }]}>
-                  <LogOut size={18} color={colors.danger.DEFAULT} />
+                <View style={[s.iconBox, { backgroundColor: ic.red.fg }]}>
+                  <LogOut size={16} color="#FFFFFF" />
                 </View>
-                <Text style={{ flex: 1, fontSize: 16, fontFamily: typography.fontFamily.regular, color: colors.danger.DEFAULT }}>
+                <Text style={sLocal.destructiveText}>
                   {isDisconnecting ? 'Disconnecting...' : isDemoMode ? 'Exit Demo Mode' : 'Disconnect Hostaway'}
                 </Text>
                 {isDisconnecting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
               </Pressable>
-            </View>
-          </View>
-
-          {/* ── Delete My Data ── */}
-          <View style={{ marginTop: spacing['3'], marginBottom: spacing['10'], paddingHorizontal: spacing['4'] }}>
-            <View style={s.card}>
+              <View style={sLocal.destructiveSeparator} />
               <Pressable
                 onPress={handleDeleteMyData}
                 disabled={isDeleting}
-                style={({ pressed }) => [s.row, { opacity: pressed ? 0.8 : 1 }]}
+                style={({ pressed }) => [sLocal.destructiveRow, { backgroundColor: pressed ? 'rgba(120,120,128,0.08)' : 'transparent' }]}
               >
-                <View style={[s.iconBox, { backgroundColor: colors.danger.muted }]}>
-                  <Shield size={18} color={colors.danger.DEFAULT} />
+                <View style={[s.iconBox, { backgroundColor: ic.red.fg }]}>
+                  <Trash2 size={16} color="#FFFFFF" />
                 </View>
-                <Text style={{ flex: 1, fontSize: 16, fontFamily: typography.fontFamily.regular, color: colors.danger.DEFAULT }}>
+                <Text style={sLocal.destructiveText}>
                   {isDeleting ? 'Deleting...' : 'Delete My Data'}
                 </Text>
                 {isDeleting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
               </Pressable>
             </View>
-            <Text style={{ color: colors.text.muted, fontSize: 13, fontFamily: typography.fontFamily.regular, paddingHorizontal: spacing['4'], paddingTop: spacing['1.5'] }}>
-              Permanently deletes your voice profile and all training data from our servers.
-            </Text>
+            <SectionFooter text="Permanently deletes your voice profile and all training data from our servers." />
           </View>
+
+          <View style={{ height: spacing['12'] }} />
 
         </ScrollView>
       </SafeAreaView>
@@ -684,35 +704,38 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 const sLocal = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg.subtle,
+    backgroundColor: '#F2F2F7', // iOS system grouped background
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing['4'],
-    paddingVertical: spacing['3'],
+    paddingTop: spacing['2'],
+    paddingBottom: spacing['1'],
   },
   headerTitle: {
-    fontSize: 17,
-    fontFamily: typography.fontFamily.semibold,
-    color: colors.text.primary,
+    fontSize: 34,
+    fontFamily: typography.fontFamily.bold,
+    color: '#000000',
+    letterSpacing: 0.37,
   },
   scrollContent: {
-    paddingTop: spacing['1'],
+    paddingBottom: spacing['4'],
   },
-  logoutBtn: {
-    backgroundColor: colors.bg.base,
+  destructiveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    height: 50,
+    paddingLeft: 16,
+    paddingRight: 16,
+    minHeight: 44,
   },
-  logoutText: {
+  destructiveText: {
+    flex: 1,
+    fontSize: 17,
+    fontFamily: typography.fontFamily.regular,
     color: colors.danger.DEFAULT,
-    fontFamily: typography.fontFamily.medium,
-    fontSize: 16,
-    marginLeft: spacing['2'],
+  },
+  destructiveSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#C6C6C8',
+    marginLeft: 57, // 16 + 29 + 12 = icon area
   },
 });
