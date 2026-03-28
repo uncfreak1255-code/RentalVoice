@@ -20,6 +20,7 @@ import { decrypt } from '../lib/encryption.js';
 import { PLAN_LIMITS } from '../lib/types.js';
 import type { PlanTier } from '../lib/types.js';
 import { getEffectivePlan } from '../lib/founder-access.js';
+import { getVoiceReadinessForOrg } from '../services/voice-readiness.js';
 
 const aiRouter = new Hono();
 
@@ -49,6 +50,19 @@ const autopilotSchema = z.object({
   guestLanguage: z.string().max(10).optional(),
   responseLanguageMode: z.string().optional(),
   hostDefaultLanguage: z.string().max(10).optional(),
+});
+
+aiRouter.get('/voice-readiness', requireAuth, async (c) => {
+  try {
+    const auth = getAuthContext(c);
+    const propertyId = c.req.query('propertyId') || null;
+    const readiness = await getVoiceReadinessForOrg(auth.orgId, propertyId);
+    return c.json(readiness);
+  } catch (err) {
+    console.error('[VoiceReadiness] Error:', err);
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return c.json({ message, code: 'VOICE_READINESS_ERROR', status: 500 }, 500);
+  }
 });
 
 /**
@@ -147,6 +161,16 @@ aiRouter.post('/autopilot', requireAuth, aiRateLimit, checkDraftLimit, async (c)
         draft: null,
         confidence: 0,
         reason: 'Autopilot is disabled in settings',
+      });
+    }
+
+    const readiness = await getVoiceReadinessForOrg(auth.orgId, parsed.data.propertyId || null);
+    if (!readiness.autopilotEligible) {
+      return c.json({
+        action: 'autopilot_disabled',
+        draft: null,
+        confidence: 0,
+        reason: readiness.reason,
       });
     }
 

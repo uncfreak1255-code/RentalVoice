@@ -28,7 +28,12 @@ import {
 import { generateDemoResponse } from '@/lib/ai-service';
 import { sendMessage as sendHostawayMessage } from '@/lib/hostaway';
 import { features } from '@/lib/config';
-import { generateAIDraftViaServer } from '@/lib/api-client';
+import {
+  generateAIDraftViaServer,
+  getVoiceReadinessViaServer,
+  type ServerVoiceReadiness,
+} from '@/lib/api-client';
+import { canAutoSend } from '@/lib/managed-draft-gating';
 import { aiTrainingService } from '@/lib/ai-training-service';
 import { notifyAutoPilotSent } from '@/lib/push-notifications';
 import {
@@ -114,6 +119,8 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
   const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
   const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
   const addReplyDelta = useAppStore((s) => s.addReplyDelta);
+  const voiceReadiness = useAppStore((s) => s.voiceReadiness);
+  const setVoiceReadiness = useAppStore((s) => s.setVoiceReadiness);
 
   const conversation = conversations.find((c) => c.id === conversationId);
   const messages = conversation?.messages ?? [];
@@ -176,6 +183,24 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
     setDraft(null);
   }, []);
 
+  const refreshVoiceReadiness = useCallback(async (): Promise<ServerVoiceReadiness | null> => {
+    if (!features.serverProxiedAI || !conversation?.property?.id) {
+      return null;
+    }
+
+    try {
+      const readiness = await getVoiceReadinessViaServer(conversation.property.id);
+      setVoiceReadiness({
+        ...readiness,
+        updatedAt: new Date().toISOString(),
+      });
+      return readiness;
+    } catch (readinessError) {
+      console.warn('[useAIDraft] Failed to fetch voice readiness:', readinessError);
+      return null;
+    }
+  }, [conversation?.property?.id, setVoiceReadiness]);
+
   const generateDraft = useCallback(async (modifier?: RegenerationOption['modifier']) => {
     if (!conversation || isGenerating) return;
 
@@ -204,6 +229,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
 
     try {
       let enhancedResponse: EnhancedAIResponse | null = null;
+      let latestVoiceReadiness: ServerVoiceReadiness | null = null;
 
       if (isDemoMode) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -228,6 +254,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
           regenerationOptions: getRegenerationOptions(sentiment),
         };
       } else if (features.serverProxiedAI) {
+        latestVoiceReadiness = await refreshVoiceReadiness();
         const lastGuest = [...conversation.messages].reverse().find((m) => m.sender === 'guest');
         const serverResponse = await generateAIDraftViaServer({
           message: lastGuest?.content || '',
@@ -304,18 +331,25 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
 
       // Auto-send check — SAFETY GUARDS:
       // 1. Never auto-send in demo mode (demo confidence is not real)
-      // 2. Never auto-send if style profile has < 10 samples (AI hasn't learned your voice)
+      // 2. In managed mode, trust the server readiness contract instead of local style samples
+      // 3. In personal mode, never auto-send if style profile has < 10 samples
       // 3. Never auto-send if confidence scoring explicitly blocked it
       const hasAdequateStyleProfile = currentHostStyleProfile && currentHostStyleProfile.samplesAnalyzed >= 10;
-      const canAutoSend = autoPilotEnabled
+      const managedAutoSendReady = features.serverProxiedAI
+        ? canAutoSend(latestVoiceReadiness ?? voiceReadiness)
+        : hasAdequateStyleProfile;
+      const shouldAutoSend = autoPilotEnabled
         && !isDemoMode
-        && hasAdequateStyleProfile
+        && managedAutoSendReady
         && enhancedResponse.confidence.overall >= autoPilotThreshold
         && !enhancedResponse.confidence.blockedForAutoSend;
 
-      if (canAutoSend) {
+      if (shouldAutoSend) {
         await handleAutoSend(enhancedResponse.content);
-      } else if (autoPilotEnabled && (enhancedResponse.confidence.blockedForAutoSend || isDemoMode)) {
+      } else if (
+        autoPilotEnabled &&
+        (enhancedResponse.confidence.blockedForAutoSend || isDemoMode || (features.serverProxiedAI && !managedAutoSendReady))
+      ) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     } catch (error) {
@@ -330,7 +364,7 @@ export function useAIDraft({ conversationId, onActionItems }: UseAIDraftOptions)
     } finally {
       setIsGenerating(false);
     }
-  }, [conversation, isGenerating, isDemoMode, currentPropertyKnowledge, hostName, autoPilotEnabled, autoPilotThreshold, currentHostStyleProfile, onActionItems]);
+  }, [conversation, isGenerating, isDemoMode, currentPropertyKnowledge, hostName, autoPilotEnabled, autoPilotThreshold, currentHostStyleProfile, onActionItems, refreshVoiceReadiness, voiceReadiness]);
 
   const handleAutoSend = async (content: string) => {
     if (!conversation || !accountId || !apiKey) return;

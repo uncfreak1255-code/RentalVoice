@@ -36,9 +36,11 @@ import { sendMessage as sendHostawayMessage } from '@/lib/hostaway';
 import { features } from '@/lib/config';
 import {
   generateAIDraftViaServer,
+  getVoiceReadinessViaServer,
   getCurrentEntitlements,
   recordDraftOutcomeViaServer,
   sendHostawayMessageViaServer,
+  type ServerVoiceReadiness,
 } from '@/lib/api-client';
 import { aiTrainingService } from '@/lib/ai-training-service';
 import { guestMemoryManager } from '@/lib/advanced-training';
@@ -192,6 +194,8 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
   const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
   const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
   const addReplyDelta = useAppStore((s) => s.addReplyDelta);
+  const voiceReadiness = useAppStore((s) => s.voiceReadiness);
+  const setVoiceReadiness = useAppStore((s) => s.setVoiceReadiness);
 
   const dismissComposerNotice = useCallback(() => {
     setRateLimitError(null);
@@ -211,6 +215,29 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       });
     }, 8000);
   }, []);
+
+  const conversation = useMemo(
+    () => conversations.find((c) => c.id === conversationId),
+    [conversations, conversationId]
+  );
+
+  const refreshVoiceReadiness = useCallback(async () => {
+    if (!features.serverProxiedAI || !conversation?.property?.id) {
+      return null;
+    }
+
+    try {
+      const readiness = await getVoiceReadinessViaServer(conversation.property.id);
+      setVoiceReadiness({
+        ...readiness,
+        updatedAt: new Date().toISOString(),
+      });
+      return readiness;
+    } catch (readinessError) {
+      console.warn('[ChatScreen] Failed to fetch voice readiness:', readinessError);
+      return null;
+    }
+  }, [conversation?.property?.id, setVoiceReadiness]);
 
   // Track keyboard visibility to hide SmartReplyBar when typing
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -293,11 +320,6 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       });
     }
   }, [addDraftOutcome, addCalibrationEntry, addReplyDelta]);
-
-  const conversation = useMemo(
-    () => conversations.find((c) => c.id === conversationId),
-    [conversations, conversationId]
-  );
   const guestMemory = useMemo(() => {
     if (!conversation?.guest?.email && !conversation?.guest?.phone) return null;
     return guestMemoryManager.getGuestMemory(conversation?.guest?.email, conversation?.guest?.phone);
@@ -651,6 +673,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
 
     try {
       let enhancedResponse: EnhancedAIResponse | null = null;
+      let latestVoiceReadiness: ServerVoiceReadiness | null = null;
 
       if (isDemoMode) {
         // Enhanced demo response
@@ -679,6 +702,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         };
       } else if (features.serverProxiedAI) {
         // Commercial mode: call server proxy
+        latestVoiceReadiness = await refreshVoiceReadiness();
         let supermemoryMode: 'off' | 'full' | 'degraded' = 'full';
         try {
           const entitlementState = await getCurrentEntitlements();
@@ -785,16 +809,31 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
         aiDraftConfidence: enhancedResponse.confidence.overall,
       });
 
-      // Auto-send if auto-pilot is enabled and confidence meets threshold AND not blocked
+      // Auto-send if auto-pilot is enabled and confidence meets threshold AND not blocked.
+      // In managed mode, trust server voice readiness instead of local style sample counts.
+      const managedAutoSendReady = features.serverProxiedAI
+        ? (latestVoiceReadiness?.autopilotEligible ?? voiceReadiness.autopilotEligible)
+        : true;
       if (
         autoPilotEnabled &&
+        managedAutoSendReady &&
         enhancedResponse.confidence.overall >= autoPilotThreshold &&
         !enhancedResponse.confidence.blockedForAutoSend
       ) {
         console.log('[ChatScreen] Auto-pilot: Confidence meets threshold, auto-sending...');
         await handleAutoSend(enhancedResponse.content);
-      } else if (autoPilotEnabled && enhancedResponse.confidence.blockedForAutoSend) {
-        console.log('[ChatScreen] Auto-pilot: Blocked for review -', enhancedResponse.confidence.blockReason);
+      } else if (
+        autoPilotEnabled &&
+        (enhancedResponse.confidence.blockedForAutoSend || (features.serverProxiedAI && !managedAutoSendReady))
+      ) {
+        if (features.serverProxiedAI && !managedAutoSendReady) {
+          showComposerNotice(
+            latestVoiceReadiness?.reason || voiceReadiness.reason || 'Autopilot stays off until your voice model is ready.',
+            null
+          );
+        } else {
+          console.log('[ChatScreen] Auto-pilot: Blocked for review -', enhancedResponse.confidence.blockReason);
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       }
     } catch (error) {
@@ -809,7 +848,7 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       setIsGeneratingDraft(false);
       setCurrentModifier(undefined);
     }
-  }, [conversation, isGeneratingDraft, isDemoMode, currentPropertyKnowledge, hostName, autoPilotEnabled, autoPilotThreshold, currentHostStyleProfile, handleActionItems, showComposerNotice, onOpenUpsells]);
+  }, [conversation, isGeneratingDraft, isDemoMode, currentPropertyKnowledge, hostName, autoPilotEnabled, autoPilotThreshold, currentHostStyleProfile, handleActionItems, showComposerNotice, onOpenUpsells, refreshVoiceReadiness, voiceReadiness]);
 
   const handleAutoSend = async (content: string) => {
     if (!conversation) return;

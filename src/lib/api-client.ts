@@ -199,6 +199,15 @@ export interface AIGenerateResponse {
   tokensUsed: { input: number; output: number };
 }
 
+export interface ServerVoiceReadiness {
+  state: 'untrained' | 'learning' | 'ready' | 'degraded';
+  importedExamples: number;
+  styleSamples: number;
+  semanticReady: boolean;
+  autopilotEligible: boolean;
+  reason: string;
+}
+
 /**
  * Generate AI draft via server proxy (commercial mode)
  */
@@ -206,6 +215,14 @@ export async function generateAIDraftViaServer(
   req: AIGenerateRequest
 ): Promise<AIGenerateResponse> {
   const { data } = await apiClient.post<AIGenerateResponse>('/api/ai/generate', req as unknown as Record<string, unknown>);
+  return data;
+}
+
+export async function getVoiceReadinessViaServer(
+  propertyId?: string | number
+): Promise<ServerVoiceReadiness> {
+  const query = propertyId ? `?propertyId=${encodeURIComponent(String(propertyId))}` : '';
+  const { data } = await apiClient.get<ServerVoiceReadiness>(`/api/ai/voice-readiness${query}`);
   return data;
 }
 

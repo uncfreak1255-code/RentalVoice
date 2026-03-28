@@ -129,20 +129,24 @@ export function OnboardingScreen({
         job.status === 'completed' || job.phase === 'complete'
           ? 'ready'
           : job.status === 'failed' || job.status === 'cancelled' || job.phase === 'error'
-            ? 'blocked'
+            ? 'degraded'
             : 'learning';
 
       const reason =
         status === 'ready'
           ? 'Voice grounding is ready on the server.'
-          : status === 'blocked'
+          : status === 'degraded'
             ? job.lastError || 'History sync needs attention.'
             : 'Importing Hostaway history and learning your voice.';
 
       setVoiceReadiness({
-        status,
+        state: status,
         reason,
         updatedAt: new Date().toISOString(),
+        autopilotEligible: status === 'ready',
+        importedExamples: 0,
+        styleSamples: 0,
+        semanticReady: status !== 'degraded',
       });
     };
 

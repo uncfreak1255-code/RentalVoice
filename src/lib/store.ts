@@ -505,15 +505,23 @@ export interface FounderSession {
 }
 
 export interface VoiceReadiness {
-  status: 'unknown' | 'learning' | 'ready' | 'blocked';
+  state: 'unknown' | 'untrained' | 'learning' | 'ready' | 'degraded';
   reason: string | null;
   updatedAt: string | null;
+  autopilotEligible: boolean;
+  importedExamples: number;
+  styleSamples: number;
+  semanticReady: boolean;
 }
 
 const initialVoiceReadiness: VoiceReadiness = {
-  status: 'unknown',
+  state: 'unknown',
   reason: null,
   updatedAt: null,
+  autopilotEligible: false,
+  importedExamples: 0,
+  styleSamples: 0,
+  semanticReady: false,
 };
 
 interface AppState {
@@ -1580,13 +1588,16 @@ const coldKeys = [
   'autoPilotLogs',
 ] as const;
 
-for (const key of coldKeys) {
-  let previous: unknown = undefined;
-  useAppStore.subscribe((state) => {
-    const current = state[key];
-    if (current !== previous) {
-      previous = current;
-      saveCold(key, current);
-    }
-  });
+// Unit tests should exercise store behavior without scheduling real persistence timers.
+if (process.env.NODE_ENV !== 'test') {
+  for (const key of coldKeys) {
+    let previous: unknown = undefined;
+    useAppStore.subscribe((state) => {
+      const current = state[key];
+      if (current !== previous) {
+        previous = current;
+        saveCold(key, current);
+      }
+    });
+  }
 }
