@@ -41,8 +41,9 @@ export function getAppEntryDestination({
     return { route: '/onboarding', shouldRecoverSession: false };
   }
 
+  // Existing Hostaway user with valid saved credentials — go straight to tabs
   if (restoreResult?.connected && restoreResult.accountId && restoreResult.apiKey) {
-    return { route: '/onboarding', shouldRecoverSession: false };
+    return { route: '/(tabs)', shouldRecoverSession: true };
   }
 
   if (restoreResult?.needsReauth) {
