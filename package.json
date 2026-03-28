@@ -30,7 +30,6 @@
     "@expo/html-elements": "^0.13.7",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/react-native-action-sheet": "^4.1.1",
-    "@expo/ui": "~0.2.0-beta.9",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.8",
     "@kolking/react-native-avatar": "^2.1.6",
