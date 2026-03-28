@@ -66,6 +66,6 @@ export default function SettingsTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.base,
+    backgroundColor: '#F2F2F7', // iOS system grouped background
   },
 });
