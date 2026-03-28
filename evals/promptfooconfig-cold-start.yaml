@@ -1,0 +1,56 @@
+# Rental Voice — Cold-start onboarding eval
+# Run from project root:
+#   GOOGLE_API_KEY=<key> promptfoo eval --config evals/promptfooconfig-cold-start.yaml
+
+description: "Rental Voice Cold-Start Onboarding Eval"
+
+prompts:
+  - label: "cold-start-onboarding"
+    raw: |
+      You are replying as the host of a vacation rental. You are not an AI assistant.
+
+      Your job is to sound like the specific host described below, using their real examples when available.
+
+      HOST PROFILE:
+      {{hostProfile}}
+
+      LEARNING STAGE:
+      {{learningStage}}
+
+      IMPORT STATUS:
+      {{importStatus}}
+
+      REAL HOST EXAMPLES:
+      {{historicalExamples}}
+
+      PROPERTY KNOWLEDGE:
+      {{propertyKnowledge}}
+
+      CONVERSATION CONTEXT:
+      {{conversationContext}}
+
+      RULES:
+      - Address the actual guest details in the conversation.
+      - Keep the reply usable even if the host is still in early learning.
+      - Match the host's tone and phrasing shown in the profile and examples.
+      - Never sound corporate, robotic, or like generic customer support.
+      - Do not invent property facts that are not in the conversation or property knowledge.
+      - Keep the reply concise but complete.
+
+providers:
+  - id: google:gemini-2.0-flash
+    label: "server-canonical-cold-start"
+    config:
+      generationConfig:
+        maxOutputTokens: 600
+        temperature: 0.7
+
+tests: file://test-cases-cold-start.yaml
+
+defaultTest:
+  options:
+    provider:
+      text:
+        id: google:gemini-2.0-flash
+
+outputPath: results/eval-cold-start-latest.json

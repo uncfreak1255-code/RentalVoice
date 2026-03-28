@@ -1,6 +1,10 @@
 import { randomUUID } from 'crypto';
 import { getSupabaseAdmin } from '../db/supabase.js';
 import { decrypt } from '../lib/encryption.js';
+import {
+  buildVoiceExamplesFromHistory,
+  importVoiceExamplesForOrg,
+} from './voice-import.js';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 type JobPhase = 'idle' | 'conversations' | 'messages' | 'analyzing' | 'complete' | 'error';
@@ -174,6 +178,12 @@ function filterByDateRange(conversations: HostawayConversation[], dateRangeMonth
   });
 }
 
+function getHistoryCutoffDate(dateRangeMonths: number): Date {
+  const cutoffDate = new Date();
+  cutoffDate.setMonth(cutoffDate.getMonth() - dateRangeMonths);
+  return cutoffDate;
+}
+
 async function updateJob(jobId: string, patch: Record<string, unknown>): Promise<void> {
   const supabase = getSupabaseAdmin();
   await supabase
@@ -297,6 +307,25 @@ async function runHistorySyncJob(jobId: string, orgId: string, dateRangeMonths: 
       });
     }
 
+    const payload = {
+      conversations,
+      messages,
+    };
+
+    await updateJob(jobId, {
+      phase: 'analyzing',
+      processed_conversations: conversations.length,
+      total_conversations: conversations.length,
+      processed_messages: processedMessages,
+      total_messages: processedMessages,
+      payload_json: payload,
+    });
+
+    const examples = buildVoiceExamplesFromHistory(conversations, messages, {
+      cutoffDate: getHistoryCutoffDate(dateRangeMonths),
+    });
+    const voiceImport = await importVoiceExamplesForOrg(orgId, examples);
+
     await updateJob(jobId, {
       status: 'completed',
       phase: 'complete',
@@ -305,8 +334,8 @@ async function runHistorySyncJob(jobId: string, orgId: string, dateRangeMonths: 
       processed_messages: processedMessages,
       total_messages: processedMessages,
       payload_json: {
-        conversations,
-        messages,
+        ...payload,
+        voiceImport,
       },
       completed_at: new Date().toISOString(),
     });

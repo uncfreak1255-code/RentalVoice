@@ -16,6 +16,10 @@
  */
 
 import 'dotenv/config';
+import {
+  buildVoiceExamplesFromHistory,
+  type VoiceImportExample,
+} from '../src/services/voice-import.js';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Config
@@ -68,14 +72,6 @@ interface HostawayMessage {
   insertedOn: string;
   sentOn?: string;
   [key: string]: unknown;
-}
-
-interface VoicePair {
-  guestMessage: string;
-  hostResponse: string;
-  hostawayConversationId: string;
-  sourceDate: string;
-  propertyId: string | null;
 }
 
 interface HostawayApiResponse<T> {
@@ -195,54 +191,6 @@ function cutoffDate(): Date {
   return d;
 }
 
-function messageIsWithinRange(msg: HostawayMessage, cutoff: Date): boolean {
-  if (!msg.insertedOn) return false;
-  return new Date(msg.insertedOn) >= cutoff;
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Pair extraction
-// ────────────────────────────────────────────────────────────────────────────
-
-function extractPairs(
-  messages: HostawayMessage[],
-  conversationId: number,
-  propertyId: string | null,
-  cutoff: Date
-): VoicePair[] {
-  // Filter to date range and sort ascending
-  const filtered = messages
-    .filter((m) => messageIsWithinRange(m, cutoff))
-    .sort((a, b) => new Date(a.insertedOn).getTime() - new Date(b.insertedOn).getTime());
-
-  const pairs: VoicePair[] = [];
-
-  for (let i = 0; i < filtered.length - 1; i++) {
-    const current = filtered[i];
-    const next = filtered[i + 1];
-
-    const currentIsGuest = current.isIncoming === 1 || current.isIncoming === true;
-    const nextIsHost = next.isIncoming === 0 || next.isIncoming === false;
-
-    if (!currentIsGuest || !nextIsHost) continue;
-
-    const guestMessage = (current.body ?? '').trim();
-    const hostResponse = (next.body ?? '').trim();
-
-    if (!guestMessage || !hostResponse) continue;
-
-    pairs.push({
-      guestMessage,
-      hostResponse,
-      hostawayConversationId: String(conversationId),
-      sourceDate: current.insertedOn,
-      propertyId,
-    });
-  }
-
-  return pairs;
-}
-
 // ────────────────────────────────────────────────────────────────────────────
 // Import to server
 // ────────────────────────────────────────────────────────────────────────────
@@ -253,12 +201,12 @@ interface ImportResult {
   total: number;
 }
 
-async function importBatch(pairs: VoicePair[]): Promise<ImportResult> {
+async function importBatch(pairs: VoiceImportExample[]): Promise<ImportResult> {
   const body = {
     examples: pairs.map((p) => ({
       guestMessage: p.guestMessage,
       hostResponse: p.hostResponse,
-      originType: 'historical' as const,
+      originType: p.originType,
       hostawayConversationId: p.hostawayConversationId,
       sourceDate: p.sourceDate,
       propertyId: p.propertyId,
@@ -307,7 +255,7 @@ async function main(): Promise<void> {
   const allConversations = await fetchAllConversations(token);
 
   // Collect all pairs
-  const allPairs: VoicePair[] = [];
+  const allPairs: VoiceImportExample[] = [];
   let processedCount = 0;
 
   for (const conversation of allConversations) {
@@ -329,8 +277,11 @@ async function main(): Promise<void> {
       continue;
     }
 
-    const propertyId = conversation.listingMapId ? String(conversation.listingMapId) : null;
-    const pairs = extractPairs(messages, conversation.id, propertyId, cutoff);
+    const pairs = buildVoiceExamplesFromHistory(
+      [conversation],
+      { [conversation.id]: messages },
+      { cutoffDate: cutoff }
+    );
     allPairs.push(...pairs);
 
     await sleep(RATE_LIMIT_MS);

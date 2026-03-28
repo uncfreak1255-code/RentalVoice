@@ -1,6 +1,6 @@
 # Rental Voice open risks
 
-Last updated: 2026-03-16
+Last updated: 2026-03-27
 
 ## Highest risks
 
@@ -16,6 +16,7 @@ Last updated: 2026-03-16
 3. Durable account-backed AI learning is still not live in the app
 - Imported history and learning surfaces improved, but permanent founder-account-backed learning persistence is not the current app reality yet
 - App container resets can still wipe local-only learning state before migration is completed
+- Server-canonical generation must be the only eval target; founder-only prompt scores are not proof that onboarding works for a new account
 
 4. Current linked Supabase project is still the default local runtime
 - `/Users/sawbeck/Projects/RentalVoice/server/.env` still points at `gqnocsoouudbogwislsl` by design
@@ -29,7 +30,11 @@ Last updated: 2026-03-16
 - Current product must remain Hostaway-first and personal-mode default
 - Future sessions can accidentally optimize for staged founder/commercial paths before the app-side cutover work is approved
 
-7. Local environment metadata is intentionally local-only
+7. Sawyer-only evals are still easy to misread as product proof
+- Founder canary coverage is useful, but it only measures whether the system can still sound like Sawyer
+- Cold-start onboarding quality needs its own eval gate built around account creation, history import, and early-learning usability
+
+8. Local environment metadata is intentionally local-only
 - `/Users/sawbeck/Projects/RentalVoice/server/.env` and `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` are not committed truth
 - The committed runbooks and status docs must stay aligned with those local files
 
@@ -62,3 +67,4 @@ Last updated: 2026-03-16
 - founder billing-bypass validation from an app session
 - personal-to-founder migration rehearsal on a distinct rehearsal target
 - any real commercial cutover
+- real founder and cold-start eval runs with a fresh Google AI API key

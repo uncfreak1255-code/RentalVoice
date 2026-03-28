@@ -151,6 +151,7 @@ async function ensureHostawayAccessToken(connection: HostawayConnectionRow): Pro
 
 hostawayRouter.post('/', async (c) => {
   const orgId = c.get('orgId');
+  const userId = c.get('userId');
   const body = await c.req.json();
 
   const parsed = connectSchema.safeParse(body);
@@ -212,6 +213,8 @@ hostawayRouter.post('/', async (c) => {
       ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
       : null;
 
+    const connectedAt = new Date().toISOString();
+
     if (existing) {
       // Update existing connection
       await supabase
@@ -222,7 +225,7 @@ hostawayRouter.post('/', async (c) => {
           oauth_token: tokenData.access_token,
           token_expires_at: tokenExpiresAt,
           status: 'active',
-          connected_at: new Date().toISOString(),
+          connected_at: connectedAt,
         })
         .eq('id', existing.id);
     } else {
@@ -240,11 +243,14 @@ hostawayRouter.post('/', async (c) => {
         });
     }
 
+    const historySyncJob = await startHostawayHistorySyncJob(orgId, userId, 24);
+
     return c.json({
       status: 'connected',
       provider: 'hostaway',
       accountId,
-      connectedAt: new Date().toISOString(),
+      connectedAt,
+      historySyncJob: mapHistorySyncJob(historySyncJob as unknown as Record<string, unknown>),
     });
   } catch (error) {
     console.error('[Hostaway] Connection error:', error);

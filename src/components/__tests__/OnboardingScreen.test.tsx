@@ -12,17 +12,20 @@ const mockStoreState = {
   setProperties: jest.fn(),
   updateSettings: jest.fn(),
   setPropertyKnowledge: jest.fn(),
+  setVoiceReadiness: jest.fn(),
 };
 
 const mockValidateCredentials = jest.fn();
 const mockInitializeConnection = jest.fn();
 const mockStartAutoImportAfterConnect = jest.fn();
 const mockConnectHostawayServer = jest.fn();
+const mockGetHostawayHistorySyncStatusViaServer = jest.fn();
 const mockFetchListings = jest.fn();
 const mockFetchConversations = jest.fn();
 const mockFetchMessages = jest.fn();
 const mockFetchReservation = jest.fn();
 const mockFetchListingDetail = jest.fn();
+const mockFeatures = { serverProxiedAI: false };
 
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
@@ -106,7 +109,8 @@ jest.mock('@/lib/design-tokens', () => ({
 }));
 
 jest.mock('@/lib/config', () => ({
-  features: { serverProxiedAI: false },
+  __esModule: true,
+  features: mockFeatures,
 }));
 
 jest.mock('@/lib/auto-import', () => ({
@@ -115,6 +119,8 @@ jest.mock('@/lib/auto-import', () => ({
 
 jest.mock('@/lib/api-client', () => ({
   connectHostaway: (...args: any[]) => mockConnectHostawayServer(...args),
+  getHostawayHistorySyncStatusViaServer: (...args: any[]) =>
+    mockGetHostawayHistorySyncStatusViaServer(...args),
 }));
 
 jest.mock('@/lib/hostaway', () => ({
@@ -137,9 +143,11 @@ jest.mock('@/lib/hostaway-utils', () => ({
 describe('OnboardingScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFeatures.serverProxiedAI = false;
     mockValidateCredentials.mockResolvedValue(true);
     mockInitializeConnection.mockResolvedValue(true);
     mockStartAutoImportAfterConnect.mockResolvedValue(undefined);
+    mockGetHostawayHistorySyncStatusViaServer.mockResolvedValue(null);
   });
 
   it('shows Hostaway-only onboarding copy after Get Started', () => {
@@ -150,6 +158,15 @@ describe('OnboardingScreen', () => {
     expect(getByText('Hostaway')).toBeTruthy();
     expect(queryByText('Guesty')).toBeNull();
     expect(queryByText('Lodgify')).toBeNull();
+  });
+
+  it('renders the Hostaway connect form immediately when intro is skipped', () => {
+    const { getByTestId, queryByTestId } = render(
+      <OnboardingScreen onComplete={jest.fn()} skipIntro />
+    );
+
+    expect(getByTestId('onboarding-account-id')).toBeTruthy();
+    expect(queryByTestId('onboarding-get-started')).toBeNull();
   });
 
   it('opens inline credential help instead of leaving the link dead', () => {
@@ -185,5 +202,69 @@ describe('OnboardingScreen', () => {
     expect(mockFetchMessages).not.toHaveBeenCalled();
     expect(mockFetchReservation).not.toHaveBeenCalled();
     expect(mockFetchListingDetail).not.toHaveBeenCalled();
+  });
+
+  it('shows learning state after managed Hostaway connect succeeds', async () => {
+    mockConnectHostawayServer.mockResolvedValue({
+      status: 'connected',
+      provider: 'hostaway',
+      accountId: '51916',
+      connectedAt: '2026-03-27T00:00:00.000Z',
+      historySyncJob: {
+        id: 'job-123',
+        status: 'running',
+        phase: 'conversations',
+        dateRangeMonths: 24,
+        processedConversations: 10,
+        totalConversations: 50,
+        processedMessages: 0,
+        totalMessages: 0,
+        lastError: null,
+        startedAt: '2026-03-27T00:00:00.000Z',
+        completedAt: null,
+        createdAt: '2026-03-27T00:00:00.000Z',
+        updatedAt: '2026-03-27T00:00:00.000Z',
+        payloadAvailable: false,
+        isRunningInMemory: true,
+      },
+    });
+    mockGetHostawayHistorySyncStatusViaServer.mockResolvedValue({
+      id: 'job-123',
+      status: 'running',
+      phase: 'analyzing',
+      dateRangeMonths: 24,
+      processedConversations: 50,
+      totalConversations: 50,
+      processedMessages: 320,
+      totalMessages: 640,
+      lastError: null,
+      startedAt: '2026-03-27T00:00:00.000Z',
+      completedAt: null,
+      createdAt: '2026-03-27T00:00:00.000Z',
+      updatedAt: '2026-03-27T00:05:00.000Z',
+      payloadAvailable: false,
+      isRunningInMemory: true,
+    });
+
+    const onComplete = jest.fn();
+    const { getByTestId, getByText, queryByTestId, getAllByText } = render(
+      <OnboardingScreen onComplete={onComplete} skipIntro managedModeOverride />
+    );
+
+    fireEvent.changeText(getByTestId('onboarding-account-id'), '51916');
+    fireEvent.changeText(getByTestId('onboarding-api-key'), 'secret-key');
+    fireEvent.press(getByTestId('onboarding-connect'));
+
+    await waitFor(() => {
+      expect(getByText('Learning In Progress')).toBeTruthy();
+      expect(getAllByText(/drafts are available now/i).length).toBeGreaterThan(0);
+      expect(getByText(/autopilot stays off until your voice model reaches the readiness gate/i)).toBeTruthy();
+      expect(getByTestId('voice-learning-banner')).toBeTruthy();
+      expect(queryByTestId('onboarding-connect')).toBeNull();
+    });
+
+    expect(mockConnectHostawayServer).toHaveBeenCalledWith('51916', 'secret-key');
+    expect(mockGetHostawayHistorySyncStatusViaServer).toHaveBeenCalled();
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

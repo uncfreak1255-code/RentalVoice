@@ -1,0 +1,79 @@
+# Rental Voice — Cold-start onboarding voice eval cases
+# These cases simulate a new authenticated account moving from
+# immediate-drafts-during-learning to a richer post-import voice state.
+
+- description: "Cold start — early learning is still usable"
+  vars:
+    learningStage: "early_learning"
+    importStatus: "Rental Voice account created. Hostaway connected. History sync started. Only a few host-written replies are available so far."
+    hostProfile: |
+      Tone: warm, direct, not corporate.
+      Greeting: use the guest's first name.
+      Response length: 2-4 sentences.
+      Signature phrases: "Absolutely" and "Let me know what you need" when natural.
+    historicalExamples: ""
+    propertyKnowledge: |
+      Check-in: 4:00 PM.
+      Parking: 2 cars in the driveway.
+    conversationContext: |
+      [Guest - Melissa]: Hi! We’ll get there around 6:30 with our 2 kids. Can we park two cars in the driveway and is a later arrival ok?
+  assert:
+    - type: llm-rubric
+      value: "Response must acknowledge the 6:30 arrival, the 2 kids, the 2-car parking question, and the late-arrival question. Score 0 if it opens with a generic host greeting that ignores those details."
+    - type: llm-rubric
+      value: "Response should feel warm and direct even in early learning. It must not sound like generic customer support or use stiff corporate phrases."
+
+- description: "Cold start — post-import mirrors host examples"
+  vars:
+    learningStage: "post_import_learning"
+    importStatus: "Rental Voice account is authenticated. Hostaway history import completed. 145 host replies are available to ground tone and phrasing."
+    hostProfile: |
+      Tone: upbeat, casual, reassuring.
+      Greeting: "Hey" or "Hi" plus the guest's first name.
+      Response length: 2-4 sentences.
+      Signature phrases: "Absolutely", "You’re all set", "Let me know if you need anything else".
+    historicalExamples: |
+      Example 1:
+      Guest: "Can we park 2 cars?"
+      Host: "Hey Jordan! Absolutely, two cars fit in the driveway. You’re all set there."
+
+      Example 2:
+      Guest: "We’re bringing our cavapoo."
+      Host: "Hi Priya! A small cavapoo is totally fine. Just let me know ahead of time so I can make a note for your stay."
+    propertyKnowledge: |
+      Beach chairs: 4 chairs and 1 umbrella in the garage.
+      Pets: Small dogs under 25lbs are allowed with prior notice.
+    conversationContext: |
+      [Guest - Priya]: Hey! We're getting in Friday around 5:15 with our 12lb cavapoo. Is that ok, and do you have beach chairs we can use?
+  assert:
+    - type: llm-rubric
+      value: "Response must mention the Friday 5:15 arrival, the 12lb cavapoo, and the beach chairs. Score 0 if any of those details are flattened into generic wording."
+    - type: llm-rubric
+      value: "Response should clearly sound shaped by the host examples: casual greeting, reassuring phrasing, and a natural use of a signature phrase like 'Absolutely' only if it fits."
+
+- description: "Cold start — post-import handles issues without sounding scripted"
+  vars:
+    learningStage: "post_import_ready"
+    importStatus: "Rental Voice account is authenticated. Voice model is trained from imported history and recent host edits."
+    hostProfile: |
+      Tone: calm, personal, accountable.
+      Greeting: use the guest's first name.
+      Response length: 2-4 sentences.
+      Avoid: "I understand your frustration", "Please do not hesitate", or canned empathy scripts.
+    historicalExamples: |
+      Example 1:
+      Guest: "The AC stopped working."
+      Host: "Hey Lauren, I’m really sorry about that. I’m getting this checked right now and I’ll keep you posted as soon as I hear back."
+
+      Example 2:
+      Guest: "The WiFi is spotty."
+      Host: "Hi Ben, thanks for flagging it. I’m looking into it now and I’ll update you as soon as I know more."
+    propertyKnowledge: |
+      Maintenance contact is already available internally, but do not promise a fix time you do not know.
+    conversationContext: |
+      [Guest - Lauren]: Hi, the AC seems to have stopped working and the place is getting hot pretty fast.
+  assert:
+    - type: llm-rubric
+      value: "Response should lead with personal accountability and a concrete next step. It must not promise a repair timeline it does not know."
+    - type: llm-rubric
+      value: "Response must sound human and host-like, not like a scripted support template. Score 0 if it uses canned empathy phrases or corporate service language."

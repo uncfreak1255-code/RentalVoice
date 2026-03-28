@@ -12,6 +12,7 @@
 
 // Mock AsyncStorage to avoid window.localStorage crash in Node
 import { useAppStore } from '../../lib/store';
+import { canAutoSend, canGenerateDraft } from '../../lib/managed-draft-gating';
 import type { EnhancedAiDraft } from '../useAIDraft';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -78,6 +79,14 @@ describe('EnhancedAiDraft interface', () => {
     };
     expect(draft.confidenceDetails?.overall).toBe(85);
     expect(draft.confidenceDetails?.blockedForAutoSend).toBe(false);
+  });
+});
+
+describe('managed readiness gating', () => {
+  it('allows managed drafts while learning but disables autopilot until ready', () => {
+    const readiness = { state: 'learning' as const, autopilotEligible: false };
+    expect(canGenerateDraft(readiness)).toBe(true);
+    expect(canAutoSend(readiness)).toBe(false);
   });
 });
 

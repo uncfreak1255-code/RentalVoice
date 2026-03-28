@@ -1,0 +1,23 @@
+# Rental Voice — Founder canary eval for the server-canonical voice path
+# Run from project root:
+#   GOOGLE_API_KEY=<key> promptfoo eval --config evals/promptfooconfig-founder.yaml
+
+description: "Rental Voice Founder Canary Eval"
+
+prompts:
+  - id: file://prompts/combined.txt
+    label: "founder-canary"
+
+providers:
+  - id: file://semantic-provider.mjs
+    label: "server-canonical-founder"
+
+tests: file://test-cases.yaml
+
+defaultTest:
+  options:
+    provider:
+      text:
+        id: file://semantic-provider.mjs
+
+outputPath: results/eval-founder-latest.json

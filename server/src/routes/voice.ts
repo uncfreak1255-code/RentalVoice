@@ -12,10 +12,13 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createHash } from 'crypto';
 import { getSupabaseAdmin } from '../db/supabase.js';
 import { requireAuth } from '../middleware/auth.js';
-import { embedText, embedBatch } from '../services/embedding.js';
+import { embedText } from '../services/embedding.js';
+import {
+  buildVoiceMessageHash,
+  importVoiceExamplesForOrg,
+} from '../services/voice-import.js';
 import type { AppEnv } from '../lib/env.js';
 
 export const voiceRouter = new Hono<AppEnv>();
@@ -70,17 +73,6 @@ export function scoreAndRankExamples(
       return { ...ex, score };
     })
     .sort((a, b) => b.score - a.score);
-}
-
-// ============================================================
-// Hash helper
-// ============================================================
-
-function messageHash(guestMessage: string, hostResponse: string): string {
-  return createHash('sha256')
-    .update(`${guestMessage}|||${hostResponse}`)
-    .digest('hex')
-    .slice(0, 16);
 }
 
 // ============================================================
@@ -176,57 +168,8 @@ voiceRouter.post('/import', async (c) => {
       );
     }
 
-    const { examples } = parsed.data;
-    const guestMessages = examples.map((ex) => ex.guestMessage);
-    const embeddings = await embedBatch(guestMessages);
-
-    const supabase = getSupabaseAdmin();
-    const rows = examples.map((ex, i) => ({
-      org_id: orgId,
-      property_id: ex.propertyId ?? null,
-      guest_message: ex.guestMessage,
-      host_response: ex.hostResponse,
-      intent: ex.intent ?? null,
-      origin_type: ex.originType,
-      hostaway_conversation_id: ex.hostawayConversationId ?? null,
-      message_hash: messageHash(ex.guestMessage, ex.hostResponse),
-      embedding: `[${embeddings[i].join(',')}]`,
-      source_date: ex.sourceDate ?? null,
-    }));
-
-    let inserted = 0;
-    let skipped = 0;
-
-    // Insert in batches of 50 with conflict handling
-    const BATCH = 50;
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH);
-      const { error, data } = await supabase
-        .from('voice_examples')
-        .insert(batch)
-        .select('id');
-
-      if (error) {
-        // Unique constraint violation → skip duplicates gracefully
-        if (error.code === '23505') {
-          // Fall back to row-by-row for this batch
-          for (const row of batch) {
-            const { error: rowErr } = await supabase.from('voice_examples').insert(row);
-            if (rowErr?.code === '23505') {
-              skipped += 1;
-            } else if (!rowErr) {
-              inserted += 1;
-            }
-          }
-        } else {
-          console.error('[Voice] Import batch insert error:', error);
-        }
-      } else {
-        inserted += data?.length ?? batch.length;
-      }
-    }
-
-    return c.json({ inserted, skipped, total: examples.length });
+    const result = await importVoiceExamplesForOrg(orgId, parsed.data.examples);
+    return c.json(result);
   } catch (err) {
     console.error('[Voice] Import error:', err);
     return c.json({ message: 'Import failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
@@ -263,7 +206,7 @@ voiceRouter.post('/learn', async (c) => {
       intent: intent ?? null,
       origin_type: originType,
       hostaway_conversation_id: hostawayConversationId ?? null,
-      message_hash: messageHash(guestMessage, hostResponse),
+      message_hash: buildVoiceMessageHash(guestMessage, hostResponse),
       embedding: `[${embedding.join(',')}]`,
       source_date: new Date().toISOString(),
     });

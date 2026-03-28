@@ -42,6 +42,122 @@ function buildScopedSnapshotId(orgId: string, snapshotId: string): string {
   return `${safeOrgId}:${safeSnapshotId}`;
 }
 
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map((item) => item.trim());
+}
+
+function mergeStringArrays(existing: unknown, incoming: unknown, limit: number): string[] {
+  const merged = [...toStringArray(existing), ...toStringArray(incoming)];
+  return [...new Set(merged)].slice(0, limit);
+}
+
+function mergeLearningMetrics(
+  existing: Record<string, unknown> | null,
+  incoming: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const prior = existing || {};
+  const next = incoming || {};
+
+  const sumMetric = (key: string): number =>
+    Number(prior[key] || 0) + Number(next[key] || 0);
+
+  return {
+    ...prior,
+    ...next,
+    approvals: sumMetric('approvals'),
+    edits: sumMetric('edits'),
+    rejections: sumMetric('rejections'),
+    independentReplies: sumMetric('independentReplies'),
+    totalConfidence: sumMetric('totalConfidence'),
+    confidenceSamples: sumMetric('confidenceSamples'),
+    lastOutcomeType: next.lastOutcomeType || prior.lastOutcomeType || null,
+    lastUpdatedAt: new Date().toISOString(),
+  };
+}
+
+function weightedStyleNumber(
+  existingValue: unknown,
+  incomingValue: unknown,
+  existingSamples: number,
+  incomingSamples: number,
+): number | undefined {
+  if (typeof existingValue !== 'number' && typeof incomingValue !== 'number') {
+    return undefined;
+  }
+
+  if (typeof existingValue !== 'number') return Number(incomingValue);
+  if (typeof incomingValue !== 'number') return Number(existingValue);
+
+  const totalSamples = Math.max(existingSamples, 0) + Math.max(incomingSamples, 0);
+  if (totalSamples <= 0) {
+    return Math.round((existingValue + incomingValue) / 2);
+  }
+
+  return Math.round(
+    ((existingValue * Math.max(existingSamples, 0)) + (incomingValue * Math.max(incomingSamples, 0))) / totalSamples
+  );
+}
+
+function mergeStyleProfile(
+  existingProfile: Record<string, unknown> | null,
+  incomingProfile: Record<string, unknown>,
+  existingSamples: number,
+  incomingSamples: number,
+): { profile: Record<string, unknown>; samplesAnalyzed: number } {
+  const merged = {
+    ...incomingProfile,
+    ...(existingProfile || {}),
+  } as Record<string, unknown>;
+
+  const formalityLevel = weightedStyleNumber(
+    existingProfile?.formalityLevel,
+    incomingProfile.formalityLevel,
+    existingSamples,
+    incomingSamples,
+  );
+  const warmthLevel = weightedStyleNumber(
+    existingProfile?.warmthLevel,
+    incomingProfile.warmthLevel,
+    existingSamples,
+    incomingSamples,
+  );
+  const averageResponseLength = weightedStyleNumber(
+    existingProfile?.averageResponseLength,
+    incomingProfile.averageResponseLength,
+    existingSamples,
+    incomingSamples,
+  );
+  const emojiFrequency = weightedStyleNumber(
+    existingProfile?.emojiFrequency,
+    incomingProfile.emojiFrequency,
+    existingSamples,
+    incomingSamples,
+  );
+
+  if (formalityLevel !== undefined) merged.formalityLevel = formalityLevel;
+  if (warmthLevel !== undefined) merged.warmthLevel = warmthLevel;
+  if (averageResponseLength !== undefined) merged.averageResponseLength = averageResponseLength;
+  if (emojiFrequency !== undefined) merged.emojiFrequency = emojiFrequency;
+
+  merged.usesEmojis = Boolean(existingProfile?.usesEmojis || incomingProfile.usesEmojis);
+  merged.commonGreetings = mergeStringArrays(existingProfile?.commonGreetings, incomingProfile.commonGreetings, 5);
+  merged.commonSignoffs = mergeStringArrays(existingProfile?.commonSignoffs, incomingProfile.commonSignoffs, 5);
+  merged.commonPhrases = mergeStringArrays(existingProfile?.commonPhrases, incomingProfile.commonPhrases, 12);
+  merged.learningMetrics = mergeLearningMetrics(
+    (existingProfile?.learningMetrics as Record<string, unknown> | null) || null,
+    (incomingProfile.learningMetrics as Record<string, unknown> | null) || null,
+  );
+  merged.lastUpdated = new Date().toISOString();
+
+  return {
+    profile: merged,
+    samplesAnalyzed: Math.max(existingSamples, 0) + Math.max(incomingSamples, 0),
+  };
+}
+
 migrationRouter.post('/local-learning/import', async (c) => {
   try {
     const orgId = c.get('orgId');
@@ -59,7 +175,7 @@ migrationRouter.post('/local-learning/import', async (c) => {
     const payload = parsed.data;
     const source = payload.source || 'mobile_local_store_v1';
     const rawSnapshotId = payload.snapshotId || `snapshot_${Date.now()}`;
-    const snapshotId = buildScopedSnapshotId(orgId, rawSnapshotId);
+    const snapshotId = buildScopedSnapshotId(orgId, `${userId}:${rawSnapshotId}`);
     const hostStyleProfiles = payload.hostStyleProfiles || {};
     const learningEntriesRaw = payload.learningEntries || [];
     const draftOutcomes = payload.draftOutcomes || [];
@@ -70,13 +186,17 @@ migrationRouter.post('/local-learning/import', async (c) => {
 
     const { data: existingProfiles } = await supabase
       .from('host_style_profiles')
-      .select('id, property_id')
+      .select('id, property_id, profile_json, samples_analyzed')
       .eq('org_id', orgId);
 
-    const existingProfileMap = new Map<string, string>();
+    const existingProfileMap = new Map<string, { id: string; profile: Record<string, unknown> | null; samplesAnalyzed: number }>();
     for (const profile of existingProfiles || []) {
       const key = profile.property_id || '__global__';
-      existingProfileMap.set(key, profile.id);
+      existingProfileMap.set(key, {
+        id: profile.id,
+        profile: (profile.profile_json as Record<string, unknown> | null) || null,
+        samplesAnalyzed: profile.samples_analyzed || 0,
+      });
     }
 
     let hostProfilesUpserted = 0;
@@ -89,17 +209,23 @@ migrationRouter.post('/local-learning/import', async (c) => {
       const propertyId = !propertyRaw || propertyRaw === 'global' ? null : String(propertyRaw);
       const samplesAnalyzed = typeof profile.samplesAnalyzed === 'number' ? profile.samplesAnalyzed : 0;
       const lookupKey = propertyId || '__global__';
-      const existingId = existingProfileMap.get(lookupKey);
+      const existingRecord = existingProfileMap.get(lookupKey);
 
-      if (existingId) {
+      if (existingRecord) {
+        const merged = mergeStyleProfile(
+          existingRecord.profile,
+          profile,
+          existingRecord.samplesAnalyzed,
+          samplesAnalyzed,
+        );
         await supabase
           .from('host_style_profiles')
           .update({
-            profile_json: profile,
-            samples_analyzed: samplesAnalyzed,
+            profile_json: merged.profile,
+            samples_analyzed: merged.samplesAnalyzed,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', existingId);
+          .eq('id', existingRecord.id);
       } else {
         await supabase
           .from('host_style_profiles')
@@ -202,11 +328,13 @@ migrationRouter.get('/local-learning/status', async (c) => {
   try {
     const orgId = c.get('orgId');
     const supabase = getSupabaseAdmin();
+    const userId = c.get('userId');
 
     const { data: latestSnapshot } = await supabase
       .from('learning_migration_snapshots')
-      .select('id, source, stable_account_id, stats_json, imported_at')
+      .select('id, source, stable_account_id, stats_json, imported_at, imported_by')
       .eq('org_id', orgId)
+      .eq('imported_by', userId)
       .order('imported_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -223,6 +351,7 @@ migrationRouter.get('/local-learning/status', async (c) => {
           id: latestSnapshot.id,
           source: latestSnapshot.source,
           stableAccountId: latestSnapshot.stable_account_id,
+          importedByUserId: latestSnapshot.imported_by,
           importedAt: latestSnapshot.imported_at,
           stats: latestSnapshot.stats_json,
         }

@@ -15,6 +15,11 @@ import { API_BASE_URL, isPersonal } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import {
+  clearAccountSession,
+  persistAccountSession,
+  type AccountSession,
+} from './account-session';
 import { loadFounderSession } from './secure-storage';
 
 const AUTH_TOKEN_KEY = 'rv-auth-token';
@@ -201,6 +206,15 @@ export interface AIGenerateResponse {
   tokensUsed: { input: number; output: number };
 }
 
+export interface ServerVoiceReadiness {
+  state: 'untrained' | 'learning' | 'ready' | 'degraded';
+  importedExamples: number;
+  styleSamples: number;
+  semanticReady: boolean;
+  autopilotEligible: boolean;
+  reason: string;
+}
+
 /**
  * Generate AI draft via server proxy (commercial mode)
  */
@@ -208,6 +222,14 @@ export async function generateAIDraftViaServer(
   req: AIGenerateRequest
 ): Promise<AIGenerateResponse> {
   const { data } = await apiClient.post<AIGenerateResponse>('/api/ai/generate', req as unknown as Record<string, unknown>);
+  return data;
+}
+
+export async function getVoiceReadinessViaServer(
+  propertyId?: string | number
+): Promise<ServerVoiceReadiness> {
+  const query = propertyId ? `?propertyId=${encodeURIComponent(String(propertyId))}` : '';
+  const { data } = await apiClient.get<ServerVoiceReadiness>(`/api/ai/voice-readiness${query}`);
   return data;
 }
 
@@ -433,6 +455,7 @@ export interface LocalLearningMigrationStatusResponse {
     id: string;
     source: string;
     stableAccountId: string | null;
+    importedByUserId: string;
     importedAt: string;
     stats: Record<string, unknown>;
   } | null;
@@ -487,15 +510,56 @@ export interface AuthResponseData {
   user: AuthUser;
 }
 
+export interface PasswordlessAuthResponseData extends AuthResponseData {
+  founderAccess?: boolean;
+}
+
+function toAccountSession(data: AuthResponseData): AccountSession {
+  return {
+    token: data.token,
+    refreshToken: data.refreshToken,
+    user: data.user,
+  };
+}
+
 export async function signup(req: SignupRequest): Promise<AuthResponseData> {
   const { data } = await apiClient.post<AuthResponseData>('/api/auth/signup', req as unknown as Record<string, unknown>);
   await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
   return data;
 }
 
 export async function login(req: LoginRequest): Promise<AuthResponseData> {
   const { data } = await apiClient.post<AuthResponseData>('/api/auth/login', req as unknown as Record<string, unknown>);
   await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
+  return data;
+}
+
+export async function requestEmailCode(email: string, name?: string): Promise<{ success: boolean }> {
+  const { data } = await apiClient.post<{ success: boolean }>('/api/auth/request-code', {
+    email,
+    ...(name ? { name } : {}),
+  });
+  return data;
+}
+
+export async function verifyEmailCode(email: string, code: string): Promise<PasswordlessAuthResponseData> {
+  const { data } = await apiClient.post<PasswordlessAuthResponseData>('/api/auth/verify-code', {
+    email,
+    code,
+  });
+  await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
+  return data;
+}
+
+export async function consumeMagicLink(code: string): Promise<PasswordlessAuthResponseData> {
+  const { data } = await apiClient.post<PasswordlessAuthResponseData>('/api/auth/consume-link', {
+    code,
+  });
+  await setAuthTokens(data.token, data.refreshToken);
+  await persistAccountSession(toAccountSession(data));
   return data;
 }
 
@@ -520,6 +584,7 @@ export async function refreshTokens(): Promise<{ token: string; refreshToken: st
 
 export async function logout(): Promise<void> {
   await clearAuthTokens();
+  await clearAccountSession();
 }
 
 // ============================================================
@@ -802,12 +867,14 @@ export async function connectHostaway(accountId: string, apiKey: string): Promis
   provider: string;
   accountId: string;
   connectedAt: string;
+  historySyncJob?: HostawayHistorySyncJob | null;
 }> {
   const { data } = await apiClient.post<{
     status: string;
     provider: string;
     accountId: string;
     connectedAt: string;
+    historySyncJob?: HostawayHistorySyncJob | null;
   }>('/api/hostaway', { accountId, apiKey });
   return data;
 }

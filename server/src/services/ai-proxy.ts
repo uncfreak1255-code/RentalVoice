@@ -17,6 +17,7 @@ import type {
 } from '../lib/types.js';
 import { MANAGED_MODEL_POLICY } from '../lib/types.js';
 import { reportOverageIfNeeded } from './stripe-billing.js';
+import { buildManagedVoicePrompt } from './voice-grounding.js';
 
 interface AICallOptions {
   orgId: string;
@@ -43,25 +44,15 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
   const modelPolicy = MANAGED_MODEL_POLICY[plan];
   const modelCandidates: ManagedModelTarget[] = [modelPolicy.primary, ...modelPolicy.fallbacks];
 
-  // 2. Fetch style profile for prompt injection (non-blocking on failure)
-  let styleProfile: Record<string, unknown> | null = null;
-  try {
-    const { data: profile } = await supabase
-      .from('host_style_profiles')
-      .select('profile_json')
-      .eq('org_id', orgId)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (profile?.profile_json) {
-      styleProfile = profile.profile_json as Record<string, unknown>;
-    }
-  } catch {
-    // Style profile is optional — continue without it
-  }
-
-  // 3. Build the prompt
-  const systemPrompt = buildSystemPrompt(request, styleProfile);
+  // 2. Build a host-grounded prompt
+  const systemPrompt = await buildManagedVoicePrompt({
+    orgId,
+    propertyId: request.propertyId ?? null,
+    guestMessage: request.message,
+    guestName: request.guestName,
+    responseLanguageMode: request.responseLanguageMode,
+    hostDefaultLanguage: request.hostDefaultLanguage,
+  });
   const userMessage = request.message;
 
   // 4. Call managed provider chain (primary + fallback)
@@ -146,38 +137,6 @@ function getManagedApiKey(provider: AIProvider): string | null {
   };
 
   return process.env[envMap[provider]] || null;
-}
-
-function buildSystemPrompt(request: AIGenerateRequest, styleProfile?: Record<string, unknown> | null): string {
-  const langInstruction = request.responseLanguageMode === 'host_default'
-    ? `Always respond in ${request.hostDefaultLanguage || 'English'}.`
-    : request.responseLanguageMode === 'match_guest'
-      ? 'Match the language the guest wrote in.'
-      : 'Respond in the same language as the guest message.';
-
-  // Build style context from learned profile
-  let styleContext = '';
-  if (styleProfile && styleProfile.trained === true) {
-    const parts: string[] = [];
-    if (styleProfile.tonePreference === 'detailed') parts.push('Write longer, more detailed responses.');
-    if (styleProfile.tonePreference === 'concise') parts.push('Keep responses short and to the point.');
-    if (styleProfile.usesEmoji) parts.push('Use emojis occasionally where appropriate.');
-    if (styleProfile.usesExclamation) parts.push('Use exclamation marks to convey enthusiasm.');
-    if (Array.isArray(styleProfile.topPhrases) && styleProfile.topPhrases.length > 0) {
-      parts.push(`The host often uses these phrases: "${(styleProfile.topPhrases as string[]).slice(0, 5).join('", "')}".`);
-    }
-    if (parts.length > 0) {
-      styleContext = `\nHOST STYLE PREFERENCES (learned from previous edits):\n${parts.join('\n')}`;
-    }
-  }
-
-  return `You are an AI assistant helping a vacation rental host respond to guest messages.
-Your tone should be warm, professional, and helpful.
-Keep responses concise but thorough.
-${langInstruction}
-${request.guestName ? `The guest's name is ${request.guestName}.` : ''}
-Do not include any explicit, harmful, or inappropriate content.
-If the guest message contains inappropriate content, respond professionally and redirect.${styleContext}`;
 }
 
 interface ProviderResult {

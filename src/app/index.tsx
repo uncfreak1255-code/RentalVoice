@@ -8,13 +8,8 @@ import { resolveStableAccountId } from '@/lib/stable-account-id';
 import { migrateAccountData, migrateLegacyUnscopedData } from '@/lib/account-data-migration';
 import { isCommercial } from '@/lib/config';
 import {
-  getCommercialLearningMigrationVerification,
-  migrateLocalLearningToCommercial,
+  ensureCommercialLearningMigrationForAccount,
 } from '@/lib/commercial-migration';
-import {
-  isCommercialLearningImportDone,
-  setCommercialLearningImportDone,
-} from '@/lib/secure-storage';
 import { canSync, isLocalLearningEmpty, restoreLearningFromCloud, syncLearningToCloud, getSyncStatus } from '@/lib/learning-sync';
 import { colors, typography, spacing } from '@/lib/design-tokens';
 import { StatusBar } from 'expo-status-bar';
@@ -24,6 +19,8 @@ export default function AppEntry() {
   const router = useRouter();
   const isOnboarded = useAppStore((s) => s.settings.isOnboarded);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const accountSession = useAppStore((s) => s.accountSession);
+  const restoreAccountSession = useAppStore((s) => s.restoreAccountSession);
   const setCredentials = useAppStore((s) => s.setCredentials);
   const setOnboarded = useAppStore((s) => s.setOnboarded);
   const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
@@ -33,9 +30,16 @@ export default function AppEntry() {
 
     async function boot(): Promise<void> {
       let restoreResult: RestoreOutcome | null = null;
+      let restoredAccountSession = accountSession;
       let hasFounderSession = false;
 
       try {
+        if (!isDemoMode && !restoredAccountSession) {
+          restoredAccountSession = await restoreAccountSession();
+        }
+
+        let hostawayMigrationPromise: Promise<string | undefined> = Promise.resolve(undefined);
+
         if (!isDemoMode) {
           const founderSession = await restoreFounderSession();
           hasFounderSession = !!founderSession;
@@ -50,6 +54,7 @@ export default function AppEntry() {
           isOnboarded,
           isDemoMode,
           restoreResult,
+          hasAccountSession: Boolean(restoredAccountSession),
         });
 
         if (hasFounderSession) {
@@ -62,7 +67,8 @@ export default function AppEntry() {
             setOnboarded(true);
           }
 
-          runDataMigration(restoreResult.accountId, restoreResult.apiKey).catch((error) => {
+          hostawayMigrationPromise = runDataMigration(restoreResult.accountId, restoreResult.apiKey);
+          hostawayMigrationPromise.catch((error) => {
             console.warn('[AppEntry] Background migration error (non-fatal):', error);
           });
 
@@ -70,6 +76,23 @@ export default function AppEntry() {
           restoreLearningIfNeeded().catch((error) => {
             console.warn('[AppEntry] Learning restore error (non-fatal):', error);
           });
+        }
+
+        if (!isDemoMode && isCommercial && restoredAccountSession) {
+          hostawayMigrationPromise
+            .then((stableAccountId) =>
+              ensureCommercialLearningMigrationForAccount(restoredAccountSession as NonNullable<typeof restoredAccountSession>, {
+                stableAccountId,
+              })
+            )
+            .then((result) => {
+              if (result.status === 'imported') {
+                console.log('[AppEntry] Commercial learning import bound to authenticated account');
+              }
+            })
+            .catch((error) => {
+              console.warn('[AppEntry] Commercial learning import skipped (non-fatal):', error);
+            });
         }
 
         if (!mounted) return;
@@ -89,7 +112,16 @@ export default function AppEntry() {
     return () => {
       mounted = false;
     };
-  }, [isDemoMode, isOnboarded, restoreFounderSession, router, setCredentials, setOnboarded]);
+  }, [
+    accountSession,
+    isDemoMode,
+    isOnboarded,
+    restoreAccountSession,
+    restoreFounderSession,
+    router,
+    setCredentials,
+    setOnboarded,
+  ]);
 
   // Sync learning data when app returns to foreground
   React.useEffect(() => {
@@ -121,11 +153,11 @@ export default function AppEntry() {
   );
 }
 
-async function runDataMigration(enteredAccountId: string, apiKey: string): Promise<void> {
+async function runDataMigration(enteredAccountId: string, apiKey: string): Promise<string | undefined> {
   const stableId = await resolveStableAccountId(enteredAccountId, apiKey);
   if (!stableId) {
     console.log('[AppEntry] Could not resolve stable ID - skipping migration');
-    return;
+    return undefined;
   }
 
   if (stableId !== enteredAccountId) {
@@ -138,30 +170,7 @@ async function runDataMigration(enteredAccountId: string, apiKey: string): Promi
 
   await migrateLegacyUnscopedData(stableId);
 
-  if (isCommercial) {
-    const importAlreadyDone = await isCommercialLearningImportDone(stableId);
-    if (importAlreadyDone) return;
-
-    try {
-      const status = await getCommercialLearningMigrationVerification();
-      if (status.hasSnapshot && status.latestSnapshot?.stableAccountId === stableId) {
-        await setCommercialLearningImportDone(stableId);
-        console.log('[AppEntry] Commercial learning snapshot already present on backend');
-        return;
-      }
-
-      const snapshotId = `cutover-${stableId}-${Date.now()}`;
-      const importResult = await migrateLocalLearningToCommercial(snapshotId);
-      await setCommercialLearningImportDone(stableId);
-      console.log(
-        `[AppEntry] Commercial learning import complete: ` +
-        `${importResult.imported.hostStyleProfiles} style profiles, ` +
-        `${importResult.imported.editPatterns} edit patterns`
-      );
-    } catch (error) {
-      console.warn('[AppEntry] Commercial learning import skipped (non-fatal):', error);
-    }
-  }
+  return stableId;
 }
 
 async function restoreLearningIfNeeded(): Promise<void> {

@@ -2,11 +2,12 @@
  * Voice Routes Tests
  *
  * 📁 server/src/__tests__/voice-routes.test.ts
- * Purpose: Unit tests for scoreAndRankExamples scoring logic
+ * Purpose: Unit tests for voice ranking and history->voice example extraction
  */
 
 import { describe, it, expect } from 'vitest';
 import { scoreAndRankExamples } from '../routes/voice.js';
+import { buildVoiceExamplesFromHistory } from '../services/voice-import.js';
 
 type RawExample = Parameters<typeof scoreAndRankExamples>[0][0];
 
@@ -95,5 +96,59 @@ describe('scoreAndRankExamples', () => {
 
     // No property bonus when querying without a property
     expect(ranked[0].score).toBeCloseTo(120, 0); // 90 + 30 only
+  });
+});
+
+describe('buildVoiceExamplesFromHistory', () => {
+  it('builds voice examples from consecutive guest/host message pairs', () => {
+    const examples = buildVoiceExamplesFromHistory(
+      [{ id: 501, listingMapId: 777 }],
+      {
+        501: [
+          {
+            id: 1,
+            conversationId: 501,
+            body: 'Can we check in early?',
+            isIncoming: true,
+            insertedOn: '2026-03-01T10:00:00.000Z',
+          },
+          {
+            id: 2,
+            conversationId: 501,
+            body: 'Yes, 2pm works for today.',
+            isIncoming: false,
+            insertedOn: '2026-03-01T10:05:00.000Z',
+          },
+          {
+            id: 3,
+            conversationId: 501,
+            body: 'Thanks, what is the wifi password?',
+            isIncoming: true,
+            insertedOn: '2026-03-01T10:10:00.000Z',
+          },
+          {
+            id: 4,
+            conversationId: 501,
+            body: 'It is on the fridge magnet when you arrive.',
+            isIncoming: false,
+            insertedOn: '2026-03-01T10:12:00.000Z',
+          },
+        ],
+      }
+    );
+
+    expect(examples).toHaveLength(2);
+    expect(examples[0]).toMatchObject({
+      guestMessage: 'Can we check in early?',
+      hostResponse: 'Yes, 2pm works for today.',
+      originType: 'historical',
+      propertyId: '777',
+      hostawayConversationId: '501',
+    });
+    expect(examples[1]).toMatchObject({
+      guestMessage: 'Thanks, what is the wifi password?',
+      hostResponse: 'It is on the fridge magnet when you arrive.',
+      originType: 'historical',
+    });
   });
 });

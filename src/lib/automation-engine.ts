@@ -7,6 +7,8 @@
 
 import type { ScheduledMessage, Conversation, Property, PropertyKnowledge } from './store';
 import { sendMessage as sendHostawayMessage } from './hostaway';
+import { sendHostawayMessageViaServer } from './api-client';
+import { features } from './config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SENT_KEYS_STORAGE = 'automation_sent_keys';
@@ -231,7 +233,11 @@ export async function checkAndSendScheduledMessages(
       // Queue with undo delay instead of sending immediately
       const timerId = setTimeout(async () => {
         try {
-          await sendHostawayMessage(accountId, apiKey, parseInt(conversation.id), content);
+          if (features.serverProxiedAI) {
+            await sendHostawayMessageViaServer(parseInt(conversation.id), content);
+          } else {
+            await sendHostawayMessage(accountId, apiKey, parseInt(conversation.id), content);
+          }
           console.log(
             `[AutomationEngine] ✅ Sent "${scheduled.name}" to conversation ${conversation.id}`
           );

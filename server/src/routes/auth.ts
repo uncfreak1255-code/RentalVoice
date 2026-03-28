@@ -6,13 +6,19 @@
  * Depends on: db/supabase, lib/types
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { getSupabaseAdmin, getSupabaseAuthClient } from '../db/supabase.js';
 import type { AuthResponse, PlanTier } from '../lib/types.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { AppEnv } from '../lib/env.js';
 import { getEffectivePlan, isFounderAccount } from '../lib/founder-access.js';
+import {
+  PasswordlessAuthError,
+  consumeMagicLink,
+  requestEmailCode,
+  verifyEmailCode,
+} from '../services/passwordless-auth.js';
 
 export const authRouter = new Hono<AppEnv>();
 
@@ -31,10 +37,34 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+const requestCodeSchema = z.object({
+  email: z.string().email('Invalid email'),
+  name: z.string().trim().min(1, 'Name is required').max(100).optional(),
+});
+
+const verifyCodeSchema = z.object({
+  email: z.string().email('Invalid email'),
+  code: z.string().trim().min(1, 'Code is required'),
+});
+
+const consumeMagicLinkSchema = z.object({
+  code: z.string().trim().min(1, 'Code is required'),
+});
+
 const autoProvisionSchema = z.object({
   hostawayAccountId: z.string().min(1, 'hostawayAccountId is required'),
   stableAccountId: z.string().min(1, 'stableAccountId is required'),
 });
+
+function handlePasswordlessError(c: Context<AppEnv>, error: unknown) {
+  if (error instanceof PasswordlessAuthError) {
+    const status = error.status as 400 | 401 | 500;
+    return c.json({ message: error.message, code: error.code, status }, status);
+  }
+
+  console.error('[Auth] Passwordless auth error:', error);
+  return c.json({ message: 'Passwordless auth failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
+}
 
 // ============================================================
 // POST /api/auth/signup
@@ -215,6 +245,75 @@ authRouter.post('/login', async (c) => {
   } catch (err) {
     console.error('[Auth] Login error:', err);
     return c.json({ message: 'Login failed', code: 'INTERNAL_ERROR', status: 500 }, 500);
+  }
+});
+
+// ============================================================
+// POST /api/auth/request-code
+// ============================================================
+
+authRouter.post('/request-code', async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = requestCodeSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json(
+        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        400
+      );
+    }
+
+    await requestEmailCode(parsed.data.email, parsed.data.name);
+    return c.json({ success: true });
+  } catch (error) {
+    return handlePasswordlessError(c, error);
+  }
+});
+
+// ============================================================
+// POST /api/auth/verify-code
+// ============================================================
+
+authRouter.post('/verify-code', async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = verifyCodeSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json(
+        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        400
+      );
+    }
+
+    const result = await verifyEmailCode(parsed.data.email, parsed.data.code);
+    return c.json(result);
+  } catch (error) {
+    return handlePasswordlessError(c, error);
+  }
+});
+
+// ============================================================
+// POST /api/auth/consume-link
+// ============================================================
+
+authRouter.post('/consume-link', async (c) => {
+  try {
+    const body = await c.req.json();
+    const parsed = consumeMagicLinkSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json(
+        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        400
+      );
+    }
+
+    const result = await consumeMagicLink(parsed.data.code);
+    return c.json(result);
+  } catch (error) {
+    return handlePasswordlessError(c, error);
   }
 });
 
