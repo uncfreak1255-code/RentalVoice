@@ -19,7 +19,7 @@ export default function ChatRoute() {
       <ChatScreen
         conversationId={id}
         onBack={() => router.back()}
-        onOpenUpsells={() => router.push('/settings/billing?source=chat')}
+        onOpenUpsells={__DEV__ ? () => router.push('/settings/billing?source=chat') : undefined}
       />
     </View>
   );

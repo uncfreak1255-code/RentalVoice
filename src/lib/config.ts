@@ -1,20 +1,21 @@
 /**
  * App Configuration & Mode Detection
- * 
+ *
  * Controls dual-mode behavior:
  * - 'personal': Direct API calls, local storage, no auth (current behavior)
  * - 'commercial': Server-proxied AI, auth required, Stripe billing
- * 
+ *
  * Default: 'personal' — your daily workflow is never affected.
  */
 
 export type AppMode = 'personal' | 'commercial';
 
-export const APP_MODE: AppMode = 
-  (process.env.EXPO_PUBLIC_APP_MODE as AppMode) || 'personal';
+// v1: personal mode only. Commercial mode deferred to Phase 4.
+export const APP_MODE: AppMode = 'personal';
 
-export const isCommercial = APP_MODE === 'commercial';
-export const isPersonal = APP_MODE === 'personal';
+// v1: hardcoded to personal — commercial comparisons kept for Phase 4 reactivation.
+export const isCommercial: boolean = (APP_MODE as string) === 'commercial';
+export const isPersonal: boolean = (APP_MODE as string) === 'personal';
 
 /**
  * API base URL for commercial mode backend.
