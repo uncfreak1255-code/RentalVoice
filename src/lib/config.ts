@@ -18,8 +18,8 @@ export const isCommercial: boolean = (APP_MODE as string) === 'commercial';
 export const isPersonal: boolean = (APP_MODE as string) === 'personal';
 
 /**
- * API base URL for commercial mode backend.
- * In personal mode, this is unused — calls go direct to AI providers.
+ * API base URL for backend.
+ * All AI calls route through the server proxy regardless of mode.
  */
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.rentalvoice.app';
 

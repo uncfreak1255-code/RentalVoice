@@ -3,13 +3,7 @@
 // Updates live as conversations progress
 
 import type { Conversation, Message } from './store';
-
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-
-// Server proxy config
-const AI_PROXY_URL = process.env.EXPO_PUBLIC_AI_PROXY_URL || '';
-const AI_PROXY_TOKEN = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN || '';
-const useServerProxy = Boolean(AI_PROXY_URL && AI_PROXY_TOKEN);
+import { API_BASE_URL } from './config';
 
 // Minimum messages before generating a summary
 export const MIN_MESSAGES_FOR_SUMMARY = 5;
@@ -344,14 +338,6 @@ export function determineConversationStatus(
  * Generate summary using AI for complex conversations
  */
 export async function generateAISummary(conversation: Conversation): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_VIBECODE_GOOGLE_API_KEY;
-
-  if (!apiKey || apiKey.includes('n0tr3al')) {
-    // Fall back to local summary
-    const events = extractConversationEvents(conversation.messages);
-    return generateLocalSummary(events);
-  }
-
   const messages = conversation.messages
     .filter(m => m.sender !== 'ai_draft')
     .map(m => `${m.sender === 'guest' ? 'Guest' : 'Host'}: ${m.content}`)
@@ -380,27 +366,17 @@ Summary (one line, use → arrows):`;
       },
     };
 
-    let response: Response;
-    if (useServerProxy) {
-      response = await fetch(`${AI_PROXY_URL}/api/ai-proxy/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AI_PROXY_TOKEN}`,
-        },
-        body: JSON.stringify({
-          provider: 'google',
-          model: 'gemini-2.0-flash',
-          payload: geminiPayload,
-        }),
-      });
-    } else {
-      response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(geminiPayload),
-      });
-    }
+    const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider: 'google',
+        model: 'gemini-2.0-flash',
+        payload: geminiPayload,
+      }),
+    });
 
     if (!response.ok) {
       throw new Error('AI summary generation failed');

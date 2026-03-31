@@ -91,30 +91,23 @@ function getCalibrationAdjustment(primaryIntent?: string): {
 }
 
 // API Configuration
-const GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const CLAUDE_MODEL = 'claude-3-5-haiku-20241022';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
-// Server proxy config — when set, LLM calls route through the server
-// instead of calling providers directly. Server holds the API keys.
-const AI_PROXY_URL = process.env.EXPO_PUBLIC_AI_PROXY_URL || '';
-const AI_PROXY_TOKEN = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN || '';
-const useServerProxy = Boolean(AI_PROXY_URL && AI_PROXY_TOKEN);
+// All AI calls route through the server proxy — no direct provider calls.
+import { API_BASE_URL } from './config';
 
 async function callViaProxy(
   provider: 'google' | 'anthropic' | 'openai',
   model: string,
   payload: Record<string, unknown>,
 ): Promise<Response> {
-  const url = `${AI_PROXY_URL}/api/ai-proxy/generate`;
+  const url = `${API_BASE_URL}/api/ai-proxy/generate`;
   console.log(`[AI Enhanced] Routing ${provider}/${model} through server proxy`);
   return fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${AI_PROXY_TOKEN}`,
     },
     body: JSON.stringify({ provider, model, payload }),
   });
@@ -1804,13 +1797,13 @@ BANNED PHRASES (these are AI artifacts — no real person writes like this):
   return prompt;
 }
 
-// Call Google Gemini API
+// Call Google Gemini API via server proxy
 async function callGeminiAPI(
   systemPrompt: string,
   userPrompt: string,
   temperature: number,
-  apiKey: string,
-  authMethod: 'key' | 'bearer' = 'key',
+  _apiKey: string,
+  _authMethod: 'key' | 'bearer' = 'key',
   modelId: string = GEMINI_MODEL
 ): Promise<string | null> {
   try {
@@ -1827,29 +1820,7 @@ async function callGeminiAPI(
       },
     };
 
-    let response: Response;
-
-    if (useServerProxy) {
-      response = await callViaProxy('google', modelId, geminiPayload);
-    } else {
-      const url = `${GOOGLE_API_BASE}/${modelId}:generateContent`;
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      let fetchUrl = url;
-      if (authMethod === 'bearer') {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      } else {
-        fetchUrl = `${url}?key=${apiKey}`;
-      }
-
-      response = await fetch(fetchUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(geminiPayload),
-      });
-    }
+    const response = await callViaProxy('google', modelId, geminiPayload);
 
     if (!response.ok) {
       const error = await response.text();
@@ -1872,12 +1843,12 @@ async function callGeminiAPI(
   }
 }
 
-// Call Claude API
+// Call Claude API via server proxy
 async function callClaudeAPI(
   systemPrompt: string,
   userPrompt: string,
   temperature: number,
-  apiKey: string,
+  _apiKey: string,
   modelId: string = CLAUDE_MODEL
 ): Promise<string | null> {
   try {
@@ -1891,21 +1862,7 @@ async function callClaudeAPI(
       temperature,
     };
 
-    let response: Response;
-
-    if (useServerProxy) {
-      response = await callViaProxy('anthropic', modelId, claudePayload);
-    } else {
-      response = await fetch(ANTHROPIC_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(claudePayload),
-      });
-    }
+    const response = await callViaProxy('anthropic', modelId, claudePayload);
 
     if (!response.ok) {
       const error = await response.text();
@@ -1928,12 +1885,12 @@ async function callClaudeAPI(
   }
 }
 
-// Call OpenAI API
+// Call OpenAI API via server proxy
 async function callOpenAIAPI(
   systemPrompt: string,
   userPrompt: string,
   temperature: number,
-  apiKey: string,
+  _apiKey: string,
   modelId: string = 'gpt-4o-mini'
 ): Promise<string | null> {
   try {
@@ -1947,20 +1904,7 @@ async function callOpenAIAPI(
       temperature,
     };
 
-    let response: Response;
-
-    if (useServerProxy) {
-      response = await callViaProxy('openai', modelId, openaiPayload);
-    } else {
-      response = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(openaiPayload),
-      });
-    }
+    const response = await callViaProxy('openai', modelId, openaiPayload);
 
     if (!response.ok) {
       const error = await response.text();
@@ -2352,7 +2296,8 @@ ${semanticMemories.slice(0, 3).map((m, i) => {
     if (!enabled) continue;
 
     const key = await getAIKey(provider);
-    if (!key && !useServerProxy) continue;
+    // Server proxy handles keys — local key is optional (user-saved or OAuth)
+    // Always allow the attempt since the proxy has server-side keys
 
     switch (provider) {
       case 'google': {

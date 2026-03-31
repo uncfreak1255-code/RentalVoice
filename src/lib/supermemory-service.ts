@@ -18,8 +18,10 @@
 import Supermemory from 'supermemory';
 
 // ── Configuration ────────────────────────────────────────
-
-const SUPERMEMORY_API_KEY = process.env.EXPO_PUBLIC_SUPERMEMORY_API_KEY;
+// Supermemory API key is no longer baked into the client bundle.
+// The service runs in offline mode unless a user-saved key is present.
+// Future: route through server proxy for Supermemory operations.
+const SUPERMEMORY_API_KEY: string | undefined = undefined;
 
 const CONFIG = {
   maxSearchResults: 5,
