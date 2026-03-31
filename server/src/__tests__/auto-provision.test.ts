@@ -13,6 +13,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockCreateUser = vi.fn();
 const mockDeleteUser = vi.fn();
 const mockGetUser = vi.fn();
+const mockListUsers = vi.fn();
+const mockUpdateUserById = vi.fn();
 const mockAuthClientSignIn = vi.fn();
 
 // Track per-table mock results via a queue
@@ -70,6 +72,8 @@ const mockSupabaseAdmin = {
     admin: {
       createUser: mockCreateUser,
       deleteUser: mockDeleteUser,
+      listUsers: mockListUsers,
+      updateUserById: mockUpdateUserById,
     },
   },
 };
@@ -174,10 +178,10 @@ describe('POST /api/auth/auto-provision', () => {
     process.env.ENABLE_INTERNAL_AUTO_PROVISION = 'true';
     process.env.AUTO_PROVISION_INTERNAL_TOKEN = 'internal-test-token';
 
-    // Sign-in fails (user doesn't exist)
-    mockAuthClientSignIn.mockResolvedValueOnce({
-      data: { session: null, user: null },
-      error: { message: 'Invalid login credentials' },
+    // listUsers returns no matching user
+    mockListUsers.mockResolvedValueOnce({
+      data: { users: [] },
+      error: null,
     });
 
     // Admin create user succeeds
@@ -245,7 +249,19 @@ describe('POST /api/auth/auto-provision', () => {
     const existingUserId = 'uuid-existing-user';
     const existingOrgId = 'uuid-existing-org';
 
-    // Sign-in succeeds (user exists)
+    // listUsers returns matching user
+    mockListUsers.mockResolvedValueOnce({
+      data: { users: [{ id: existingUserId, email: 'hostaway-stable-existing@rv.internal' }] },
+      error: null,
+    });
+
+    // updateUserById succeeds (reset password)
+    mockUpdateUserById.mockResolvedValueOnce({
+      data: { user: { id: existingUserId } },
+      error: null,
+    });
+
+    // Sign-in succeeds after password reset
     mockAuthClientSignIn.mockResolvedValueOnce({
       data: {
         session: {

@@ -6,6 +6,7 @@
  * Depends on: db/supabase, lib/types
  */
 
+import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { getSupabaseAdmin, getSupabaseAuthClient } from '../db/supabase.js';
@@ -505,23 +506,51 @@ authRouter.post('/auto-provision', async (c) => {
     }
 
     const email = `hostaway-${stableAccountId}@rv.internal`;
-    const password = `auto-${stableAccountId}-${secret}`;
+    const password = randomUUID();
 
     const supabase = getSupabaseAdmin();
     const authClient = getSupabaseAuthClient();
 
-    // Try sign-in first — user may already exist
-    const { data: signInData } = await authClient.auth.signInWithPassword({
-      email,
-      password,
+    // Check if user already exists via admin API (passwords are random, so signInWithPassword won't work for re-provision)
+    const { data: existingUsers } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1,
     });
 
-    if (signInData?.session) {
-      // Existing user — fetch orgId
+    const existingUser = existingUsers?.users?.find((u: { email?: string }) => u.email === email);
+
+    if (existingUser) {
+      // Existing user — reset password to fresh random value and sign in
+      const { error: updateError } = await supabase.auth.admin.updateUserById(existingUser.id, {
+        password,
+      });
+
+      if (updateError) {
+        console.error('[Auth] Auto-provision failed to update existing user password:', updateError);
+        return c.json(
+          { message: 'Failed to update account credentials', code: 'AUTH_ERROR', status: 500 },
+          500
+        );
+      }
+
+      const { data: signInData, error: signInError } = await authClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError || !signInData?.session) {
+        console.error('[Auth] Auto-provision existing user sign-in failed after password reset:', signInError);
+        return c.json(
+          { message: 'Account exists but login failed', code: 'SESSION_ERROR', status: 500 },
+          500
+        );
+      }
+
+      // Fetch orgId for existing user
       const { data: membership } = await supabase
         .from('org_members')
         .select('org_id')
-        .eq('user_id', signInData.user!.id)
+        .eq('user_id', existingUser.id)
         .single();
 
       return c.json({
@@ -529,12 +558,12 @@ authRouter.post('/auto-provision', async (c) => {
         accessToken: signInData.session.access_token,
         refreshToken: signInData.session.refresh_token,
         email,
-        userId: signInData.user!.id,
+        userId: existingUser.id,
         isNew: false,
       });
     }
 
-    // Sign-in failed — create new user via admin API
+    // User doesn't exist — create new user via admin API
     console.log(`[Auth] Auto-provisioning new user for stableAccountId=${stableAccountId}`);
 
     const { data: authData, error: createError } = await supabase.auth.admin.createUser({
@@ -545,15 +574,6 @@ authRouter.post('/auto-provision', async (c) => {
     });
 
     if (createError) {
-      // If user already exists but sign-in failed, the password may have changed
-      // (shouldn't happen, but handle gracefully)
-      if (createError.message.includes('already registered')) {
-        console.error('[Auth] Auto-provision user exists but sign-in failed — password mismatch?');
-        return c.json(
-          { message: 'Account exists but credentials mismatch', code: 'CREDENTIAL_MISMATCH', status: 409 },
-          409
-        );
-      }
       console.error('[Auth] Auto-provision create user failed:', createError);
       return c.json(
         { message: 'Failed to create account', code: 'AUTH_ERROR', status: 500 },
