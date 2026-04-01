@@ -199,8 +199,10 @@ export async function buildManagedVoicePrompt(input: {
   guestName?: string;
   responseLanguageMode?: AIGenerateRequest['responseLanguageMode'];
   hostDefaultLanguage?: AIGenerateRequest['hostDefaultLanguage'];
+  /** Pre-fetched grounding to avoid a duplicate Supabase round-trip. */
+  grounding?: ManagedVoiceGrounding;
 }): Promise<string> {
-  const grounding = await getManagedVoiceGrounding(input);
+  const grounding = input.grounding ?? await getManagedVoiceGrounding(input);
   const guestNameLine = input.guestName ? `The guest's name is ${input.guestName}.` : '';
   const propertyLine = grounding.propertyId
     ? `This reply is for property ${grounding.propertyId}.`

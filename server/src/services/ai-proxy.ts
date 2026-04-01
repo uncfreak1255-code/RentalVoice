@@ -67,6 +67,7 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
     guestName: request.guestName,
     responseLanguageMode: request.responseLanguageMode,
     hostDefaultLanguage: request.hostDefaultLanguage,
+    grounding,
   });
   const userMessage = request.message;
 

@@ -26,14 +26,19 @@ function getLangfuse(): Langfuse | null {
 
   if (!publicKey || !secretKey) return null;
 
-  _langfuse = new Langfuse({
-    publicKey,
-    secretKey,
-    baseUrl: process.env.LANGFUSE_BASEURL || 'https://cloud.langfuse.com',
-    // Flush events in background — don't block the request
-    flushAt: 5,
-    flushInterval: 1000,
-  });
+  try {
+    _langfuse = new Langfuse({
+      publicKey,
+      secretKey,
+      baseUrl: process.env.LANGFUSE_BASEURL || 'https://cloud.langfuse.com',
+      // Flush events in background — don't block the request
+      flushAt: 5,
+      flushInterval: 1000,
+    });
+  } catch (err) {
+    console.warn('[Langfuse] Failed to initialize client:', err instanceof Error ? err.message : err);
+    return null;
+  }
 
   return _langfuse;
 }
@@ -97,15 +102,21 @@ export function startGenerationTrace(params: {
   const langfuse = getLangfuse();
   if (!langfuse) return NOOP_TRACE;
 
-  const trace = langfuse.trace({
-    name: 'ai-draft-generation',
-    metadata: {
-      orgId: params.orgId,
-      userId: params.userId,
-      propertyId: params.propertyId ?? null,
-    },
-    tags: ['ai-proxy', params.propertyId ? 'property-scoped' : 'org-level'],
-  });
+  let trace;
+  try {
+    trace = langfuse.trace({
+      name: 'ai-draft-generation',
+      metadata: {
+        orgId: params.orgId,
+        userId: params.userId,
+        propertyId: params.propertyId ?? null,
+      },
+      tags: ['ai-proxy', params.propertyId ? 'property-scoped' : 'org-level'],
+    });
+  } catch (err) {
+    console.warn('[Langfuse] Failed to create trace:', err instanceof Error ? err.message : err);
+    return NOOP_TRACE;
+  }
 
   return {
     traceVoiceRetrieval(grounding: ManagedVoiceGrounding) {
@@ -183,5 +194,6 @@ export async function shutdownLangfuse(): Promise<void> {
   const langfuse = getLangfuse();
   if (langfuse) {
     await langfuse.shutdownAsync();
+    _langfuse = null;
   }
 }
