@@ -17,7 +17,8 @@ import type {
 } from '../lib/types.js';
 import { MANAGED_MODEL_POLICY } from '../lib/types.js';
 import { reportOverageIfNeeded } from './stripe-billing.js';
-import { buildManagedVoicePrompt } from './voice-grounding.js';
+import { buildManagedVoicePrompt, getManagedVoiceGrounding } from './voice-grounding.js';
+import { startGenerationTrace } from './langfuse.js';
 
 interface AICallOptions {
   orgId: string;
@@ -44,7 +45,21 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
   const modelPolicy = MANAGED_MODEL_POLICY[plan];
   const modelCandidates: ManagedModelTarget[] = [modelPolicy.primary, ...modelPolicy.fallbacks];
 
-  // 2. Build a host-grounded prompt
+  // Start Langfuse trace (no-ops silently when keys are not configured)
+  const trace = startGenerationTrace({
+    orgId,
+    userId,
+    propertyId: request.propertyId,
+  });
+
+  // 2. Build a host-grounded prompt (and capture grounding for tracing)
+  const grounding = await getManagedVoiceGrounding({
+    orgId,
+    propertyId: request.propertyId ?? null,
+    guestMessage: request.message,
+  });
+  trace.traceVoiceRetrieval(grounding);
+
   const systemPrompt = await buildManagedVoicePrompt({
     orgId,
     propertyId: request.propertyId ?? null,
@@ -52,6 +67,7 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
     guestName: request.guestName,
     responseLanguageMode: request.responseLanguageMode,
     hostDefaultLanguage: request.hostDefaultLanguage,
+    grounding,
   });
   const userMessage = request.message;
 
@@ -89,6 +105,20 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
       result = candidateResult;
       usedFallback = index > 0;
       console.log(`[AI Proxy] ${provider}/${model} responded in ${duration}ms, ${result.tokensUsed.input + result.tokensUsed.output} tokens`);
+
+      // Trace the successful LLM generation
+      trace.traceGeneration({
+        provider,
+        model,
+        systemPrompt,
+        userMessage,
+        completion: result.content,
+        durationMs: duration,
+        tokensUsed: result.tokensUsed,
+        confidence: result.confidence,
+        usedFallback,
+      });
+
       break;
     } catch (err) {
       lastError = err;
@@ -98,11 +128,14 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
   }
 
   if (!provider || !model || !result) {
+    trace.finalize({ success: false, error: lastError instanceof Error ? lastError.message : 'All providers failed' });
     if (attempted === 0) {
       throw new Error('[AI Proxy] No managed provider API keys configured on server');
     }
     throw new Error(`[AI Proxy] All managed provider attempts failed for plan ${plan}: ${lastError instanceof Error ? lastError.message : 'Unknown provider error'}`);
   }
+
+  trace.finalize({ success: true });
 
   // 5. Track usage (async, non-blocking)
   trackUsage(orgId, provider, result.tokensUsed).catch(err =>
