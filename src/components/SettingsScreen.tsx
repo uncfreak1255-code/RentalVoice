@@ -10,23 +10,13 @@ import {
   Brain, BookOpen, Globe, Mic,
   BarChart3, BellOff,
   Plane, MessageSquare, Cpu, Zap,
-  User, Trash2,
+  User, Trash2, HelpCircle, RefreshCw,
+  ChevronRight,
 } from 'lucide-react-native';
-
-// iOS system icon colors per section
-const ic = {
-  green:  { bg: '#34C75920', fg: '#34C759' },
-  blue:   { bg: '#007AFF20', fg: '#007AFF' },
-  purple: { bg: '#AF52DE20', fg: '#AF52DE' },
-  orange: { bg: '#FF950020', fg: '#FF9500' },
-  teal:   { bg: '#14B8A620', fg: '#14B8A6' },
-  red:    { bg: '#FF3B3020', fg: '#FF3B30' },
-  indigo: { bg: '#5856D620', fg: '#5856D6' },
-  gray:   { bg: '#8E8E9320', fg: '#8E8E93' },
-};
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
+import { SettingsBottomSheet } from './ui/SettingsBottomSheet';
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
 import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
 import { features, isPersonal } from '@/lib/config';
@@ -41,8 +31,31 @@ import { syncLearningToCloud, canSync } from '@/lib/learning-sync';
 import { loadFounderSession, clearFounderSession } from '@/lib/secure-storage';
 import { API_BASE_URL } from '@/lib/config';
 
+// Lazy-load bottom sheet content components
+import { default as ConfidenceDetail } from '@/components/ConfidenceDetail';
+import { TestVoiceScreen } from '@/components/TestVoiceScreen';
+import { AIProviderSettingsScreen } from '@/components/AIProviderSettingsScreen';
+import { AutomationsScreen } from '@/components/AutomationsScreen';
+import { SyncDataScreen } from '@/components/SyncDataScreen';
+import { HelpCenterScreen } from '@/components/HelpCenterScreen';
+import { ApiSettingsScreen } from '@/components/ApiSettingsScreen';
+
+// iOS system icon colors per section
+const ic = {
+  green:  { bg: '#34C75920', fg: '#34C759' },
+  blue:   { bg: '#007AFF20', fg: '#007AFF' },
+  purple: { bg: '#AF52DE20', fg: '#AF52DE' },
+  orange: { bg: '#FF950020', fg: '#FF9500' },
+  teal:   { bg: '#14B8A620', fg: '#14B8A6' },
+  red:    { bg: '#FF3B3020', fg: '#FF3B30' },
+  indigo: { bg: '#5856D620', fg: '#5856D6' },
+  gray:   { bg: '#8E8E9320', fg: '#8E8E93' },
+};
+
 // ── Build stamp — changes with every OTA push, verifies update applied ──
 const BUILD_STAMP = '2026-03-01T13:45';  // Update this each OTA push
+
+type SheetId = 'voiceConfidence' | 'testVoice' | 'aiProviders' | 'automations' | 'syncData' | 'helpCenter' | 'apiSettings' | null;
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -55,6 +68,7 @@ interface SettingsScreenProps {
 export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenProps) {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeSheet, setActiveSheet] = useState<SheetId>(null);
   const resetStore = useAppStore((s) => s.resetStore);
 
   const settings = useAppStore((s) => s.settings);
@@ -73,25 +87,6 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [activeModelName, setActiveModelName] = useState('Auto');
   const [commercialUsage, setCommercialUsage] = useState<UsageResponse | null>(null);
-  const [commercialEntitlements, setCommercialEntitlements] = useState<EntitlementsResponse | null>(null);
-  const [isLoadingCommercialEntitlements, setIsLoadingCommercialEntitlements] = useState(false);
-  const [commercialEntitlementsError, setCommercialEntitlementsError] = useState<string | null>(null);
-
-  const loadCommercialEntitlements = useCallback(async () => {
-    if (!features.serverProxiedAI) return;
-    setIsLoadingCommercialEntitlements(true);
-    setCommercialEntitlementsError(null);
-    try {
-      const data = await getCurrentEntitlements();
-      setCommercialEntitlements(data);
-    } catch (error) {
-      console.error('[SettingsScreen] Failed to load commercial entitlements:', error);
-      setCommercialEntitlements(null);
-      setCommercialEntitlementsError('Unavailable');
-    } finally {
-      setIsLoadingCommercialEntitlements(false);
-    }
-  }, []);
 
   const loadCommercialUsage = useCallback(async () => {
     if (!features.serverProxiedAI) return;
@@ -109,7 +104,6 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   useEffect(() => {
     getUsageStats().then(setUsageStats).catch(console.error);
     if (features.serverProxiedAI) {
-      loadCommercialEntitlements();
       loadCommercialUsage();
       return;
     }
@@ -124,13 +118,18 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
       const available = await getAvailableModels();
       if (available.length > 0) setActiveModelName(available[0].name);
     })();
-  }, [loadCommercialEntitlements, loadCommercialUsage]);
+  }, [loadCommercialUsage]);
 
   const { isRegistered, registerForNotifications } = useNotifications();
 
   const handleNavigate = (screen: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onNavigate?.(screen);
+  };
+
+  const openSheet = (sheet: SheetId) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveSheet(sheet);
   };
 
   const handlePushNotificationsToggle = async (value: boolean) => {
@@ -246,6 +245,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
     );
   };
 
+  // ── Computed values ──
   const commercialDraftLimit = commercialUsage?.usage.draftsLimit || 0;
   const commercialDraftsUsed = commercialUsage?.usage.draftsUsed || 0;
   const isFiniteCommercialLimit = Number.isFinite(commercialDraftLimit) && commercialDraftLimit > 0;
@@ -256,42 +256,19 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
     + approvedLearnedCount
     + editedLearnedCount
     + independentLearnedCount;
-  const usageLabel = features.serverProxiedAI ? 'Drafts Used' : 'Drafts Today';
-  const usageValue = features.serverProxiedAI
-    ? (commercialUsage
-      ? (isFiniteCommercialLimit
-        ? `${commercialDraftsUsed} / ${commercialDraftLimit}`
-        : `${commercialDraftsUsed} / Unlimited`)
-      : '–')
-    : (usageStats ? `${usageStats.draftsToday} / ${usageStats.dailyLimit}` : '–');
-  const usagePercent = features.serverProxiedAI
-    ? (isFiniteCommercialLimit ? (commercialDraftsUsed / commercialDraftLimit) * 100 : 0)
-    : (usageStats?.dailyPercentage || 0);
-  const shouldShowUsageBar = features.serverProxiedAI ? !!commercialUsage && isFiniteCommercialLimit : !!usageStats;
-  const thisMonthValue = features.serverProxiedAI
-    ? (commercialUsage ? `${commercialUsage.usage.draftsUsed} drafts` : '–')
-    : (usageStats ? `${usageStats.draftsThisMonth} drafts` : '–');
   const isFounderPersonal = isPersonal && !!founderSession;
-  const usageFooterText = features.serverProxiedAI
-    ? `${commercialUsage?.plan ? `${commercialUsage.plan.charAt(0).toUpperCase()}${commercialUsage.plan.slice(1)}` : 'Starter'} plan • Managed AI metering`
-    : isFounderPersonal
-      ? 'Founder • Unlimited local AI'
-      : `${usageStats?.tierLabel || 'Personal'} plan • Resets daily at midnight`;
   const normalizedTier = currentTier === 'pro' ? 'professional' : currentTier;
   const hasPaidAutoPilot = features.serverProxiedAI
     ? commercialUsage?.limits.autopilot === true
     : isFounderPersonal || normalizedTier === 'professional' || normalizedTier === 'business';
-  const approvalRateValue = (() => {
-    const total = analytics.aiResponsesApproved + analytics.aiResponsesEdited + analytics.aiResponsesRejected;
-    if (total === 0) return '—';
-    return `${Math.round((analytics.aiResponsesApproved / total) * 100)}%`;
-  })();
-  const openAutoPilotUpgrade = () => {
-    if (__DEV__ && features.serverProxiedAI) {
-      handleNavigate('billingMemory');
-      return;
-    }
 
+  // Profile info
+  const profileEmail = founderSession?.email || (settings.accountId ? `Account ${settings.accountId}` : 'Not connected');
+  const planLabel = features.serverProxiedAI
+    ? (commercialUsage?.plan ? `${commercialUsage.plan.charAt(0).toUpperCase()}${commercialUsage.plan.slice(1)}` : 'Starter')
+    : isFounderPersonal ? 'Founder' : (currentTier === 'free' ? 'Free' : normalizedTier.charAt(0).toUpperCase() + normalizedTier.slice(1));
+
+  const openAutoPilotUpgrade = () => {
     Alert.alert(
       'Auto-Pilot requires a paid plan',
       'Trusted guest-reply automation is reserved for Professional and Business tiers. Upgrade controls will be surfaced with the managed commercial plan flow.'
@@ -308,303 +285,79 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={sLocal.scrollContent} showsVerticalScrollIndicator={false}>
 
-          {/* ── Connection ── */}
-          <SectionHeader title="Connection" />
+          {/* ── Profile Header ── */}
+          <View style={sLocal.profileCard}>
+            <View style={sLocal.profileAvatar}>
+              <User size={24} color="#FFFFFF" />
+            </View>
+            <View style={sLocal.profileInfo}>
+              <Text style={sLocal.profileEmail} numberOfLines={1}>{profileEmail}</Text>
+              <View style={sLocal.planBadge}>
+                <Text style={sLocal.planBadgeText}>{planLabel}</Text>
+              </View>
+            </View>
+            <ChevronRight size={14} color="#C7C7CC" />
+          </View>
+
+          {/* ── 1. AI & Voice ── */}
+          <SectionHeader title="AI & Voice" />
           <View style={s.card}>
-            <Row
-              icon={<Wifi size={16} color="#FFFFFF" />}
-              iconBg={ic.green.fg}
-              label="PMS Status"
-              right={
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, marginRight: spacing['1.5'] }} />
-                  <Text style={{ color: isDemoMode ? colors.warning.DEFAULT : colors.success.DEFAULT, fontSize: 17, fontFamily: typography.fontFamily.medium }}>
-                    {isDemoMode ? 'Demo' : 'Connected'}
-                  </Text>
-                </View>
-              }
+            <LinkRow
+              icon={<BarChart3 size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
+              label="Voice Confidence"
+              onPress={() => openSheet('voiceConfidence')}
             />
             <LinkRow
-              icon={<Key size={16} color="#FFFFFF" />}
-              iconBg={ic.blue.fg}
-              label="Manage PMS Connection"
-              onPress={() => handleNavigate('apiSettings')}
+              icon={<Mic size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
+              label="Test My Voice"
+              onPress={() => openSheet('testVoice')}
+            />
+            <LinkRow
+              icon={<Cpu size={16} color="#FFFFFF" />}
+              iconBg={ic.indigo.fg}
+              label="AI Providers"
+              onPress={() => openSheet('aiProviders')}
+            />
+            <LinkRow
+              icon={<Brain size={16} color="#FFFFFF" />}
+              iconBg={ic.teal.fg}
+              label="AI Learning"
+              onPress={() => handleNavigate('aiLearning')}
               isLast
             />
           </View>
+          <SectionFooter text={`${effectiveMessagesTrained > 0 ? effectiveMessagesTrained : 'No'} messages trained. The AI learns from your edits and approvals.`} />
 
-          {/* ── Founder (dev-only) ── */}
-          {__DEV__ && (
-            <>
-              <SectionHeader title="Founder" />
-              <View style={s.card}>
-                <LinkRow
-                  icon={<User size={16} color="#FFFFFF" />}
-                  iconBg={founderSession ? ic.green.fg : ic.purple.fg}
-                  label={founderSession ? 'Founder Account Active' : 'Founder Access'}
-                  onPress={() => handleNavigate('founderAccess')}
-                  isLast
-                />
-              </View>
-              {founderSession && (
-                <SectionFooter text={`Signed in as ${founderSession.email}`} />
-              )}
-            </>
-          )}
-
-          {/* ── AI Usage ── */}
-          <SectionHeader title="AI Usage" />
-          <View style={s.card}>
-            <Row
-              icon={<Zap size={16} color="#FFFFFF" />}
-              iconBg={ic.blue.fg}
-              label={usageLabel}
-              right={
-                <Text style={s.tealValue}>
-                  {usageValue}
-                </Text>
-              }
-            />
-            {shouldShowUsageBar && (
-              <View style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'] }}>
-                <View style={{ height: 6, backgroundColor: colors.border.DEFAULT, borderRadius: 3, overflow: 'hidden' }}>
-                  <View style={{
-                    height: 6,
-                    borderRadius: 3,
-                    width: `${Math.min(usagePercent, 100)}%`,
-                    backgroundColor: usagePercent < 70 ? colors.primary.DEFAULT
-                      : usagePercent < 90 ? colors.warning.DEFAULT : colors.danger.DEFAULT,
-                  }} />
-                </View>
-              </View>
-            )}
-            {features.serverProxiedAI && (
-              <ValueRow
-                icon={<Cpu size={16} color="#FFFFFF" />}
-                iconBg={ic.indigo.fg}
-                label="AI Routing"
-                value={activeModelName}
-              />
-            )}
-            <ValueRow
-              icon={<BarChart3 size={16} color="#FFFFFF" />}
-              iconBg={ic.blue.fg}
-              label="This Month"
-              value={thisMonthValue}
-              isLast
-            />
-          </View>
-          <SectionFooter text={usageFooterText} />
-
-          {/* ── Commercial Memory Entitlements (dev-only) ── */}
-          {__DEV__ && features.serverProxiedAI && (
-            <>
-              <SectionHeader title="Memory Plan" />
-              <View style={s.card}>
-                {isLoadingCommercialEntitlements ? (
-                  <Row
-                    icon={<Brain size={16} color="#FFFFFF" />}
-                    iconBg={ic.indigo.fg}
-                    label="Loading memory entitlements"
-                    right={<ActivityIndicator size="small" color={ic.indigo.fg} />}
-                    isLast
-                  />
-                ) : commercialEntitlements ? (
-                  <>
-                    <ValueRow
-                      icon={<Cpu size={16} color="#FFFFFF" />}
-                      iconBg={ic.indigo.fg}
-                      label="Plan"
-                      value={`${commercialEntitlements.plan.charAt(0).toUpperCase()}${commercialEntitlements.plan.slice(1)}`}
-                    />
-                    <ValueRow
-                      icon={<Brain size={16} color="#FFFFFF" />}
-                      iconBg={ic.indigo.fg}
-                      label="Memory Mode"
-                      value={
-                        commercialEntitlements.entitlements.supermemoryMode === 'full'
-                          ? 'Full'
-                          : commercialEntitlements.entitlements.supermemoryMode === 'degraded'
-                            ? 'Degraded'
-                            : 'Off'
-                      }
-                      valueColor={
-                        commercialEntitlements.entitlements.supermemoryMode === 'full'
-                          ? colors.success.DEFAULT
-                          : commercialEntitlements.entitlements.supermemoryMode === 'degraded'
-                            ? colors.warning.DEFAULT
-                            : colors.danger.DEFAULT
-                      }
-                    />
-                    <ValueRow
-                      icon={<BarChart3 size={16} color="#FFFFFF" />}
-                      iconBg={ic.indigo.fg}
-                      label="Reads Remaining"
-                      value={
-                        commercialEntitlements.entitlements.supermemoryReadLimitMonthly > 0
-                          ? `${commercialEntitlements.entitlements.supermemoryReadRemaining} / ${commercialEntitlements.entitlements.supermemoryReadLimitMonthly}`
-                          : 'Not included'
-                      }
-                    />
-                    <ValueRow
-                      icon={<BarChart3 size={16} color="#FFFFFF" />}
-                      iconBg={ic.indigo.fg}
-                      label="Writes Remaining"
-                      value={
-                        commercialEntitlements.entitlements.supermemoryWriteLimitMonthly > 0
-                          ? `${commercialEntitlements.entitlements.supermemoryWriteRemaining} / ${commercialEntitlements.entitlements.supermemoryWriteLimitMonthly}`
-                          : 'Not included'
-                      }
-                      isLast={commercialEntitlements.entitlements.supermemoryMode === 'full'}
-                    />
-                    {commercialEntitlements.entitlements.supermemoryMode !== 'full' && (
-                      <LinkRow
-                        icon={<Zap size={16} color="#FFFFFF" />}
-                        iconBg={ic.orange.fg}
-                        label="Upgrade Memory Capacity"
-                        onPress={() => __DEV__ && handleNavigate(features.serverProxiedAI ? 'billingMemory' : 'upsells')}
-                        isLast
-                      />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <ValueRow
-                      icon={<Brain size={16} color="#FFFFFF" />}
-                      iconBg={ic.indigo.fg}
-                      label="Memory Entitlements"
-                      value={commercialEntitlementsError || 'Unavailable'}
-                    />
-                    <LinkRow
-                      icon={<Zap size={16} color="#FFFFFF" />}
-                      iconBg={ic.orange.fg}
-                      label="Retry Entitlements Check"
-                      onPress={loadCommercialEntitlements}
-                      isLast
-                    />
-                  </>
-                )}
-              </View>
-              <SectionFooter text="When memory is off or degraded, drafts still work but with reduced personalization." />
-            </>
-          )}
-
-          {__DEV__ && features.serverProxiedAI && (
-            <>
-              <SectionHeader title="Billing" />
-              <View style={s.card}>
-                <LinkRow
-                  icon={<Shield size={16} color="#FFFFFF" />}
-                  iconBg={ic.green.fg}
-                  label="Plans & Billing"
-                  onPress={() => handleNavigate('billing')}
-                  isLast
-                />
-              </View>
-            </>
-          )}
-
-          {/* ── Auto-Pilot ── */}
-          <SectionHeader title="Auto-Pilot" />
+          {/* ── 2. Messaging ── */}
+          <SectionHeader title="Messaging" />
           <View style={s.card}>
             {hasPaidAutoPilot ? (
-              <>
-                <ToggleRow
-                  icon={<Plane size={16} color="#FFFFFF" />}
-                  iconBg={ic.orange.fg}
-                  label="Auto-Pilot"
-                  value={autoPilotEnabled}
-                  onValueChange={(v) => {
-                    if (v) {
-                      Alert.alert('Enable Auto-Pilot', 'Only trusted, high-confidence guest replies are eligible for Auto-Pilot. Risky or low-confidence scenarios still require review.', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Enable', onPress: () => updateSettings({ pilotMode: 'autopilot', autoPilotEnabled: true }) },
-                      ]);
-                    } else {
-                      updateSettings({ pilotMode: 'copilot', autoPilotEnabled: false });
-                    }
-                  }}
-                  isLast={!autoPilotEnabled}
-                />
-                {autoPilotEnabled && (
-                  <View style={{ paddingHorizontal: spacing['4'], paddingBottom: spacing['4'] }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing['2'] }}>
-                      <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.primary }}>Confidence Threshold</Text>
-                      <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
-                    </View>
-                    <Slider
-                      minimumValue={50}
-                      maximumValue={100}
-                      step={5}
-                      value={settings.autoPilotConfidenceThreshold}
-                      onValueChange={(v) => updateSettings({ autoPilotConfidenceThreshold: Math.round(v) })}
-                      minimumTrackTintColor={colors.primary.DEFAULT}
-                      maximumTrackTintColor={colors.border.DEFAULT}
-                      thumbTintColor={colors.bg.base}
-                      style={{ height: 28 }}
-                    />
-                  </View>
-                )}
-              </>
+              <ToggleRow
+                icon={<Plane size={16} color="#FFFFFF" />}
+                iconBg={ic.orange.fg}
+                label="Auto-Pilot"
+                value={autoPilotEnabled}
+                onValueChange={(v) => {
+                  if (v) {
+                    Alert.alert('Enable Auto-Pilot', 'Only trusted, high-confidence guest replies are eligible for Auto-Pilot. Risky or low-confidence scenarios still require review.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Enable', onPress: () => updateSettings({ pilotMode: 'autopilot', autoPilotEnabled: true }) },
+                    ]);
+                  } else {
+                    updateSettings({ pilotMode: 'copilot', autoPilotEnabled: false });
+                  }
+                }}
+              />
             ) : (
               <LinkRow
                 icon={<Plane size={16} color="#FFFFFF" />}
                 iconBg={ic.orange.fg}
                 label="Unlock Auto-Pilot"
                 onPress={openAutoPilotUpgrade}
-                isLast
               />
             )}
-          </View>
-          <SectionFooter text={
-            hasPaidAutoPilot
-              ? (autoPilotEnabled
-                ? `Only trusted replies above ${settings.autoPilotConfidenceThreshold}% confidence are eligible for Auto-Pilot. Risky or unresolved scenarios still require review.`
-                : 'Trusted automation for high-confidence guest replies. Risky, low-confidence, or unresolved scenarios still require review.')
-              : 'Auto-Pilot is available on paid plans for trusted high-confidence replies only.'
-          } />
-
-          {/* ── AI Learning ── */}
-          <SectionHeader title="AI Learning" />
-          <View style={s.card}>
-            <ToggleRow
-              icon={<Globe size={16} color="#FFFFFF" />}
-              iconBg={ic.teal.fg}
-              label="Cultural Tone"
-              value={settings.culturalToneEnabled !== false}
-              onValueChange={(v) => updateSettings({ culturalToneEnabled: v })}
-            />
-            <ValueRow
-              icon={<MessageSquare size={16} color="#FFFFFF" />}
-              iconBg={ic.teal.fg}
-              label="Messages Trained"
-              value={effectiveMessagesTrained > 0 ? String(effectiveMessagesTrained) : 'None yet'}
-            />
-            <LinkRow
-              icon={<Brain size={16} color="#FFFFFF" />}
-              iconBg={ic.teal.fg}
-              label="AI Training & History"
-              onPress={() => handleNavigate('aiLearning')}
-            />
-            <LinkRow
-              icon={<BookOpen size={16} color="#FFFFFF" />}
-              iconBg={ic.teal.fg}
-              label="Manage Knowledge Base"
-              onPress={() => handleNavigate('propertyKnowledge')}
-            />
-            <LinkRow
-              icon={<Mic size={16} color="#FFFFFF" />}
-              iconBg={ic.teal.fg}
-              label="Test My Voice"
-              onPress={() => handleNavigate('testVoice')}
-              isLast
-            />
-          </View>
-          <SectionFooter text="The AI analyzes your past messages to match your tone, greetings, and sign-off style." />
-
-          {/* ── Notifications ── */}
-          <SectionHeader title="Notifications" />
-          <View style={s.card}>
             <ToggleRow
               icon={<Bell size={16} color="#FFFFFF" />}
               iconBg={ic.red.fg}
@@ -612,56 +365,90 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
               value={pushNotificationsEnabled}
               onValueChange={handlePushNotificationsToggle}
             />
-            <ToggleRow
-              icon={<BellOff size={16} color="#FFFFFF" />}
-              iconBg={ic.red.fg}
-              label="Priority Alerts Only"
-              value={settings.notificationCategories?.newMessage === false}
-              onValueChange={(v) => updateSettings({ notificationCategories: { ...settings.notificationCategories, newMessage: !v } })}
+            <LinkRow
+              icon={<Zap size={16} color="#FFFFFF" />}
+              iconBg={ic.purple.fg}
+              label="Automations"
+              onPress={() => openSheet('automations')}
               isLast
             />
           </View>
+          {autoPilotEnabled && hasPaidAutoPilot && (
+            <View style={{ paddingHorizontal: 16, marginTop: spacing['2'] }}>
+              <View style={[s.card, { paddingHorizontal: spacing['4'], paddingVertical: spacing['3'] }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing['2'] }}>
+                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.primary }}>Confidence Threshold</Text>
+                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
+                </View>
+                <Slider
+                  minimumValue={50}
+                  maximumValue={100}
+                  step={5}
+                  value={settings.autoPilotConfidenceThreshold}
+                  onValueChange={(v) => updateSettings({ autoPilotConfidenceThreshold: Math.round(v) })}
+                  minimumTrackTintColor={colors.primary.DEFAULT}
+                  maximumTrackTintColor={colors.border.DEFAULT}
+                  thumbTintColor={colors.bg.base}
+                  style={{ height: 28 }}
+                />
+              </View>
+            </View>
+          )}
+          <SectionFooter text={
+            hasPaidAutoPilot && autoPilotEnabled
+              ? `Only trusted replies above ${settings.autoPilotConfidenceThreshold}% confidence are auto-sent.`
+              : 'Control how messages are drafted and sent to guests.'
+          } />
 
-          {/* ── Performance & Insights ── */}
-          <SectionHeader title="Performance & Insights" />
+          {/* ── 3. Property & Data ── */}
+          <SectionHeader title="Property & Data" />
           <View style={s.card}>
-            <Row
+            <LinkRow
+              icon={<BookOpen size={16} color="#FFFFFF" />}
+              iconBg={ic.blue.fg}
+              label="Property Knowledge"
+              onPress={() => handleNavigate('propertyKnowledge')}
+            />
+            <LinkRow
+              icon={<RefreshCw size={16} color="#FFFFFF" />}
+              iconBg={ic.green.fg}
+              label="Sync Data"
+              onPress={() => openSheet('syncData')}
+            />
+            <LinkRow
               icon={<BarChart3 size={16} color="#FFFFFF" />}
               iconBg={ic.indigo.fg}
-              label="Approval Rate"
-              right={
-                <Text style={s.tealValue}>{approvalRateValue}</Text>
-              }
-            />
-            <ValueRow
-              icon={<MessageSquare size={16} color="#FFFFFF" />}
-              iconBg={ic.indigo.fg}
-              label="Messages Handled"
-              value={String(analytics.totalMessagesHandled)}
+              label="Analytics"
+              onPress={() => handleNavigate('analytics')}
               isLast
             />
           </View>
-          <SectionFooter text="Approval Rate reflects how often AI drafts are accepted without edits. Higher means the AI is matching your voice more closely." />
 
-          {/* ── About ── */}
-          <SectionHeader title="About" />
+          {/* ── 4. Account ── */}
+          <SectionHeader title="Account" />
           <View style={s.card}>
-            <ValueRow
-              icon={<Shield size={16} color="#FFFFFF" />}
-              iconBg={ic.gray.fg}
-              label="Version"
-              value={`1.0.0 · Build ${BUILD_STAMP}`}
+            <LinkRow
+              icon={<HelpCircle size={16} color="#FFFFFF" />}
+              iconBg={ic.blue.fg}
+              label="Help Center"
+              onPress={() => openSheet('helpCenter')}
             />
             <LinkRow
               icon={<Shield size={16} color="#FFFFFF" />}
               iconBg={ic.gray.fg}
-              label="Privacy Policy"
+              label="Privacy & Security"
               onPress={() => handleNavigate('privacySecurity')}
+            />
+            <LinkRow
+              icon={<Key size={16} color="#FFFFFF" />}
+              iconBg={ic.green.fg}
+              label="API Settings"
+              onPress={() => openSheet('apiSettings')}
               isLast
             />
           </View>
 
-          {/* ── Disconnect & Delete ── */}
+          {/* ── Sign Out ── */}
           <View style={{ marginTop: spacing['7'] }}>
             <View style={s.card}>
               <Pressable
@@ -673,11 +460,16 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                   <LogOut size={16} color="#FFFFFF" />
                 </View>
                 <Text style={sLocal.destructiveText}>
-                  {isDisconnecting ? 'Disconnecting...' : isDemoMode ? 'Exit Demo Mode' : 'Disconnect Hostaway'}
+                  {isDisconnecting ? 'Disconnecting...' : isDemoMode ? 'Exit Demo Mode' : 'Sign Out'}
                 </Text>
                 {isDisconnecting && <ActivityIndicator size="small" color={colors.danger.DEFAULT} />}
               </Pressable>
-              <View style={sLocal.destructiveSeparator} />
+            </View>
+          </View>
+
+          {/* ── Delete My Data (separate card for emphasis) ── */}
+          <View style={{ marginTop: spacing['3'] }}>
+            <View style={s.card}>
               <Pressable
                 onPress={handleDeleteMyData}
                 disabled={isDeleting}
@@ -695,10 +487,70 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             <SectionFooter text="Permanently deletes your voice profile and all training data from our servers." />
           </View>
 
+          {/* ── Version ── */}
+          <Text style={sLocal.versionText}>Rental Voice v1.0.0 ({BUILD_STAMP})</Text>
+
           <View style={{ height: spacing['12'] }} />
 
         </ScrollView>
       </SafeAreaView>
+
+      {/* ── Bottom Sheets ── */}
+      <SettingsBottomSheet
+        title="Voice Confidence"
+        visible={activeSheet === 'voiceConfidence'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <ConfidenceDetail onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
+
+      <SettingsBottomSheet
+        title="Test My Voice"
+        visible={activeSheet === 'testVoice'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <TestVoiceScreen onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
+
+      <SettingsBottomSheet
+        title="AI Providers"
+        visible={activeSheet === 'aiProviders'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <AIProviderSettingsScreen onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
+
+      <SettingsBottomSheet
+        title="Automations"
+        visible={activeSheet === 'automations'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <AutomationsScreen onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
+
+      <SettingsBottomSheet
+        title="Sync Data"
+        visible={activeSheet === 'syncData'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <SyncDataScreen onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
+
+      <SettingsBottomSheet
+        title="Help Center"
+        visible={activeSheet === 'helpCenter'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <HelpCenterScreen onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
+
+      <SettingsBottomSheet
+        title="API Settings"
+        visible={activeSheet === 'apiSettings'}
+        onDismiss={() => setActiveSheet(null)}
+      >
+        <ApiSettingsScreen onBack={() => setActiveSheet(null)} />
+      </SettingsBottomSheet>
     </View>
   );
 }
@@ -724,6 +576,47 @@ const sLocal = StyleSheet.create({
   scrollContent: {
     paddingBottom: spacing['4'],
   },
+  // Profile header
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileEmail: {
+    fontSize: 17,
+    fontFamily: typography.fontFamily.semibold,
+    color: '#000000',
+    marginBottom: 3,
+  },
+  planBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary.muted,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  planBadgeText: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.primary.DEFAULT,
+  },
+  // Destructive rows
   destructiveRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -737,9 +630,12 @@ const sLocal = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     color: colors.danger.DEFAULT,
   },
-  destructiveSeparator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#C6C6C8',
-    marginLeft: 57, // 16 + 29 + 12 = icon area
+  // Version
+  versionText: {
+    fontSize: 13,
+    fontFamily: typography.fontFamily.regular,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
