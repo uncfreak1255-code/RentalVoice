@@ -53,6 +53,8 @@ import {
   type HostawayListingRecord,
 } from '@/lib/api-client';
 import { isCommercial } from '@/lib/config';
+import { getDemoReservations } from '@/lib/demo-data';
+import { DemoModeBanner } from './DemoModeBanner';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LISTING_COLUMN_WIDTH = 110;
@@ -153,6 +155,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   const accountId = useAppStore((s) => s.settings.accountId);
   const apiKey = useAppStore((s) => s.settings.apiKey);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const exitDemoMode = useAppStore((s) => s.exitDemoMode);
   const isCommercialMode = isCommercial;
 
   // Generate dates
@@ -174,73 +177,33 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   // Load calendar data
   const loadCalendarData = useCallback(async () => {
     if (isDemoMode) {
-      // Generate demo data matching Hostaway style
-      const demoEntries: CalendarEntry[] = [];
-      const today = new Date();
+      // Deterministic canned reservations for Apple reviewer demo mode
+      const reservations = getDemoReservations();
+      // Use a stable numeric listing ID for the demo property
+      const rawId = properties[0]?.id ?? '';
+      const listingId = Number(rawId) || rawId.split('').reduce((s, c) => s + c.charCodeAt(0), 0) || 1;
+      const channelMap: Record<string, string> = {
+        airbnb: 'Airbnb',
+        booking: 'Booking.com',
+        vrbo: 'VRBO',
+        direct: 'Direct',
+      };
 
-      const demoGuests = [
-        { name: 'Miranda Pi...', channel: 'Airbnb', guests: 2 },
-        { name: 'Rosemary Santu...', channel: 'Airbnb', guests: 3 },
-        { name: 'Kelly N...', channel: 'Airbnb', guests: 2 },
-        { name: 'Duane Shurow', channel: 'Hostaway', guests: 2 },
-        { name: 'Philip M...', channel: 'Airbnb', guests: 4 },
-      ];
-
-      properties.forEach((property, index) => {
-        // Add reservations
-        const guestData = demoGuests[index % demoGuests.length];
-        const startOffset = index * 2 + Math.floor(Math.random() * 3);
-        const nights = 3 + Math.floor(Math.random() * 4);
-
-        demoEntries.push({
-          id: index * 100 + 1,
-          listingId: Number(property.id),
-          type: 'reservation',
-          startDate: addDays(today, startOffset),
-          endDate: addDays(today, startOffset + nights),
-          guestName: guestData.name,
-          guestCount: guestData.guests,
-          totalPrice: (150 + index * 50) * nights,
-          pricePerNight: 150 + index * 50 + Math.floor(Math.random() * 100),
-          currency: '$',
-          status: 'confirmed',
-          channelName: guestData.channel,
-          nights: nights,
-        });
-
-        // Add some blocks
-        if (index % 2 === 0) {
-          demoEntries.push({
-            id: index * 100 + 2,
-            listingId: Number(property.id),
-            type: 'block',
-            startDate: addDays(today, startOffset + nights + 2),
-            endDate: addDays(today, startOffset + nights + 4),
-            status: 'blocked',
-          });
-        }
-
-        // Add second reservation
-        if (index % 3 === 0) {
-          const secondStart = startOffset + nights + 6;
-          const secondNights = 4;
-          demoEntries.push({
-            id: index * 100 + 3,
-            listingId: Number(property.id),
-            type: 'reservation',
-            startDate: addDays(today, secondStart),
-            endDate: addDays(today, secondStart + secondNights),
-            guestName: demoGuests[(index + 2) % demoGuests.length].name,
-            guestCount: 2,
-            totalPrice: 800,
-            pricePerNight: 200,
-            currency: '$',
-            status: 'confirmed',
-            channelName: 'Airbnb',
-            nights: secondNights,
-          });
-        }
-      });
+      const demoEntries: CalendarEntry[] = reservations.map((res, index) => ({
+        id: index + 1,
+        listingId,
+        type: 'reservation' as const,
+        startDate: new Date(res.startDate),
+        endDate: new Date(res.endDate),
+        guestName: res.guestName,
+        guestCount: res.guestCount,
+        totalPrice: res.nights * 225,
+        pricePerNight: 225,
+        currency: '$',
+        status: 'confirmed',
+        channelName: channelMap[res.platform] || 'Direct',
+        nights: res.nights,
+      }));
 
       setEntries(demoEntries);
       setIsLoading(false);
@@ -361,6 +324,16 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* Demo Mode Banner */}
+        {isDemoMode && (
+          <DemoModeBanner
+            onExitDemo={() => {
+              exitDemoMode();
+              import('expo-router').then(({ router }) => router.replace('/onboarding'));
+            }}
+          />
+        )}
+
         {/* Hostaway-Style Header */}
         <View
           style={{

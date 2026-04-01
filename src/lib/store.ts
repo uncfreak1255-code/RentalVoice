@@ -16,6 +16,7 @@ import {
   type AccountSession,
 } from './account-session';
 import { clearAuthTokens, setAuthTokens } from './api-client';
+import { getDemoConversations, getDemoProperties, getDemoPropertyKnowledge } from './demo-data';
 
 // Types
 export interface Guest {
@@ -663,6 +664,8 @@ interface AppState {
   // Demo mode
   isDemoMode: boolean;
   setDemoMode: (value: boolean) => void;
+  enterDemoMode: () => void;
+  exitDemoMode: () => void;
 
   // Founder Session
   founderSession: FounderSession | null;
@@ -1349,6 +1352,32 @@ export const useAppStore = create<AppState>()(
       // Demo mode
       isDemoMode: false,
       setDemoMode: (value) => set({ isDemoMode: value }),
+      enterDemoMode: () => {
+        set({
+          isDemoMode: true,
+          conversations: getDemoConversations(),
+          properties: getDemoProperties(),
+          propertyKnowledge: getDemoPropertyKnowledge(),
+          settings: {
+            ...get().settings,
+            isOnboarded: true,
+            selectedPropertyId: getDemoProperties()[0]?.id ?? null,
+          },
+        });
+      },
+      exitDemoMode: () => {
+        set({
+          isDemoMode: false,
+          conversations: [],
+          properties: [],
+          propertyKnowledge: {},
+          settings: {
+            ...get().settings,
+            isOnboarded: false,
+            selectedPropertyId: null,
+          },
+        });
+      },
 
       // Founder Session
       founderSession: null,

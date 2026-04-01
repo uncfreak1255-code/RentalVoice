@@ -1,89 +1,94 @@
 /**
  * Demo Mode Banner
  *
- * 📁 src/components/DemoModeBanner.tsx
- * Purpose: Shows a banner when the app is in demo mode (no PMS API key configured).
- *          Clearly communicates to users/reviewers that they're viewing sample data.
+ * src/components/DemoModeBanner.tsx
+ * Purpose: Persistent banner shown on every screen during Apple reviewer demo mode.
+ *          Clearly communicates demo state and provides one-tap exit.
  */
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Info, X } from 'lucide-react-native';
+import { Eye, X } from 'lucide-react-native';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 
 interface DemoModeBannerProps {
-  onDismiss?: () => void;
-  onConnectPMS?: () => void;
+  onExitDemo: () => void;
 }
 
-export function DemoModeBanner({ onDismiss, onConnectPMS }: DemoModeBannerProps) {
+export function DemoModeBanner({ onExitDemo }: DemoModeBannerProps) {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Info size={16} color={colors.primary.DEFAULT} />
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>Demo Mode</Text>
-          <Text style={styles.description}>
-            You're viewing sample data. Connect your property management system to see real conversations.
-          </Text>
-        </View>
-        {onDismiss && (
-          <Pressable onPress={onDismiss} hitSlop={8}>
-            <X size={16} color={colors.text.muted} />
-          </Pressable>
-        )}
+        <Eye size={14} color={colors.accent.DEFAULT} />
+        <Text style={styles.label}>DEMO MODE</Text>
+        <Text style={styles.separator}>{'\u2014'}</Text>
+        <Text style={styles.description} numberOfLines={1}>
+          Exploring Rental Voice
+        </Text>
       </View>
-      {onConnectPMS && (
-        <Pressable style={styles.connectButton} onPress={onConnectPMS}>
-          <Text style={styles.connectButtonText}>Connect PMS</Text>
-        </Pressable>
-      )}
+      <Pressable
+        onPress={onExitDemo}
+        hitSlop={8}
+        style={({ pressed }) => [styles.exitButton, pressed && styles.exitPressed]}
+        accessibilityLabel="Exit demo mode"
+        testID="demo-banner-exit"
+      >
+        <Text style={styles.exitText}>Exit Demo</Text>
+        <X size={12} color={colors.accent.DEFAULT} />
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.primary.muted,
-    borderWidth: 1,
-    borderColor: colors.primary.soft,
-    borderRadius: radius['xl'],
-    marginHorizontal: spacing['4'],
-    marginBottom: spacing['2'],
-    padding: spacing['3'],
+    backgroundColor: colors.accent.muted,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.accent.soft,
+    paddingHorizontal: spacing['4'],
+    paddingVertical: spacing['2'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   content: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing['2'],
-  },
-  textContainer: {
+    alignItems: 'center',
     flex: 1,
+    gap: spacing['1.5'],
   },
-  title: {
-    fontFamily: typography.fontFamily.semibold,
-    fontSize: 13,
-    color: colors.primary.DEFAULT,
-    marginBottom: 2,
+  label: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 11,
+    color: colors.accent.DEFAULT,
+    letterSpacing: 0.8,
+  },
+  separator: {
+    color: colors.text.disabled,
+    fontSize: 11,
   },
   description: {
     fontFamily: typography.fontFamily.regular,
     fontSize: 12,
     color: colors.text.secondary,
-    lineHeight: 16,
+    flex: 1,
   },
-  connectButton: {
-    backgroundColor: colors.primary.DEFAULT,
-    borderRadius: radius['lg'],
-    paddingVertical: spacing['1.5'],
-    paddingHorizontal: spacing['4'],
-    alignSelf: 'flex-start',
-    marginTop: spacing['2'],
-    marginLeft: spacing['4'] + 16,
+  exitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accent.soft,
+    borderRadius: radius.md,
+    paddingVertical: spacing['1'],
+    paddingHorizontal: spacing['2.5'],
+    gap: 4,
+    marginLeft: spacing['2'],
   },
-  connectButtonText: {
+  exitPressed: {
+    opacity: 0.7,
+  },
+  exitText: {
     fontFamily: typography.fontFamily.semibold,
-    fontSize: 12,
-    color: '#FFFFFF',
+    fontSize: 11,
+    color: colors.accent.DEFAULT,
   },
 });

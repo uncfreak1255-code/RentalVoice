@@ -34,7 +34,6 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '@/lib/store';
-import { demoConversations, demoProperties } from '@/lib/mockData';
 import { initializeConnection, validateCredentials } from '@/lib/hostaway';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { startAutoImportAfterConnect } from '@/lib/auto-import';
@@ -95,6 +94,7 @@ export function OnboardingScreen({
 
   const setOnboarded = useAppStore((s) => s.setOnboarded);
   const setDemoMode = useAppStore((s) => s.setDemoMode);
+  const enterDemoMode = useAppStore((s) => s.enterDemoMode);
   const setCredentials = useAppStore((s) => s.setCredentials);
   const setConversations = useAppStore((s) => s.setConversations);
   const setProperties = useAppStore((s) => s.setProperties);
@@ -192,10 +192,7 @@ export function OnboardingScreen({
 
   const handleStartDemo = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setDemoMode(true);
-    setConversations(demoConversations);
-    setProperties(demoProperties);
-    setOnboarded(true);
+    enterDemoMode();
     onComplete();
   };
 
