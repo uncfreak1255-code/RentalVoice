@@ -3,31 +3,32 @@ import { View, StyleSheet } from 'react-native';
 import { SettingsScreen } from '@/components/SettingsScreen';
 import { useRouter } from 'expo-router';
 import { useAppStore } from '@/lib/store';
-import { colors } from '@/lib/design-tokens';
 
 // Map settings screen names to their route paths
+// Only push screens remain as routes; bottom sheet items are handled inline
 const settingsRoutes: Record<string, string> = {
+  // Push screens (complex, need full navigation)
+  aiLearning: '/settings/ai-learning',
   propertyKnowledge: '/settings/property-knowledge',
-  issueTracker: '/settings/issue-tracker',
-  automations: '/settings/automations',
   analytics: '/settings/analytics',
-  apiSettings: '/settings/api',
-  syncData: '/settings/sync-data',
-  languageSettings: '/settings/language',
-  helpCenter: '/settings/help-center',
   privacySecurity: '/settings/privacy-security',
 
-  aiLearning: '/settings/ai-learning',
-  webhookSetup: '/settings/webhook-setup',
+  // Legacy compatibility — keep mapped so old links fail safely
+  automations: '/settings/automations',
+  apiSettings: '/settings/api',
+  syncData: '/settings/sync-data',
+  helpCenter: '/settings/help-center',
   notificationSettings: '/settings/notifications',
   autoPilotSettings: '/settings/auto-pilot',
   autoPilotAuditLog: '/settings/auto-pilot-audit',
-  sentimentTrends: '/settings/sentiment-trends',
-  // Legacy compatibility route only. Keep this mapped so old links fail safely,
-  // but do not reintroduce provider-management UI into the active settings flow.
   aiProviders: '/settings/ai-providers',
-  reviewResponse: '/settings/review-response',
   testVoice: '/settings/test-voice',
+  issueTracker: '/settings/issue-tracker',
+  webhookSetup: '/settings/webhook-setup',
+  sentimentTrends: '/settings/sentiment-trends',
+  reviewResponse: '/settings/review-response',
+  languageSettings: '/settings/language',
+
   // v1: billing/commercial/founder screens hidden from production navigation.
   // Accessible in __DEV__ only — files are NOT deleted, just ungated for dev.
   ...__DEV__ ? {

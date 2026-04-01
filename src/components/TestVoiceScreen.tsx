@@ -19,6 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TestVoiceScreenProps {
   onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
 }
 
 type SandboxPhase = 'input' | 'generating' | 'draft_ready' | 'comparing' | 'comparison_done';
@@ -158,7 +160,7 @@ function buildSyntheticConversation(
 
 // ── Main Component ─────────────────────────────────
 
-export function TestVoiceScreen({ onBack }: TestVoiceScreenProps) {
+export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
   const properties = useAppStore((s) => s.properties);
   const propertyKnowledge = useAppStore((s) => s.propertyKnowledge);
   const hostStyleProfiles = useAppStore((s) => s.hostStyleProfiles);
@@ -321,8 +323,10 @@ export function TestVoiceScreen({ onBack }: TestVoiceScreenProps) {
 
   // ── Main Render ──
 
+  const Container = embedded ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Container style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={onBack} hitSlop={12} style={styles.backButton}>
@@ -554,7 +558,7 @@ export function TestVoiceScreen({ onBack }: TestVoiceScreenProps) {
           </View>
         )}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Container>
   );
 }
 

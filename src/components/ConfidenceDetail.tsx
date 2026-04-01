@@ -23,6 +23,8 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
 interface ConfidenceDetailProps {
   onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────
@@ -49,7 +51,7 @@ function trendLabel(direction: 'up' | 'down' | 'flat', value: number): string {
 
 // ── Component ──────────────────────────────────────
 
-export default function ConfidenceDetail({ onBack }: ConfidenceDetailProps) {
+export default function ConfidenceDetail({ onBack, embedded }: ConfidenceDetailProps) {
   const draftOutcomes = useAppStore((s) => s.draftOutcomes);
   const learningEntries = useAppStore((s) => s.learningEntries);
   const hostStyleProfiles = useAppStore((s) => s.hostStyleProfiles);
@@ -136,8 +138,10 @@ export default function ConfidenceDetail({ onBack }: ConfidenceDetailProps) {
 
   // ── Render ─────────────────────────────────────
 
+  const Container = embedded ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <Container style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={handleBack} hitSlop={12} style={styles.backButton}>
@@ -350,7 +354,7 @@ export default function ConfidenceDetail({ onBack }: ConfidenceDetailProps) {
 
         <View style={styles.bottomPad} />
       </ScrollView>
-    </SafeAreaView>
+    </Container>
   );
 }
 
