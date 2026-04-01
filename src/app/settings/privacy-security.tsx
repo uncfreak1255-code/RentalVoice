@@ -8,7 +8,7 @@ export default function PrivacySecurityRoute() {
   const router = useRouter();
   return (
     <View style={styles.container}>
-      <PrivacySecurityScreen onBack={() => router.navigate('/(tabs)/settings')} />
+      <PrivacySecurityScreen onBack={() => router.navigate('/(tabs)/settings')} onNavigate={(screen) => router.push(`/settings/${screen}` as any)} />
     </View>
   );
 }
