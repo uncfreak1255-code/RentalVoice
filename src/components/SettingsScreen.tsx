@@ -30,6 +30,7 @@ import {
 import { syncLearningToCloud, canSync } from '@/lib/learning-sync';
 import { loadFounderSession, clearFounderSession } from '@/lib/secure-storage';
 import { API_BASE_URL } from '@/lib/config';
+import { DemoModeBanner } from './DemoModeBanner';
 
 // Lazy-load bottom sheet content components
 import { default as ConfidenceDetail } from '@/components/ConfidenceDetail';
@@ -74,6 +75,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const settings = useAppStore((s) => s.settings);
   const pushNotificationsEnabled = useAppStore((s) => s.settings.pushNotificationsEnabled);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const exitDemoMode = useAppStore((s) => s.exitDemoMode);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const analytics = useAppStore((s) => s.analytics);
   const autoPilotEnabled = useAppStore((s) => s.settings.autoPilotEnabled);
@@ -278,6 +280,16 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   return (
     <View style={sLocal.root}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* Demo Mode Banner */}
+        {isDemoMode && (
+          <DemoModeBanner
+            onExitDemo={() => {
+              exitDemoMode();
+              import('expo-router').then(({ router }) => router.replace('/onboarding'));
+            }}
+          />
+        )}
+
         {/* Large title header — iOS style */}
         <View style={sLocal.header}>
           <Text style={sLocal.headerTitle}>Settings</Text>

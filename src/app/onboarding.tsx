@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { AuthExplainerScreen } from '@/components/AuthExplainerScreen';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { PasswordlessAuthScreen } from '@/components/PasswordlessAuthScreen';
@@ -17,6 +18,7 @@ export default function OnboardingRoute() {
   const accountSessionLoading = useAppStore((s) => s.accountSessionLoading);
   const restoreAccountSession = useAppStore((s) => s.restoreAccountSession);
   const setAccountSession = useAppStore((s) => s.setAccountSession);
+  const enterDemoMode = useAppStore((s) => s.enterDemoMode);
   const [step, setStep] = React.useState<OnboardingStep>('loading');
 
   React.useEffect(() => {
@@ -45,6 +47,12 @@ export default function OnboardingRoute() {
     };
   }, [accountSession, restoreAccountSession]);
 
+  const handleTryDemo = React.useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    enterDemoMode();
+    router.replace('/(tabs)');
+  }, [enterDemoMode, router]);
+
   const handleAuthenticated = React.useCallback(
     (session: PasswordlessAuthResponseData) => {
       setAccountSession({
@@ -70,7 +78,7 @@ export default function OnboardingRoute() {
     return (
       <>
         <StatusBar style="dark" />
-        <AuthExplainerScreen onContinue={() => setStep('auth')} />
+        <AuthExplainerScreen onContinue={() => setStep('auth')} onTryDemo={handleTryDemo} />
       </>
     );
   }

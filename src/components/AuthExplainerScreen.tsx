@@ -1,10 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ArrowRight, MessageSquare, Shield, Sparkles } from 'lucide-react-native';
+import { ArrowRight, Eye, MessageSquare, Shield, Sparkles } from 'lucide-react-native';
 import { colors, radius, spacing, typography } from '@/lib/design-tokens';
 
 interface AuthExplainerScreenProps {
   onContinue: () => void;
+  onTryDemo?: () => void;
 }
 
 const EXPLAINER_POINTS = [
@@ -13,7 +14,7 @@ const EXPLAINER_POINTS = [
   'Drafts work while the system is learning. Autopilot stays off until your voice model is ready.',
 ];
 
-export function AuthExplainerScreen({ onContinue }: AuthExplainerScreenProps) {
+export function AuthExplainerScreen({ onContinue, onTryDemo }: AuthExplainerScreenProps) {
   return (
     <View style={styles.root}>
       <View style={styles.heroIcon}>
@@ -46,6 +47,17 @@ export function AuthExplainerScreen({ onContinue }: AuthExplainerScreenProps) {
         <Text style={styles.primaryButtonText}>Continue with Email</Text>
         <ArrowRight size={18} color={colors.text.inverse} />
       </Pressable>
+
+      {onTryDemo && (
+        <Pressable
+          onPress={onTryDemo}
+          style={({ pressed }) => [styles.demoButton, pressed && styles.pressed]}
+          testID="auth-explainer-try-demo"
+        >
+          <Eye size={16} color={colors.text.muted} />
+          <Text style={styles.demoButtonText}>Try Demo</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -122,6 +134,19 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontSize: 16,
     fontFamily: typography.fontFamily.semibold,
+  },
+  demoButton: {
+    marginTop: spacing['3'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing['2'],
+    minHeight: 48,
+  },
+  demoButtonText: {
+    color: colors.text.muted,
+    fontSize: 15,
+    fontFamily: typography.fontFamily.medium,
   },
   pressed: {
     opacity: 0.88,

@@ -1,88 +1,33 @@
 /**
- * Demo Data Provider
+ * Demo Data Provider — Apple Reviewer Demo Mode
  *
- * 📁 src/lib/demo-data.ts
- * Purpose: Provides realistic sample data for demo/review mode.
- *          Activates when no PMS (Hostaway/Guesty/Lodgify) API key is configured.
- *          Ensures Apple reviewers can fully test the app without a real account.
+ * src/lib/demo-data.ts
+ * Purpose: Deterministic canned data for Apple reviewer demo mode.
+ *          Zero network calls. All conversations, reservations, and AI drafts
+ *          come from this file. Simulates a real property experience.
  *
- * Used by: InboxDashboard, CalendarScreen, ChatScreen
+ * Property: "Sunset Beach House" at 123 Gulf Dr, Bradenton Beach, FL 34217
+ * 3 conversations with pre-generated AI drafts at different confidence levels
+ * 5 reservations for the next 2 weeks
  */
 
-import type { Conversation, Message, Guest, Property } from './store';
+import type { Conversation, Message, Guest, Property, PropertyKnowledge } from './store';
 
 // ============================================================
-// Demo Properties
+// Relative date helpers (deterministic from "now")
 // ============================================================
 
-const demoProperties: Property[] = [
-  {
-    id: 'demo-prop-1',
-    name: 'Oceanfront Paradise Villa',
-    address: '742 Gulf Shore Blvd, Siesta Key, FL 34242',
-  },
-  {
-    id: 'demo-prop-2',
-    name: 'Downtown Luxury Loft',
-    address: '100 Central Ave, Sarasota, FL 34236',
-  },
-  {
-    id: 'demo-prop-3',
-    name: 'Lakeside Family Retreat',
-    address: '55 Lake View Dr, Bradenton, FL 34209',
-  },
-];
-
-// ============================================================
-// Demo Guests
-// ============================================================
-
-const demoGuests: Guest[] = [
-  {
-    id: 'demo-guest-1',
-    name: 'Sarah Mitchell',
-    email: 'sarah.m@example.com',
-    language: 'en',
-    previousStays: 2,
-  },
-  {
-    id: 'demo-guest-2',
-    name: 'Carlos Rodriguez',
-    email: 'carlos.r@example.com',
-    language: 'es',
-    detectedLanguage: 'es',
-  },
-  {
-    id: 'demo-guest-3',
-    name: 'Emma Thompson',
-    email: 'emma.t@example.com',
-    language: 'en',
-    previousStays: 0,
-  },
-  {
-    id: 'demo-guest-4',
-    name: 'James Cooper',
-    email: 'james.c@example.com',
-    language: 'en',
-    isVip: true,
-    previousStays: 5,
-  },
-  {
-    id: 'demo-guest-5',
-    name: 'Yuki Tanaka',
-    email: 'yuki.t@example.com',
-    language: 'ja',
-    detectedLanguage: 'ja',
-  },
-];
-
-// ============================================================
-// Demo Messages
-// ============================================================
+function daysFromNow(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  d.setHours(15, 0, 0, 0); // default 3pm for check-in times
+  return d;
+}
 
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setDate(d.getDate() - n);
+  d.setHours(15, 0, 0, 0);
   return d;
 }
 
@@ -98,132 +43,160 @@ function minutesAgo(n: number): Date {
   return d;
 }
 
-function daysFromNow(n: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d;
-}
+// ============================================================
+// Demo Property
+// ============================================================
 
-// Conversation 1: Check-in question (common scenario)
-const conv1Messages: Message[] = [
+export const DEMO_PROPERTY: Property = {
+  id: 'demo-prop-sunset',
+  name: 'Sunset Beach House',
+  address: '123 Gulf Dr, Bradenton Beach, FL 34217',
+};
+
+export const DEMO_PROPERTY_KNOWLEDGE: PropertyKnowledge = {
+  propertyId: 'demo-prop-sunset',
+  propertyType: 'vacation_rental',
+  wifiName: 'SunsetBeach_Guest',
+  wifiPassword: 'beach2024!',
+  parkingInfo: 'Two-car driveway. Street parking also available.',
+  houseRules: 'No smoking indoors. Quiet hours 10pm-8am. Max 8 guests.',
+  checkInInstructions: 'Keyless entry. Code will be sent the morning of check-in.',
+  checkInTime: '3:00 PM',
+  checkOutTime: '11:00 AM',
+  checkOutInstructions: 'Please start dishwasher, take out trash, and lock up. Leave keys on counter.',
+  localRecommendations: 'The Sandbar Restaurant (2 min walk), Gulf Drive Cafe for breakfast, Anna Maria Island beaches.',
+  earlyCheckInAvailable: true,
+  earlyCheckInFee: 50,
+  lateCheckOutAvailable: true,
+  lateCheckOutFee: 50,
+  petsAllowed: false,
+  tonePreference: 'friendly',
+  emergencyContacts: 'Property Manager: (941) 555-0123',
+  customNotes: 'Pool heater takes ~4 hours to warm up. Beach chairs and towels in garage.',
+};
+
+// ============================================================
+// Demo Guests
+// ============================================================
+
+const guestSarah: Guest = {
+  id: 'demo-guest-sarah',
+  name: 'Sarah K.',
+  email: 'sarah.k@example.com',
+  language: 'en',
+  previousStays: 0,
+};
+
+const guestMike: Guest = {
+  id: 'demo-guest-mike',
+  name: 'Mike R.',
+  email: 'mike.r@example.com',
+  language: 'en',
+  previousStays: 1,
+};
+
+const guestJennifer: Guest = {
+  id: 'demo-guest-jennifer',
+  name: 'Jennifer L.',
+  email: 'jennifer.l@example.com',
+  language: 'en',
+  previousStays: 0,
+};
+
+const guestDavid: Guest = {
+  id: 'demo-guest-david',
+  name: 'David M.',
+  email: 'david.m@example.com',
+  language: 'en',
+  previousStays: 0,
+};
+
+const guestLisa: Guest = {
+  id: 'demo-guest-lisa',
+  name: 'Lisa P.',
+  email: 'lisa.p@example.com',
+  language: 'en',
+  previousStays: 2,
+};
+
+// ============================================================
+// Conversation 1: Sarah K. — Early check-in request (78% confidence)
+// ============================================================
+
+const sarahMessages: Message[] = [
   {
-    id: 'demo-msg-1-1',
-    conversationId: 'demo-conv-1',
-    content: 'Hi! We just landed in Sarasota. What time can we check in today? Also, will there be towels provided?',
+    id: 'demo-msg-sarah-1',
+    conversationId: 'demo-conv-sarah',
+    content: 'Hi there! We\'re flying in from Chicago and our flight lands at 11am. Any chance we could check in a bit early? So excited for the beach!',
     sender: 'guest',
-    timestamp: minutesAgo(15),
+    timestamp: minutesAgo(22),
     isRead: false,
     sentiment: 'positive',
-    detectedIntent: 'check_in_question',
+    detectedIntent: 'early_checkin_request',
   },
   {
-    id: 'demo-msg-1-2',
-    conversationId: 'demo-conv-1',
-    content: 'Welcome to Florida, Sarah! 🌴 Check-in is at 4:00 PM. The lockbox code is on the front door — I\'ll send it shortly. Yes, fresh towels and linens are provided! Let me know if you need anything else.',
+    id: 'demo-msg-sarah-draft',
+    conversationId: 'demo-conv-sarah',
+    content: 'Hey Sarah! \u{1F60A} Early check-in is usually around 1pm \u2014 I can check if the cleaners can get done sooner. What time were you thinking? Let me know! Best, Sawyer',
     sender: 'ai_draft',
-    timestamp: minutesAgo(14),
+    timestamp: minutesAgo(21),
     isRead: true,
-    aiConfidence: 92,
-    detectedIntent: 'check_in_response',
+    aiConfidence: 78,
+    detectedIntent: 'early_checkin_response',
   },
 ];
 
-// Conversation 2: Maintenance issue (urgent)
-const conv2Messages: Message[] = [
+// ============================================================
+// Conversation 2: Mike R. — Late checkout request (82% confidence)
+// ============================================================
+
+const mikeMessages: Message[] = [
   {
-    id: 'demo-msg-2-1',
-    conversationId: 'demo-conv-2',
-    content: 'Hola, el aire acondicionado no funciona y hace mucho calor. ¿Pueden enviarnos a alguien para arreglarlo?',
+    id: 'demo-msg-mike-1',
+    conversationId: 'demo-conv-mike',
+    content: 'Hey! Quick question about our checkout on Sunday. The kids are having so much fun at the pool \u2014 any chance we could stay a bit later than 11am?',
     sender: 'guest',
-    timestamp: minutesAgo(30),
+    timestamp: hoursAgo(2),
+    isRead: false,
+    sentiment: 'positive',
+    detectedIntent: 'late_checkout_request',
+  },
+  {
+    id: 'demo-msg-mike-draft',
+    conversationId: 'demo-conv-mike',
+    content: 'Hey Mike! Late checkout on Sunday should work \u2014 I don\'t have anyone checking in until the evening. How does 1pm sound? \u{1F3D6}\u{FE0F}',
+    sender: 'ai_draft',
+    timestamp: hoursAgo(2),
+    isRead: true,
+    aiConfidence: 82,
+    detectedIntent: 'late_checkout_response',
+  },
+];
+
+// ============================================================
+// Conversation 3: Jennifer L. — Wifi not working (65% confidence)
+// ============================================================
+
+const jenniferMessages: Message[] = [
+  {
+    id: 'demo-msg-jennifer-1',
+    conversationId: 'demo-conv-jennifer',
+    content: 'Hi, the wifi doesn\'t seem to be working. We\'ve tried restarting our phones but nothing connects. My husband needs it for a work call in an hour. Can you help?',
+    sender: 'guest',
+    timestamp: minutesAgo(8),
     isRead: false,
     sentiment: 'negative',
-    language: 'es',
-    translatedContent: 'Hello, the air conditioning is not working and it is very hot. Can you send someone to fix it?',
     detectedIntent: 'maintenance_request',
   },
   {
-    id: 'demo-msg-2-2',
-    conversationId: 'demo-conv-2',
-    content: 'Hola Carlos, I\'m so sorry about the AC. First, try the thermostat reset — hold the power button for 10 seconds. If that doesn\'t work, I\'ll have our HVAC tech there within 2 hours. We also have portable fans in the closet if you need them.',
-    sender: 'host',
-    timestamp: minutesAgo(25),
+    id: 'demo-msg-jennifer-draft',
+    conversationId: 'demo-conv-jennifer',
+    content: 'Hey Jennifer, sorry about the wifi! \u{1F62C} Try unplugging the router by the TV for 30 seconds then plugging it back in. That usually fixes it. If it\'s still down let me know and I\'ll send someone over.',
+    sender: 'ai_draft',
+    timestamp: minutesAgo(7),
     isRead: true,
-    sentiment: 'neutral',
-  },
-  {
-    id: 'demo-msg-2-3',
-    conversationId: 'demo-conv-2',
-    content: 'Gracias, el reset funcionó! El aire ya está funcionando perfectamente. 🙏',
-    sender: 'guest',
-    timestamp: minutesAgo(10),
-    isRead: false,
-    sentiment: 'positive',
-    language: 'es',
-    translatedContent: 'Thanks, the reset worked! The air is working perfectly now. 🙏',
-  },
-];
-
-// Conversation 3: Pre-arrival excitement
-const conv3Messages: Message[] = [
-  {
-    id: 'demo-msg-3-1',
-    conversationId: 'demo-conv-3',
-    content: 'We are SO excited for our trip! This is our first time visiting Sarasota. Any recommendations for restaurants near the beach? We have two kids (ages 5 and 8).',
-    sender: 'guest',
-    timestamp: hoursAgo(3),
-    isRead: true,
-    sentiment: 'positive',
-    detectedIntent: 'local_recommendations',
-  },
-  {
-    id: 'demo-msg-3-2',
-    conversationId: 'demo-conv-3',
-    content: 'How exciting! You\'ll love it here. For family-friendly beach dining, I recommend The Old Salty Dog on Siesta Key — great fish tacos and the kids can play on the beach. Also check out Big Olaf Creamery for the best ice cream on the island! For a special dinner, Sun Garden Cafe has amazing seafood.',
-    sender: 'host',
-    timestamp: hoursAgo(2),
-    isRead: true,
-    sentiment: 'positive',
-  },
-  {
-    id: 'demo-msg-3-3',
-    conversationId: 'demo-conv-3',
-    content: 'Perfect, thank you! One more question — is there a pool at the property? The listing said heated pool but I just want to confirm.',
-    sender: 'guest',
-    timestamp: minutesAgo(45),
-    isRead: false,
-    sentiment: 'positive',
-    detectedIntent: 'amenity_question',
-  },
-];
-
-// Conversation 4: VIP returning guest checkout
-const conv4Messages: Message[] = [
-  {
-    id: 'demo-msg-4-1',
-    conversationId: 'demo-conv-4',
-    content: 'Hey! Just checking out now. Everything was perfect as always. Already planning our next visit! Quick question — could we get a discount for booking directly next time?',
-    sender: 'guest',
-    timestamp: hoursAgo(1),
-    isRead: true,
-    sentiment: 'positive',
-    detectedIntent: 'checkout_feedback',
-  },
-];
-
-// Conversation 5: Late check-in request
-const conv5Messages: Message[] = [
-  {
-    id: 'demo-msg-5-1',
-    conversationId: 'demo-conv-5',
-    content: 'すみません、フライトが遅れて到着は夜11時頃になりそうです。遅いチェックインは可能でしょうか？',
-    sender: 'guest',
-    timestamp: minutesAgo(5),
-    isRead: false,
-    sentiment: 'neutral',
-    language: 'ja',
-    translatedContent: 'Excuse me, my flight is delayed and I will probably arrive around 11 PM. Is a late check-in possible?',
-    detectedIntent: 'late_checkin_request',
+    aiConfidence: 65,
+    detectedIntent: 'maintenance_response',
   },
 ];
 
@@ -232,217 +205,149 @@ const conv5Messages: Message[] = [
 // ============================================================
 
 export const demoConversations: Conversation[] = [
+  // Sarah K. — checking in in 2 days
   {
-    id: 'demo-conv-1',
-    guest: demoGuests[0],
-    property: demoProperties[0],
-    messages: conv1Messages,
-    lastMessage: conv1Messages[conv1Messages.length - 1],
+    id: 'demo-conv-sarah',
+    guest: guestSarah,
+    property: DEMO_PROPERTY,
+    messages: sarahMessages,
+    lastMessage: sarahMessages[sarahMessages.length - 1],
     unreadCount: 1,
     status: 'active',
     workflowStatus: 'inbox',
-    checkInDate: new Date(),
+    checkInDate: daysFromNow(2),
     checkOutDate: daysFromNow(5),
-    numberOfGuests: 4,
+    numberOfGuests: 2,
     platform: 'airbnb',
     hasAiDraft: true,
-    aiDraftContent: 'Welcome to Florida, Sarah! 🌴 Check-in is at 4:00 PM. The lockbox code is on the front door — I\'ll send it shortly. Yes, fresh towels and linens are provided! Let me know if you need anything else.',
-    aiDraftConfidence: 92,
-    lastActivityTimestamp: minutesAgo(15),
+    aiDraftContent: 'Hey Sarah! \u{1F60A} Early check-in is usually around 1pm \u2014 I can check if the cleaners can get done sooner. What time were you thinking? Let me know! Best, Sawyer',
+    aiDraftConfidence: 78,
+    lastActivityTimestamp: minutesAgo(22),
     lastActivityType: 'message_received',
   },
+  // Mike R. — checking in in 5 days, currently 4 nights
   {
-    id: 'demo-conv-2',
-    guest: demoGuests[1],
-    property: demoProperties[0],
-    messages: conv2Messages,
-    lastMessage: conv2Messages[conv2Messages.length - 1],
+    id: 'demo-conv-mike',
+    guest: guestMike,
+    property: DEMO_PROPERTY,
+    messages: mikeMessages,
+    lastMessage: mikeMessages[mikeMessages.length - 1],
+    unreadCount: 1,
+    status: 'active',
+    workflowStatus: 'inbox',
+    checkInDate: daysFromNow(5),
+    checkOutDate: daysFromNow(9),
+    numberOfGuests: 6,
+    platform: 'vrbo',
+    hasAiDraft: true,
+    aiDraftContent: 'Hey Mike! Late checkout on Sunday should work \u2014 I don\'t have anyone checking in until the evening. How does 1pm sound? \u{1F3D6}\u{FE0F}',
+    aiDraftConfidence: 82,
+    lastActivityTimestamp: hoursAgo(2),
+    lastActivityType: 'message_received',
+  },
+  // Jennifer L. — currently staying, checkout tomorrow
+  {
+    id: 'demo-conv-jennifer',
+    guest: guestJennifer,
+    property: DEMO_PROPERTY,
+    messages: jenniferMessages,
+    lastMessage: jenniferMessages[jenniferMessages.length - 1],
     unreadCount: 1,
     status: 'urgent',
-    workflowStatus: 'resolved',
-    checkInDate: daysAgo(2),
-    checkOutDate: daysFromNow(3),
+    workflowStatus: 'inbox',
+    checkInDate: daysAgo(3),
+    checkOutDate: daysFromNow(1),
     numberOfGuests: 2,
     platform: 'booking',
-    hasAiDraft: false,
-    lastActivityTimestamp: minutesAgo(10),
-    lastActivityType: 'message_received',
-  },
-  {
-    id: 'demo-conv-3',
-    guest: demoGuests[2],
-    property: demoProperties[2],
-    messages: conv3Messages,
-    lastMessage: conv3Messages[conv3Messages.length - 1],
-    unreadCount: 1,
-    status: 'active',
-    workflowStatus: 'inbox',
-    checkInDate: daysFromNow(3),
-    checkOutDate: daysFromNow(10),
-    numberOfGuests: 4,
-    platform: 'vrbo',
     hasAiDraft: true,
-    aiDraftContent: 'Yes! The pool is heated to a comfortable 84°F year-round. It\'s right in the backyard with a safety fence around it — perfect for the kids. There are also pool towels in the outdoor storage bench. You\'re going to love it!',
-    aiDraftConfidence: 88,
-    lastActivityTimestamp: minutesAgo(45),
-    lastActivityType: 'message_received',
-  },
-  {
-    id: 'demo-conv-4',
-    guest: demoGuests[3],
-    property: demoProperties[1],
-    messages: conv4Messages,
-    lastMessage: conv4Messages[conv4Messages.length - 1],
-    unreadCount: 0,
-    status: 'active',
-    workflowStatus: 'follow_up',
-    checkInDate: daysAgo(7),
-    checkOutDate: new Date(),
-    numberOfGuests: 2,
-    platform: 'direct',
-    hasAiDraft: true,
-    aiDraftContent: 'Thank you so much, James! It\'s always a pleasure hosting you. Absolutely — as a returning guest, I can offer you 15% off your next direct booking. Just reach out when you\'re ready to plan your next trip! Safe travels home. 🏖️',
-    aiDraftConfidence: 95,
-    lastActivityTimestamp: hoursAgo(1),
-    lastActivityType: 'message_received',
-  },
-  {
-    id: 'demo-conv-5',
-    guest: demoGuests[4],
-    property: demoProperties[0],
-    messages: conv5Messages,
-    lastMessage: conv5Messages[conv5Messages.length - 1],
-    unreadCount: 1,
-    status: 'active',
-    workflowStatus: 'inbox',
-    checkInDate: new Date(),
-    checkOutDate: daysFromNow(4),
-    numberOfGuests: 1,
-    platform: 'airbnb',
-    hasAiDraft: true,
-    aiDraftContent: 'No problem at all, Yuki! Late check-in is perfectly fine — our property uses keyless entry so you can arrive anytime. I\'ll send you the door code shortly. Welcome and safe travels! 🗝️',
-    aiDraftConfidence: 90,
-    lastActivityTimestamp: minutesAgo(5),
+    aiDraftContent: 'Hey Jennifer, sorry about the wifi! \u{1F62C} Try unplugging the router by the TV for 30 seconds then plugging it back in. That usually fixes it. If it\'s still down let me know and I\'ll send someone over.',
+    aiDraftConfidence: 65,
+    lastActivityTimestamp: minutesAgo(8),
     lastActivityType: 'message_received',
   },
 ];
 
 // ============================================================
-// Demo Calendar Data
+// Demo Calendar / Reservation Data
 // ============================================================
 
-export interface DemoCalendarEvent {
+export interface DemoReservation {
   id: string;
-  title: string;
+  guestName: string;
+  guestCount: number;
   startDate: Date;
   endDate: Date;
-  propertyId: string;
-  propertyName: string;
-  guestName: string;
+  nights: number;
   platform: 'airbnb' | 'booking' | 'vrbo' | 'direct';
-  status: 'confirmed' | 'pending' | 'checkout_today' | 'checkin_today';
+  status: 'confirmed' | 'checked_in' | 'upcoming';
 }
 
-export const demoCalendarEvents: DemoCalendarEvent[] = [
-  {
-    id: 'demo-cal-1',
-    title: 'Sarah Mitchell',
-    startDate: new Date(),
-    endDate: daysFromNow(5),
-    propertyId: 'demo-prop-1',
-    propertyName: 'Oceanfront Paradise Villa',
-    guestName: 'Sarah Mitchell',
-    platform: 'airbnb',
-    status: 'checkin_today',
-  },
-  {
-    id: 'demo-cal-2',
-    title: 'Carlos Rodriguez',
-    startDate: daysAgo(2),
-    endDate: daysFromNow(3),
-    propertyId: 'demo-prop-1',
-    propertyName: 'Oceanfront Paradise Villa',
-    guestName: 'Carlos Rodriguez',
-    platform: 'booking',
-    status: 'confirmed',
-  },
-  {
-    id: 'demo-cal-3',
-    title: 'Emma Thompson',
-    startDate: daysFromNow(3),
-    endDate: daysFromNow(10),
-    propertyId: 'demo-prop-3',
-    propertyName: 'Lakeside Family Retreat',
-    guestName: 'Emma Thompson',
-    platform: 'vrbo',
-    status: 'confirmed',
-  },
-  {
-    id: 'demo-cal-4',
-    title: 'James Cooper',
-    startDate: daysAgo(7),
-    endDate: new Date(),
-    propertyId: 'demo-prop-2',
-    propertyName: 'Downtown Luxury Loft',
-    guestName: 'James Cooper',
-    platform: 'direct',
-    status: 'checkout_today',
-  },
-  {
-    id: 'demo-cal-5',
-    title: 'Yuki Tanaka',
-    startDate: new Date(),
-    endDate: daysFromNow(4),
-    propertyId: 'demo-prop-1',
-    propertyName: 'Oceanfront Paradise Villa',
-    guestName: 'Yuki Tanaka',
-    platform: 'airbnb',
-    status: 'checkin_today',
-  },
-  // Future bookings
-  {
-    id: 'demo-cal-6',
-    title: 'Michael & Lisa Chen',
-    startDate: daysFromNow(12),
-    endDate: daysFromNow(19),
-    propertyId: 'demo-prop-2',
-    propertyName: 'Downtown Luxury Loft',
-    guestName: 'Michael Chen',
-    platform: 'airbnb',
-    status: 'confirmed',
-  },
-  {
-    id: 'demo-cal-7',
-    title: 'Anna Petrov',
-    startDate: daysFromNow(15),
-    endDate: daysFromNow(22),
-    propertyId: 'demo-prop-3',
-    propertyName: 'Lakeside Family Retreat',
-    guestName: 'Anna Petrov',
-    platform: 'booking',
-    status: 'pending',
-  },
-];
+export function getDemoReservations(): DemoReservation[] {
+  return [
+    {
+      id: 'demo-res-sarah',
+      guestName: 'Sarah K.',
+      guestCount: 2,
+      startDate: daysFromNow(2),
+      endDate: daysFromNow(5),
+      nights: 3,
+      platform: 'airbnb',
+      status: 'upcoming',
+    },
+    {
+      id: 'demo-res-mike',
+      guestName: 'Mike R.',
+      guestCount: 6, // 4 adults 2 kids
+      startDate: daysFromNow(5),
+      endDate: daysFromNow(9),
+      nights: 4,
+      platform: 'vrbo',
+      status: 'upcoming',
+    },
+    {
+      id: 'demo-res-jennifer',
+      guestName: 'Jennifer L.',
+      guestCount: 2,
+      startDate: daysAgo(3),
+      endDate: daysFromNow(1),
+      nights: 4,
+      platform: 'booking',
+      status: 'checked_in',
+    },
+    {
+      id: 'demo-res-david',
+      guestName: 'David M.',
+      guestCount: 2,
+      startDate: daysFromNow(8),
+      endDate: daysFromNow(15),
+      nights: 7,
+      platform: 'airbnb',
+      status: 'upcoming',
+    },
+    {
+      id: 'demo-res-lisa',
+      guestName: 'Lisa P.',
+      guestCount: 3,
+      startDate: daysFromNow(12),
+      endDate: daysFromNow(15),
+      nights: 3,
+      platform: 'direct',
+      status: 'upcoming',
+    },
+  ];
+}
 
 // ============================================================
-// Demo Mode Detection
+// Public API
 // ============================================================
 
 /**
- * Returns true when no PMS API key is configured.
- * In this state, the app uses demo data for Apple review / first-time exploration.
- */
-export function isDemoMode(apiKey: string | null | undefined): boolean {
-  return !apiKey || apiKey.trim() === '';
-}
-
-/**
- * Loads demo conversations into the store.
+ * Returns demo conversations with fresh Date objects.
+ * Called each time demo mode activates to ensure timestamps are current.
  */
 export function getDemoConversations(): Conversation[] {
   return demoConversations.map(conv => ({
     ...conv,
-    // Ensure dates are fresh Date objects (not stale from module load)
     messages: conv.messages.map(m => ({
       ...m,
       timestamp: new Date(m.timestamp),
@@ -455,4 +360,18 @@ export function getDemoConversations(): Conversation[] {
     checkOutDate: conv.checkOutDate ? new Date(conv.checkOutDate) : undefined,
     lastActivityTimestamp: conv.lastActivityTimestamp ? new Date(conv.lastActivityTimestamp) : undefined,
   }));
+}
+
+/**
+ * Returns the demo property list (single property: Sunset Beach House).
+ */
+export function getDemoProperties(): Property[] {
+  return [DEMO_PROPERTY];
+}
+
+/**
+ * Returns demo property knowledge for the Sunset Beach House.
+ */
+export function getDemoPropertyKnowledge(): Record<string, PropertyKnowledge> {
+  return { [DEMO_PROPERTY.id]: { ...DEMO_PROPERTY_KNOWLEDGE } };
 }

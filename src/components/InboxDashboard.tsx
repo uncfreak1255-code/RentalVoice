@@ -169,6 +169,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   const setProperties = useAppStore((s) => s.setProperties);
   const setConversations = useAppStore((s) => s.setConversations);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
+  const exitDemoMode = useAppStore((s) => s.exitDemoMode);
   const historySyncStatus = useAppStore((s) => s.historySyncStatus);
 
 
@@ -785,11 +786,11 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         )}
 
         {/* Demo Mode Banner */}
-        {(isDemoMode || (!features.serverProxiedAI && !accountId && !apiKey)) && (
+        {isDemoMode && (
           <DemoModeBanner
-            onConnectPMS={() => {
-              // Navigate to settings to connect PMS — use dynamic import to avoid circular deps
-              import('expo-router').then(({ router }) => router.push('/(tabs)/settings'));
+            onExitDemo={() => {
+              exitDemoMode();
+              import('expo-router').then(({ router }) => router.replace('/onboarding'));
             }}
           />
         )}
