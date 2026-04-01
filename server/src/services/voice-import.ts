@@ -4,6 +4,135 @@ import { embedBatch } from './embedding.js';
 
 export type VoiceOriginType = 'historical' | 'host_written' | 'ai_approved' | 'ai_edited';
 
+// ─── Quality Filtering ───────────────────────────────────
+
+/** Phrases that indicate a system/admin guest message, not a real guest */
+const SYSTEM_MESSAGE_MARKERS = [
+  'system notification',
+  'your booking is confirmed',
+  'booking cancelled',
+  'booking modified',
+  'auto-reply',
+  'auto reply',
+  'do not reply',
+  'do-not-reply',
+  'noreply',
+  'no-reply',
+  'this is an automated',
+  'reservation confirmed',
+  'payment has been received',
+  'payment processed',
+];
+
+/** Throwaway host responses that carry zero voice signal */
+const THROWAWAY_RESPONSES = [
+  'ok',
+  'okay',
+  'thanks',
+  'thank you',
+  'got it',
+  'noted',
+  'will do',
+  'sure',
+  'yes',
+  'no',
+  'done',
+  'perfect',
+  'great',
+  'sounds good',
+  'no problem',
+  'np',
+  'k',
+  'yep',
+  'yup',
+  'nope',
+  'cool',
+  'roger',
+  'copy',
+  'understood',
+  'ack',
+  'ty',
+  'thx',
+];
+
+function countWords(text: string): number {
+  return text.split(/\s+/).filter((w) => w.length > 0).length;
+}
+
+function isSystemOrAdminMessage(guestMessage: string): boolean {
+  const lower = guestMessage.toLowerCase();
+  return SYSTEM_MESSAGE_MARKERS.some((marker) => lower.includes(marker));
+}
+
+function isThrowawayResponse(hostResponse: string): boolean {
+  // Strip punctuation and emoji for comparison
+  const cleaned = hostResponse
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+    .replace(/[.,!?;:'"()\-\u2026]/g, '')
+    .trim()
+    .toLowerCase();
+  return THROWAWAY_RESPONSES.includes(cleaned);
+}
+
+function isEmojiOnly(text: string): boolean {
+  const stripped = text
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]/gu, '')
+    .trim();
+  return stripped.length === 0;
+}
+
+/**
+ * Returns true if a guest->host pair is high enough quality to use as a voice example.
+ *
+ * Rejects:
+ * - Host responses with fewer than 5 words (too short to learn voice from)
+ * - Host responses that are throwaway phrases ("ok", "thanks", "got it", etc.)
+ * - Host responses that are emoji-only
+ * - Guest messages that look like system/admin notifications
+ */
+export function isQualityVoiceExample(guestMessage: string, hostResponse: string): boolean {
+  // Reject empty inputs
+  if (!guestMessage.trim() || !hostResponse.trim()) return false;
+
+  // Reject system/admin guest messages
+  if (isSystemOrAdminMessage(guestMessage)) return false;
+
+  // Reject emoji-only host responses
+  if (isEmojiOnly(hostResponse)) return false;
+
+  // Reject throwaway host responses
+  if (isThrowawayResponse(hostResponse)) return false;
+
+  // Reject host responses under 5 words
+  if (countWords(hostResponse) < 5) return false;
+
+  return true;
+}
+
+/**
+ * Filters a batch of examples, also removing duplicate host responses
+ * (template detection -- same response used for multiple guest messages).
+ */
+export function filterQualityExamples(examples: VoiceImportExample[]): VoiceImportExample[] {
+  // First pass: individual quality checks
+  const qualityPassed = examples.filter((ex) =>
+    isQualityVoiceExample(ex.guestMessage, ex.hostResponse)
+  );
+
+  // Second pass: detect duplicate/template host responses
+  const responseCounts = new Map<string, number>();
+  for (const ex of qualityPassed) {
+    const normalized = ex.hostResponse.toLowerCase().trim();
+    responseCounts.set(normalized, (responseCounts.get(normalized) ?? 0) + 1);
+  }
+
+  // Keep only responses that appear at most twice (allow one coincidence)
+  return qualityPassed.filter((ex) => {
+    const normalized = ex.hostResponse.toLowerCase().trim();
+    return (responseCounts.get(normalized) ?? 0) <= 2;
+  });
+}
+
 export interface HistoryConversationLike {
   id: number;
   listingMapId?: number | null;
@@ -82,6 +211,9 @@ export function buildVoiceExamplesFromHistory(
       const hostBody = (hostResponse.body || '').trim();
       if (!guestBody || !hostBody) continue;
 
+      // Quality gate: skip low-quality pairs before they enter the dataset
+      if (!isQualityVoiceExample(guestBody, hostBody)) continue;
+
       examples.push({
         guestMessage: guestBody,
         hostResponse: hostBody,
@@ -94,22 +226,26 @@ export function buildVoiceExamplesFromHistory(
     }
   }
 
-  return examples;
+  // Batch-level template detection: remove duplicate host responses (3+ occurrences)
+  return filterQualityExamples(examples);
 }
 
 export async function importVoiceExamplesForOrg(
   orgId: string,
   examples: VoiceImportExample[]
 ): Promise<{ inserted: number; skipped: number; total: number }> {
-  if (examples.length === 0) {
+  // Apply quality + template filtering before import
+  const filtered = filterQualityExamples(examples);
+
+  if (filtered.length === 0) {
     return { inserted: 0, skipped: 0, total: 0 };
   }
 
-  const guestMessages = examples.map((example) => example.guestMessage);
+  const guestMessages = filtered.map((example) => example.guestMessage);
   const embeddings = await embedBatch(guestMessages);
   const supabase = getSupabaseAdmin();
 
-  const rows = examples.map((example, index) => ({
+  const rows = filtered.map((example, index) => ({
     org_id: orgId,
     property_id: example.propertyId ?? null,
     guest_message: example.guestMessage,
@@ -151,6 +287,6 @@ export async function importVoiceExamplesForOrg(
   return {
     inserted,
     skipped,
-    total: examples.length,
+    total: filtered.length,
   };
 }
