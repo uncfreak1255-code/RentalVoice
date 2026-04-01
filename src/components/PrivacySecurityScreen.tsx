@@ -2,11 +2,13 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, Switch, Alert, Share, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Shield, Lock, Eye, Trash2, Download, CheckCircle, Fingerprint, BarChart3, FileText, AlertTriangle } from 'lucide-react-native';
+import { ArrowLeft, Shield, Lock, Eye, Trash2, Download, CheckCircle, Fingerprint, BarChart3, FileText, AlertTriangle, CloudOff } from 'lucide-react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useAppStore } from '@/lib/store';
+import { loadFounderSession, clearFounderSession } from '@/lib/secure-storage';
+import { API_BASE_URL } from '@/lib/config';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
 interface PrivacySecurityScreenProps { onBack: () => void; }
@@ -21,6 +23,7 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
 
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingCloud, setIsDeletingCloud] = useState(false);
 
   const handleBiometricToggle = useCallback(async (value: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -129,6 +132,56 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
     );
   }, [resetStore]);
 
+  const handleDeleteCloudData = useCallback(() => {
+    Alert.alert(
+      'Delete Cloud Data',
+      'Delete all cloud data? This removes your voice profile and learning history. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Cloud Data',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeletingCloud(true);
+            try {
+              const session = await loadFounderSession();
+              if (!session) {
+                Alert.alert('No Cloud Account', 'No cloud account found. Your data is stored locally only.');
+                setIsDeletingCloud(false);
+                return;
+              }
+
+              const res = await fetch(`${API_BASE_URL}/api/auth/account-data`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.accessToken}`,
+                },
+              });
+
+              if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                Alert.alert('Deletion Failed', body.message || 'Could not delete your data. Please try again.');
+                setIsDeletingCloud(false);
+                return;
+              }
+
+              await clearFounderSession();
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Done', 'All cloud data has been deleted.');
+              console.log('[Privacy] Cloud data deleted');
+            } catch (err) {
+              console.error('[Privacy] Delete cloud data error:', err);
+              Alert.alert('Deletion Failed', 'A network error occurred. Please try again.');
+            } finally {
+              setIsDeletingCloud(false);
+            }
+          },
+        },
+      ]
+    );
+  }, []);
+
   const features = [
     { icon: Lock, title: 'Secure Connections', desc: 'Data transmitted over encrypted HTTPS connections' },
     { icon: Shield, title: 'Secure Credential Storage', desc: 'PMS credentials stored using platform-native secure storage' },
@@ -234,7 +287,7 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
               <Pressable
                 onPress={handleDeleteData}
                 disabled={isDeleting}
-                style={({ pressed }) => [s.row, { opacity: pressed ? 0.7 : 1 }]}
+                style={({ pressed }) => [s.row, s.border, { opacity: pressed ? 0.7 : 1 }]}
               >
                 <View style={[s.iconActive, { backgroundColor: colors.danger.muted }]}>
                   <Trash2 size={20} color={colors.danger.DEFAULT} />
@@ -242,6 +295,25 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
                 <View style={s.flex}>
                   <Text style={[s.rowTitle, { color: colors.danger.light }]}>Reset App Data</Text>
                   <Text style={s.rowSub}>Clear local app data and preferences</Text>
+                </View>
+                <AlertTriangle size={16} color={colors.danger.DEFAULT} />
+              </Pressable>
+              <Pressable
+                onPress={handleDeleteCloudData}
+                disabled={isDeletingCloud}
+                style={({ pressed }) => [s.row, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                <View style={[s.iconActive, { backgroundColor: colors.danger.muted }]}>
+                  {isDeletingCloud
+                    ? <ActivityIndicator size="small" color={colors.danger.DEFAULT} />
+                    : <CloudOff size={20} color={colors.danger.DEFAULT} />
+                  }
+                </View>
+                <View style={s.flex}>
+                  <Text style={[s.rowTitle, { color: colors.danger.light }]}>
+                    {isDeletingCloud ? 'Deleting...' : 'Delete My Cloud Data'}
+                  </Text>
+                  <Text style={s.rowSub}>Remove voice profile and learning history from servers</Text>
                 </View>
                 <AlertTriangle size={16} color={colors.danger.DEFAULT} />
               </Pressable>

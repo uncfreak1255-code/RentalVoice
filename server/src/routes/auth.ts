@@ -710,7 +710,18 @@ authRouter.delete('/account-data', requireAuth, async (c) => {
     }
     tablesCleared.push('organizations');
 
-    // Step 3 (last): Delete Supabase auth user
+    // Step 3: Delete users table row (email, name, plan, trial metadata)
+    const { error: userError } = await supabaseAdmin.from('users').delete().eq('id', userId);
+    if (userError) {
+      console.error('[Auth] account-data: failed to delete users row:', userError);
+      return c.json(
+        { message: 'Failed to delete users row', code: 'PARTIAL_FAILURE', tablesCleared, status: 500 },
+        500
+      );
+    }
+    tablesCleared.push('users');
+
+    // Step 4 (last): Delete Supabase auth user
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
     if (authDeleteError) {
       console.error('[Auth] account-data: failed to delete auth user:', authDeleteError);

@@ -41,7 +41,8 @@
         {
           "username": "sawbeck25"
         }
-      ]
+      ],
+      "./plugins/withIosPrivacyAndPermissions"
     ],
     "experiments": {
       "typedRoutes": true

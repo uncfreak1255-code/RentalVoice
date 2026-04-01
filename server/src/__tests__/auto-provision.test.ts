@@ -392,6 +392,7 @@ describe('DELETE /api/auth/account-data', () => {
       { data: null, error: null }, // edit_patterns delete
       { data: null, error: null }, // learning_migration_snapshots delete
       { data: null, error: null }, // organizations delete
+      { data: null, error: null }, // users delete
     ];
 
     // auth.admin.deleteUser succeeds
@@ -409,6 +410,7 @@ describe('DELETE /api/auth/account-data', () => {
       'edit_patterns',
       'learning_migration_snapshots',
       'organizations',
+      'users',
       'auth_user',
     ]);
 
