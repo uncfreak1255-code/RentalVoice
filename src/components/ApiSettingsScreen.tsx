@@ -55,9 +55,12 @@ const SHOW_LEGACY_AI_PROVIDER_SECTION = false;
 
 interface ApiSettingsScreenProps {
   onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
 }
 
-export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
+export function ApiSettingsScreen({ onBack, embedded }: ApiSettingsScreenProps) {
+  const Container = embedded ? View : SafeAreaView;
   const isDemoMode = useAppStore((s) => s.isDemoMode);
   const storedAccountId = useAppStore((s) => s.settings.accountId);
   const storedApiKey = useAppStore((s) => s.settings.apiKey);
@@ -194,7 +197,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
   return (
     <View style={ap.root}>
       <LinearGradient colors={[colors.bg.elevated, colors.bg.subtle]} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 150 }} />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <Container style={{ flex: 1 }}>
         <Animated.View entering={FadeIn.duration(300)} style={ap.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [ap.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
             <ArrowLeft size={20} color={colors.text.primary} />
@@ -414,7 +417,7 @@ export function ApiSettingsScreen({ onBack }: ApiSettingsScreenProps) {
           </Animated.View>
           )}
         </ScrollView>
-      </SafeAreaView>
+      </Container>
     </View>
   );
 }

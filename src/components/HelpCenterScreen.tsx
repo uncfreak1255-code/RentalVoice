@@ -7,7 +7,11 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
-interface HelpCenterScreenProps { onBack: () => void; }
+interface HelpCenterScreenProps {
+  onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
+}
 
 interface FAQItem { question: string; answer: string; }
 interface FAQCategory { title: string; icon: any; faqs: FAQItem[]; }
@@ -54,7 +58,8 @@ const faqCategories: FAQCategory[] = [
   },
 ];
 
-export function HelpCenterScreen({ onBack }: HelpCenterScreenProps) {
+export function HelpCenterScreen({ onBack, embedded }: HelpCenterScreenProps) {
+  const Container = embedded ? View : SafeAreaView;
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>('Getting Started');
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
@@ -90,7 +95,7 @@ export function HelpCenterScreen({ onBack }: HelpCenterScreenProps) {
   return (
     <View style={s.root}>
       <LinearGradient colors={[colors.bg.elevated, colors.bg.subtle]} style={s.gradient} />
-      <SafeAreaView style={s.flex} edges={['top']}>
+      <Container style={s.flex}>
         {/* Header */}
         <Animated.View entering={FadeIn.duration(300)} style={s.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [s.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
@@ -249,7 +254,7 @@ export function HelpCenterScreen({ onBack }: HelpCenterScreenProps) {
             </View>
           </Animated.View>
         </ScrollView>
-      </SafeAreaView>
+      </Container>
     </View>
   );
 }

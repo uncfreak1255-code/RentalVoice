@@ -44,6 +44,8 @@ import { isCommercial } from '@/lib/config';
 
 interface SyncDataScreenProps {
   onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
 }
 
 function formatTimeAgo(date: Date | null): string {
@@ -62,7 +64,8 @@ function formatTimeAgo(date: Date | null): string {
 
 // convertListingToProperty, getChannelPlatform, convertHostawayMessage imported from '@/lib/hostaway-utils'
 
-export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
+export function SyncDataScreen({ onBack, embedded }: SyncDataScreenProps) {
+  const Container = embedded ? View : SafeAreaView;
   const properties = useAppStore((s) => s.properties);
   const conversations = useAppStore((s) => s.conversations);
   const accountId = useAppStore((s) => s.settings.accountId);
@@ -276,7 +279,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <Container style={{ flex: 1 }}>
         {/* Header */}
         <Animated.View
           entering={FadeIn.duration(300)}
@@ -549,7 +552,7 @@ export function SyncDataScreen({ onBack }: SyncDataScreenProps) {
             </Text>
           </Animated.View>
         </ScrollView>
-      </SafeAreaView>
+      </Container>
     </View>
   );
 }

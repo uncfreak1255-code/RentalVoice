@@ -497,59 +497,52 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
       {/* ── Bottom Sheets ── */}
       <SettingsBottomSheet
-        title="Voice Confidence"
         visible={activeSheet === 'voiceConfidence'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <ConfidenceDetail onBack={() => setActiveSheet(null)} />
+        <ConfidenceDetail onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
 
       <SettingsBottomSheet
-        title="Test My Voice"
         visible={activeSheet === 'testVoice'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <TestVoiceScreen onBack={() => setActiveSheet(null)} />
+        <TestVoiceScreen onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
 
       <SettingsBottomSheet
-        title="AI Providers"
         visible={activeSheet === 'aiProviders'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <AIProviderSettingsScreen onBack={() => setActiveSheet(null)} />
+        <AIProviderSettingsScreen onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
 
       <SettingsBottomSheet
-        title="Automations"
         visible={activeSheet === 'automations'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <AutomationsScreen onBack={() => setActiveSheet(null)} />
+        <AutomationsScreen onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
 
       <SettingsBottomSheet
-        title="Sync Data"
         visible={activeSheet === 'syncData'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <SyncDataScreen onBack={() => setActiveSheet(null)} />
+        <SyncDataScreen onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
 
       <SettingsBottomSheet
-        title="Help Center"
         visible={activeSheet === 'helpCenter'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <HelpCenterScreen onBack={() => setActiveSheet(null)} />
+        <HelpCenterScreen onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
 
       <SettingsBottomSheet
-        title="API Settings"
         visible={activeSheet === 'apiSettings'}
         onDismiss={() => setActiveSheet(null)}
       >
-        <ApiSettingsScreen onBack={() => setActiveSheet(null)} />
+        <ApiSettingsScreen onBack={() => setActiveSheet(null)} embedded />
       </SettingsBottomSheet>
     </View>
   );

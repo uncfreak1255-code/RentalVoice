@@ -10,7 +10,11 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
-interface AutomationsScreenProps { onBack: () => void; }
+interface AutomationsScreenProps {
+  onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
+}
 type TriggerType = ScheduledMessage['triggerType'];
 type CategoryType = NonNullable<ScheduledMessage['category']>;
 
@@ -29,7 +33,8 @@ const defaultTemplates: SmartTemplatePreset[] = [
   { name: 'Mid-Stay Check-in', trigger: 'custom', hours: 48, template: 'Hi {{guest_name}}! Just checking in to see how your stay is going at {{property_name}}.', category: 'welcome', aiPersonalization: true, personalizationInstructions: 'Keep it brief.' },
 ];
 
-export function AutomationsScreen({ onBack }: AutomationsScreenProps) {
+export function AutomationsScreen({ onBack, embedded }: AutomationsScreenProps) {
+  const Container = embedded ? View : SafeAreaView;
   const properties = useAppStore((s) => s.properties);
   const scheduledMessages = useAppStore((s) => s.scheduledMessages);
   const addScheduledMessage = useAppStore((s) => s.addScheduledMessage);
@@ -99,7 +104,7 @@ export function AutomationsScreen({ onBack }: AutomationsScreenProps) {
   return (
     <View style={au.root}>
       <LinearGradient colors={[colors.bg.subtle, colors.bg.base]} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 200 }} />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <Container style={{ flex: 1 }}>
         <Animated.View entering={FadeIn.duration(300)} style={{ paddingHorizontal: spacing['4'], paddingVertical: spacing['3'], borderBottomWidth: 1, borderBottomColor: colors.border.DEFAULT }}>
           <View style={[au.row, { justifyContent: 'space-between' }]}>
             <View style={au.row}>
@@ -134,7 +139,7 @@ export function AutomationsScreen({ onBack }: AutomationsScreenProps) {
             <FlashList data={scheduledMessages} renderItem={renderMessage} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} />
           )}
         </View>
-      </SafeAreaView>
+      </Container>
 
       {/* Create/Edit Modal */}
       <Modal visible={showCreateModal} animationType="slide" transparent>

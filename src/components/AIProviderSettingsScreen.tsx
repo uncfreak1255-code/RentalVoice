@@ -9,9 +9,12 @@ import { features } from '@/lib/config';
 
 interface AIProviderSettingsScreenProps {
   onBack: () => void;
+  /** When true, strips SafeAreaView for use inside a bottom sheet. */
+  embedded?: boolean;
 }
 
-export function AIProviderSettingsScreen({ onBack }: AIProviderSettingsScreenProps) {
+export function AIProviderSettingsScreen({ onBack, embedded }: AIProviderSettingsScreenProps) {
+  const Container = embedded ? View : SafeAreaView;
   const title = features.serverProxiedAI ? 'Managed AI' : 'AI Routing';
   const body = features.serverProxiedAI
     ? 'Rental Voice now manages model routing for commercial workspaces. Provider selection and API key management are no longer part of the active in-app flow.'
@@ -20,7 +23,7 @@ export function AIProviderSettingsScreen({ onBack }: AIProviderSettingsScreenPro
   return (
     <View style={styles.root}>
       <LinearGradient colors={[colors.bg.elevated, colors.bg.subtle]} style={styles.gradient} />
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <Container style={styles.safe}>
         <Animated.View entering={FadeIn.duration(250)} style={styles.header}>
           <Pressable onPress={onBack} style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.7 : 1 }]}>
             <ArrowLeft size={20} color={colors.text.primary} />
@@ -53,7 +56,7 @@ export function AIProviderSettingsScreen({ onBack }: AIProviderSettingsScreenPro
             </Pressable>
           </Animated.View>
         </View>
-      </SafeAreaView>
+      </Container>
     </View>
   );
 }
