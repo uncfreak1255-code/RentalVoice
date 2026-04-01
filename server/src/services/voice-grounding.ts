@@ -130,6 +130,58 @@ export async function getManagedVoiceGrounding(input: {
   };
 }
 
+/**
+ * Calculate voice confidence score based on available grounding data.
+ *
+ * Pure function — no I/O. Scores range from 30 (no data) to 95 (cap).
+ *
+ * Scoring breakdown:
+ *   Base:               30
+ *   Voice examples:     0-30 (count-based step function)
+ *   Similarity quality: 0-20 (average of top match scores * 20)
+ *   Style profile:      0-10 (exists and has trained data)
+ *   Edit patterns:      0-10 (any edit history exists)
+ */
+export function calculateVoiceConfidence(grounding: ManagedVoiceGrounding): number {
+  let confidence = 30; // starting point
+
+  // Voice example count (0-30 points)
+  const exampleCount = grounding.semanticExamples.length;
+  if (exampleCount >= 5) {
+    confidence += 30;
+  } else if (exampleCount >= 3) {
+    confidence += 20;
+  } else if (exampleCount >= 1) {
+    confidence += 10;
+  }
+
+  // Similarity quality (0-20 points)
+  if (exampleCount > 0) {
+    const totalSimilarity = grounding.semanticExamples.reduce(
+      (sum, ex) => sum + (ex.similarity ?? 0),
+      0,
+    );
+    const avgSimilarity = totalSimilarity / exampleCount;
+    confidence += Math.round(avgSimilarity * 20);
+  }
+
+  // Style profile (0-10 points)
+  if (
+    grounding.styleProfile &&
+    typeof grounding.styleProfile === 'object' &&
+    grounding.styleProfile.trained === true
+  ) {
+    confidence += 10;
+  }
+
+  // Edit pattern history (0-10 points)
+  if (grounding.recentEditPatterns.length > 0) {
+    confidence += 10;
+  }
+
+  return Math.min(95, confidence);
+}
+
 function buildLanguageInstruction(request: Pick<AIGenerateRequest, 'responseLanguageMode' | 'hostDefaultLanguage'>): string {
   if (request.responseLanguageMode === 'host_default') {
     return `Always respond in ${request.hostDefaultLanguage || 'English'}.`;
@@ -192,6 +244,11 @@ function buildEditPatternsSection(patterns: EditPatternRow[]): string {
     .join('\n');
 }
 
+export interface ManagedVoicePromptResult {
+  prompt: string;
+  confidence: number;
+}
+
 export async function buildManagedVoicePrompt(input: {
   orgId: string;
   propertyId?: string | null;
@@ -201,14 +258,14 @@ export async function buildManagedVoicePrompt(input: {
   hostDefaultLanguage?: AIGenerateRequest['hostDefaultLanguage'];
   /** Pre-fetched grounding to avoid a duplicate Supabase round-trip. */
   grounding?: ManagedVoiceGrounding;
-}): Promise<string> {
+}): Promise<ManagedVoicePromptResult> {
   const grounding = input.grounding ?? await getManagedVoiceGrounding(input);
   const guestNameLine = input.guestName ? `The guest's name is ${input.guestName}.` : '';
   const propertyLine = grounding.propertyId
     ? `This reply is for property ${grounding.propertyId}.`
-    : 'No property is specified, so use the host’s general voice.';
+    : "No property is specified, so use the host's general voice.";
 
-  return [
+  const prompt = [
     'You are writing the next guest reply exactly how the host would write it.',
     'Do not write like a generic AI assistant. Do not mention being AI.',
     buildLanguageInstruction(input),
@@ -228,4 +285,8 @@ export async function buildManagedVoicePrompt(input: {
   ]
     .filter(Boolean)
     .join('\n');
+
+  const confidence = calculateVoiceConfidence(grounding);
+
+  return { prompt, confidence };
 }

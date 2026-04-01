@@ -86,17 +86,18 @@ describe('buildManagedVoicePrompt', () => {
   });
 
   it('builds managed prompts from style profile plus semantic voice examples', async () => {
-    const prompt = await buildManagedVoicePrompt({
+    const result = await buildManagedVoicePrompt({
       orgId: 'org-1',
       propertyId: 'prop-1',
       guestMessage: 'Can we check in early?',
       guestName: 'Jamie',
     });
 
-    expect(prompt).toContain('REAL HOST REPLY EXAMPLES');
-    expect(prompt).toContain('property prop-1');
-    expect(prompt).toContain('Absolutely happy to help');
-    expect(prompt).toContain('RECENT HOST EDIT SIGNALS');
+    expect(result.prompt).toContain('REAL HOST REPLY EXAMPLES');
+    expect(result.prompt).toContain('property prop-1');
+    expect(result.prompt).toContain('Absolutely happy to help');
+    expect(result.prompt).toContain('RECENT HOST EDIT SIGNALS');
+    expect(result.confidence).toBeGreaterThan(30);
     expect(mockRpc).toHaveBeenCalledWith('match_voice_examples', expect.objectContaining({
       query_org_id: 'org-1',
       query_property_id: 'prop-1',

@@ -60,7 +60,7 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
   });
   trace.traceVoiceRetrieval(grounding);
 
-  const systemPrompt = await buildManagedVoicePrompt({
+  const voiceResult = await buildManagedVoicePrompt({
     orgId,
     propertyId: request.propertyId ?? null,
     guestMessage: request.message,
@@ -69,6 +69,8 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
     hostDefaultLanguage: request.hostDefaultLanguage,
     grounding,
   });
+  const systemPrompt = voiceResult.prompt;
+  const voiceConfidence = voiceResult.confidence;
   const userMessage = request.message;
 
   // 4. Call managed provider chain (primary + fallback)
@@ -149,7 +151,7 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
 
   return {
     draft: result.content,
-    confidence: result.confidence,
+    confidence: voiceConfidence,
     detectedLanguage: result.detectedLanguage,
     provider,
     model,
