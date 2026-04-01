@@ -303,6 +303,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
           ? (latestVoiceReadiness?.autopilotEligible ?? voiceReadiness.autopilotEligible)
           : true;
         if (
+          !isDemoMode &&
           autoPilotEnabled &&
           managedAutoSendReady &&
           enhancedResponse.confidence.overall >= autoPilotThreshold &&

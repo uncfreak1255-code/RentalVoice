@@ -102,7 +102,7 @@ export function useChatMessageActions({
         console.log(`[ChatScreen] ${outcomeType} delta:`, delta.learningSummary);
       }
 
-      if (features.serverProxiedAI) {
+      if (features.serverProxiedAI && !isDemoMode) {
         recordDraftOutcomeViaServer({
           outcomeType,
           propertyId: opts.propertyId,

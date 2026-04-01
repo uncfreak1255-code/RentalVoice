@@ -95,7 +95,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const [commercialUsage, setCommercialUsage] = useState<UsageResponse | null>(null);
 
   const loadCommercialUsage = useCallback(async () => {
-    if (!features.serverProxiedAI) return;
+    if (!features.serverProxiedAI || isDemoMode) return;
     try {
       const usage = await getAIUsage();
       setCommercialUsage(usage);
@@ -105,10 +105,10 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
       setCommercialUsage(null);
       setActiveModelName('Managed AI');
     }
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
-    getUsageStats().then(setUsageStats).catch(console.error);
+    if (!isDemoMode) getUsageStats().then(setUsageStats).catch(console.error);
     if (features.serverProxiedAI) {
       loadCommercialUsage();
       return;

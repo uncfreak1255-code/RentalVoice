@@ -1371,6 +1371,8 @@ export const useAppStore = create<AppState>()(
           conversations: [],
           properties: [],
           propertyKnowledge: {},
+          learningEntries: [],
+          draftOutcomes: [],
           settings: {
             ...get().settings,
             isOnboarded: false,
