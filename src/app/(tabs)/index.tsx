@@ -5,12 +5,14 @@ import { useAppStore } from '@/lib/store';
 import { InboxDashboard } from '@/components/InboxDashboard';
 import { useNetworkStatus } from '@/lib/useNetworkStatus';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { colors } from '@/lib/design-tokens';
+import { useThemeColors, useIsDark } from '@/lib/useThemeColors';
 import { StatusBar } from 'expo-status-bar';
 import { canAccessTabs } from '@/lib/session-gate';
 
 export default function InboxTab() {
   const router = useRouter();
+  const t = useThemeColors();
+  const isDark = useIsDark();
 
   const isOnboarded = useAppStore((s) => s.settings.isOnboarded);
   const isDemoMode = useAppStore((s) => s.isDemoMode);
@@ -50,12 +52,12 @@ export default function InboxTab() {
     isOnboarded,
     isDemoMode,
   })) {
-    return <View style={styles.container} />;
+    return <View style={[styles.container, { backgroundColor: t.bg.base }]} />;
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { backgroundColor: t.bg.base }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <OfflineBanner isOffline={isOffline} queueLength={queueLength} onRetry={recheckNow} />
       <InboxDashboard
         onSelectConversation={handleSelectConversation}
@@ -69,6 +71,5 @@ export default function InboxTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.base,
   },
 });

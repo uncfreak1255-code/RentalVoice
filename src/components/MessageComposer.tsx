@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, StyleSheet, Keyboard, Platform } from 'react-native';
 import { colors, typography, spacing, radius, elevation } from '@/lib/design-tokens';
+import { useThemeColors, useIsDark } from '@/lib/useThemeColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PremiumPressable } from '@/components/ui';
 import {
@@ -118,6 +119,8 @@ export function MessageComposer({
   onRateLimitAction,
 }: MessageComposerProps) {
   const [message, setMessage] = useState('');
+  const t = useThemeColors();
+  const isDark = useIsDark();
 
   const [isEditingDraft, setIsEditingDraft] = useState(false);
   const [editedDraft, setEditedDraft] = useState('');
@@ -435,9 +438,9 @@ export function MessageComposer({
                 </View>
               </View>
 
-              {/* 2. Draft Text Card — white card, pure black text, subtle teal border */}
-              <View style={[mcStyles.v2DraftCard, isLowConfidence && { borderColor: '#FDE68A' }]}>
-                <Text style={mcStyles.v2DraftText}>
+              {/* 2. Draft Text Card — themed card with readable text */}
+              <View style={[mcStyles.v2DraftCard, { backgroundColor: t.bg.card }, isLowConfidence && { borderColor: '#FDE68A' }]}>
+                <Text style={[mcStyles.v2DraftText, { color: t.text.primary }]}>
                   {aiDraft?.content}
                 </Text>
               </View>
@@ -467,17 +470,17 @@ export function MessageComposer({
                   </Text>
                 </Pressable>
 
-                <Pressable onPress={handleEdit} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Edit AI draft" testID="chat-ai-edit">
-                  <Edit3 size={20} color={colors.text.secondary} />
+                <Pressable onPress={handleEdit} hitSlop={12} style={[mcStyles.v2IconBtn, { backgroundColor: t.bg.elevated }]} accessible accessibilityRole="button" accessibilityLabel="Edit AI draft" testID="chat-ai-edit">
+                  <Edit3 size={20} color={t.text.secondary} />
                 </Pressable>
 
-                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={12} style={mcStyles.v2IconBtn} accessible accessibilityRole="button" accessibilityLabel="Regenerate AI draft" testID="chat-ai-reject">
-                  <RefreshCw size={20} color={colors.text.secondary} />
+                <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onRegenerateAiDraft(); }} hitSlop={12} style={[mcStyles.v2IconBtn, { backgroundColor: t.bg.elevated }]} accessible accessibilityRole="button" accessibilityLabel="Regenerate AI draft" testID="chat-ai-reject">
+                  <RefreshCw size={20} color={t.text.secondary} />
                 </Pressable>
 
                 {onOpenActionsSheet && (
-                  <Pressable onPress={onOpenActionsSheet} style={mcStyles.v2MoreBtn} accessible accessibilityRole="button" accessibilityLabel="More draft actions">
-                    <MoreHorizontal size={20} color={colors.text.disabled} />
+                  <Pressable onPress={onOpenActionsSheet} style={[mcStyles.v2MoreBtn, { backgroundColor: t.bg.subtle }]} accessible accessibilityRole="button" accessibilityLabel="More draft actions">
+                    <MoreHorizontal size={20} color={t.text.disabled} />
                   </Pressable>
                 )}
               </View>

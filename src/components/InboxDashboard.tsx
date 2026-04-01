@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState, type AppStateStatus, FlatList } from 'react-native';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
+import { useThemeColors } from '@/lib/useThemeColors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppStore, type Conversation, type InboxSortPreference, type Guest } from '@/lib/store';
 import { getDemoConversations } from '@/lib/demo-data';
@@ -153,6 +154,7 @@ interface InboxDashboardProps {
 
 export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCalendar }: InboxDashboardProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const t = useThemeColors();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const flatListRef = useRef<FlatList<any>>(null);
@@ -698,25 +700,25 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       : 'Your workspace is connected. Background sync will finish inside the app.';
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg.base }}>
+    <View style={{ flex: 1, backgroundColor: t.bg.base }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* ── Rork-style Header ── */}
-        <View style={{ paddingHorizontal: spacing['5'], paddingTop: 12, paddingBottom: 4, backgroundColor: colors.bg.base }}>
-          <Text style={{ fontSize: 34, fontFamily: typography.fontFamily.bold, color: colors.text.primary, letterSpacing: -0.5 }} accessibilityRole="header">
+        <View style={{ paddingHorizontal: spacing['5'], paddingTop: 12, paddingBottom: 4, backgroundColor: t.bg.base }}>
+          <Text style={{ fontSize: 34, fontFamily: typography.fontFamily.bold, color: t.text.primary, letterSpacing: -0.5 }} accessibilityRole="header">
             Inbox
           </Text>
         </View>
 
         {/* ── Search Bar ── */}
-        <View style={{ paddingHorizontal: spacing['5'], paddingBottom: 4, backgroundColor: colors.bg.base }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.border.DEFAULT, borderRadius: 10, paddingHorizontal: 10, height: 36 }}>
-            <Search size={16} color={colors.text.disabled} />
+        <View style={{ paddingHorizontal: spacing['5'], paddingBottom: 4, backgroundColor: t.bg.base }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: t.border.DEFAULT, borderRadius: 10, paddingHorizontal: 10, height: 36 }}>
+            <Search size={16} color={t.text.disabled} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search guests, properties..."
-              placeholderTextColor={colors.text.disabled}
-              style={{ flex: 1, fontSize: 16, color: colors.text.primary, marginLeft: 6, paddingVertical: 0 }}
+              placeholderTextColor={t.text.disabled}
+              style={{ flex: 1, fontSize: 16, color: t.text.primary, marginLeft: 6, paddingVertical: 0 }}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
@@ -725,14 +727,14 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')} hitSlop={12} accessible accessibilityRole="button" accessibilityLabel="Clear search">
-                <X size={16} color={colors.text.disabled} />
+                <X size={16} color={t.text.disabled} />
               </Pressable>
             )}
           </View>
         </View>
 
         {/* ── Filter Chips (mockup style) ── */}
-        <View style={{ paddingVertical: 8, backgroundColor: colors.bg.base }}>
+        <View style={{ paddingVertical: 8, backgroundColor: t.bg.base }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -752,7 +754,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                     paddingVertical: 8,
                     paddingHorizontal: spacing['4'],
                     borderRadius: 18,
-                    backgroundColor: isActive ? colors.text.primary : colors.bg.subtle,
+                    backgroundColor: isActive ? t.text.primary : t.bg.subtle,
                     minHeight: spacing['8'],
                     justifyContent: 'center',
                   }}
@@ -762,7 +764,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                     style={{
                       fontFamily: isActive ? typography.fontFamily.semibold : typography.fontFamily.medium,
                       fontSize: 13,
-                      color: isActive ? colors.text.inverse : colors.text.secondary,
+                      color: isActive ? t.text.inverse : t.text.secondary,
                     }}
                   >
                     {tab.label}{tab.count !== undefined && tab.count > 0 ? ` (${tab.count})` : ''}
@@ -775,12 +777,12 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
 
         {/* Sync Status */}
         {lastSyncTime && !isRefreshing && (
-          <Text style={{ textAlign: 'center', fontSize: 11, color: colors.text.disabled, paddingVertical: 4 }}>
+          <Text style={{ textAlign: 'center', fontSize: 11, color: t.text.disabled, paddingVertical: 4 }}>
             Updated {formatSyncTime(lastSyncTime)}
           </Text>
         )}
         {isRefreshing && (
-          <Text style={{ textAlign: 'center', fontSize: 11, color: colors.primary.DEFAULT, paddingVertical: 4 }}>
+          <Text style={{ textAlign: 'center', fontSize: 11, color: t.primary.DEFAULT, paddingVertical: 4 }}>
             Loading conversations...
           </Text>
         )}
@@ -796,23 +798,23 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         )}
 
         {showSyncBanner && (
-          <View style={{ paddingHorizontal: spacing['5'], paddingBottom: 8, backgroundColor: colors.bg.base }}>
+          <View style={{ paddingHorizontal: spacing['5'], paddingBottom: 8, backgroundColor: t.bg.base }}>
             <View
               style={{
                 borderRadius: 18,
                 padding: spacing['4'],
-                backgroundColor: colors.bg.subtle,
+                backgroundColor: t.bg.subtle,
                 borderWidth: 1,
-                borderColor: colors.border.DEFAULT,
+                borderColor: t.border.DEFAULT,
                 gap: 10,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>
+                  <Text style={{ color: t.text.primary, fontFamily: typography.fontFamily.semibold, fontSize: 15 }}>
                     {historySyncStatus.syncPhase === 'error' ? 'Sync paused' : 'Background sync is running'}
                   </Text>
-                  <Text style={{ color: colors.text.muted, fontSize: 13, lineHeight: 18, marginTop: 4 }}>
+                  <Text style={{ color: t.text.muted, fontSize: 13, lineHeight: 18, marginTop: 4 }}>
                     {syncBannerText}
                   </Text>
                 </View>
@@ -824,12 +826,12 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                     minHeight: spacing['8'],
                     paddingHorizontal: spacing['3'],
                     borderRadius: 9999,
-                    backgroundColor: colors.border.DEFAULT,
+                    backgroundColor: t.border.DEFAULT,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ color: colors.text.primary, fontSize: 12, fontFamily: typography.fontFamily.medium }}>
+                  <Text style={{ color: t.text.primary, fontSize: 12, fontFamily: typography.fontFamily.medium }}>
                     View Sync
                   </Text>
                 </Pressable>
@@ -844,15 +846,15 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                   hitSlop={12}
                   style={{ padding: 4 }}
                 >
-                  <X size={16} color={colors.text.disabled} />
+                  <X size={16} color={t.text.disabled} />
                 </Pressable>
               </View>
             </View>
           </View>
         )}
 
-        {/* Conversation List — clean white background, cards have shadow for separation */}
-        <View style={{ flex: 1, backgroundColor: colors.bg.base }}>
+        {/* Conversation List */}
+        <View style={{ flex: 1, backgroundColor: t.bg.base }}>
           {dailyBriefing && (
             <DailyBriefingCard
               briefing={dailyBriefing}

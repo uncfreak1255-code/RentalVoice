@@ -12,6 +12,7 @@ import type BottomSheet from '@gorhom/bottom-sheet';
 import { guestMemoryManager } from '@/lib/advanced-training';
 import { AlertTriangle } from 'lucide-react-native';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
+import { useThemeColors } from '@/lib/useThemeColors';
 import type { ChatScreenProps } from './types';
 import { ChatHeader } from './ChatHeader';
 import { ChatMessageList } from './ChatMessageList';
@@ -20,6 +21,7 @@ import { useChatIssues } from './useChatIssues';
 
 export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreenProps) {
   const insets = useSafeAreaInsets();
+  const t = useThemeColors();
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [showGuestInfo, setShowGuestInfo] = useState(false);
@@ -112,8 +114,8 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
   // -- Early returns (below hooks) --
   if (!conversation) {
     return (
-      <SafeAreaView style={styles.emptyContainer} edges={['top', 'bottom']}>
-        <AlertTriangle size={32} color={colors.text.muted} />
+      <SafeAreaView style={[styles.emptyContainer, { backgroundColor: t.bg.base }]} edges={['top', 'bottom']}>
+        <AlertTriangle size={32} color={t.text.muted} />
         <Text style={styles.emptyHeading}>Conversation unavailable</Text>
         <Text style={styles.emptySubtext}>
           This conversation may have been removed or isn't synced yet.
@@ -140,9 +142,9 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: t.bg.subtle }]}>
       <LinearGradient
-        colors={[colors.bg.elevated, colors.bg.subtle]}
+        colors={[t.bg.elevated, t.bg.subtle]}
         style={styles.headerGradient}
       />
 

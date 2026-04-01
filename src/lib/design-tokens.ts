@@ -83,7 +83,7 @@ export const colors = {
   },
 } as const;
 
-// ─── Dark Mode Colors (preserved for future use) ────────────
+// ─── Dark Mode Colors ────────────────────────────────────────
 export const darkColors = {
   bg: {
     base: '#0A0F1A',
@@ -145,9 +145,9 @@ export const lightColors = {
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
-export function getThemeColors(mode: ThemeMode, systemIsDark: boolean = true) {
-  if (mode === 'system') return systemIsDark ? colors : lightColors;
-  return mode === 'dark' ? colors : lightColors;
+export function getThemeColors(mode: ThemeMode, systemIsDark: boolean = false) {
+  if (mode === 'system') return systemIsDark ? darkColors : colors;
+  return mode === 'dark' ? darkColors : colors;
 }
 
 // ─── Spacing (4px grid) ──────────────────────────────────────

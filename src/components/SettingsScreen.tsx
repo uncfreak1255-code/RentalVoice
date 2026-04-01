@@ -15,7 +15,8 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/lib/design-tokens';
-import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, s } from './ui/SettingsComponents';
+import { useThemeColors, useIsDark } from '@/lib/useThemeColors';
+import { SectionHeader, SectionFooter, Row, ToggleRow, ValueRow, LinkRow, useThemedCardStyle, s } from './ui/SettingsComponents';
 import { SettingsBottomSheet } from './ui/SettingsBottomSheet';
 import { getUsageStats, type UsageStats } from '@/lib/ai-usage-limiter';
 import { getSelectedModel, getAvailableModels, AI_MODELS } from '@/lib/ai-keys';
@@ -71,6 +72,9 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeSheet, setActiveSheet] = useState<SheetId>(null);
   const resetStore = useAppStore((s) => s.resetStore);
+  const t = useThemeColors();
+  const isDark = useIsDark();
+  const cardStyle = useThemedCardStyle();
 
   const settings = useAppStore((s) => s.settings);
   const pushNotificationsEnabled = useAppStore((s) => s.settings.pushNotificationsEnabled);
@@ -278,7 +282,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
   };
 
   return (
-    <View style={sLocal.root}>
+    <View style={[sLocal.root, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Demo Mode Banner */}
         {isDemoMode && (
@@ -292,28 +296,28 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
         {/* Large title header — iOS style */}
         <View style={sLocal.header}>
-          <Text style={sLocal.headerTitle}>Settings</Text>
+          <Text style={[sLocal.headerTitle, { color: t.text.primary }]}>Settings</Text>
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={sLocal.scrollContent} showsVerticalScrollIndicator={false}>
 
           {/* ── Profile Header ── */}
-          <View style={sLocal.profileCard}>
+          <View style={[sLocal.profileCard, { backgroundColor: t.bg.card }]}>
             <View style={sLocal.profileAvatar}>
               <User size={24} color="#FFFFFF" />
             </View>
             <View style={sLocal.profileInfo}>
-              <Text style={sLocal.profileEmail} numberOfLines={1}>{profileEmail}</Text>
+              <Text style={[sLocal.profileEmail, { color: t.text.primary }]} numberOfLines={1}>{profileEmail}</Text>
               <View style={sLocal.planBadge}>
                 <Text style={sLocal.planBadgeText}>{planLabel}</Text>
               </View>
             </View>
-            <ChevronRight size={14} color="#C7C7CC" />
+            <ChevronRight size={14} color={t.text.disabled} />
           </View>
 
           {/* ── 1. AI & Voice ── */}
           <SectionHeader title="AI & Voice" />
-          <View style={s.card}>
+          <View style={cardStyle}>
             <LinkRow
               icon={<BarChart3 size={16} color="#FFFFFF" />}
               iconBg={ic.teal.fg}
@@ -344,7 +348,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
           {/* ── 2. Messaging ── */}
           <SectionHeader title="Messaging" />
-          <View style={s.card}>
+          <View style={cardStyle}>
             {hasPaidAutoPilot ? (
               <ToggleRow
                 icon={<Plane size={16} color="#FFFFFF" />}
@@ -387,10 +391,10 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           </View>
           {autoPilotEnabled && hasPaidAutoPilot && (
             <View style={{ paddingHorizontal: 16, marginTop: spacing['2'] }}>
-              <View style={[s.card, { paddingHorizontal: spacing['4'], paddingVertical: spacing['3'] }]}>
+              <View style={[s.card, { backgroundColor: t.bg.card, paddingHorizontal: spacing['4'], paddingVertical: spacing['3'] }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing['2'] }}>
-                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: colors.text.primary }}>Confidence Threshold</Text>
-                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: colors.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
+                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.regular, color: t.text.primary }}>Confidence Threshold</Text>
+                  <Text style={{ fontSize: 15, fontFamily: typography.fontFamily.medium, color: t.primary.DEFAULT }}>{settings.autoPilotConfidenceThreshold}%</Text>
                 </View>
                 <Slider
                   minimumValue={50}
@@ -398,9 +402,9 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                   step={5}
                   value={settings.autoPilotConfidenceThreshold}
                   onValueChange={(v) => updateSettings({ autoPilotConfidenceThreshold: Math.round(v) })}
-                  minimumTrackTintColor={colors.primary.DEFAULT}
-                  maximumTrackTintColor={colors.border.DEFAULT}
-                  thumbTintColor={colors.bg.base}
+                  minimumTrackTintColor={t.primary.DEFAULT}
+                  maximumTrackTintColor={t.border.DEFAULT}
+                  thumbTintColor={t.bg.base}
                   style={{ height: 28 }}
                 />
               </View>
@@ -414,7 +418,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
           {/* ── 3. Property & Data ── */}
           <SectionHeader title="Property & Data" />
-          <View style={s.card}>
+          <View style={cardStyle}>
             <LinkRow
               icon={<BookOpen size={16} color="#FFFFFF" />}
               iconBg={ic.blue.fg}
@@ -438,7 +442,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
           {/* ── 4. Account ── */}
           <SectionHeader title="Account" />
-          <View style={s.card}>
+          <View style={cardStyle}>
             <LinkRow
               icon={<HelpCircle size={16} color="#FFFFFF" />}
               iconBg={ic.blue.fg}
@@ -462,7 +466,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
           {/* ── Sign Out ── */}
           <View style={{ marginTop: spacing['7'] }}>
-            <View style={s.card}>
+            <View style={cardStyle}>
               <Pressable
                 onPress={handleLogout}
                 disabled={isDisconnecting}
@@ -481,7 +485,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
 
           {/* ── Delete My Data (separate card for emphasis) ── */}
           <View style={{ marginTop: spacing['3'] }}>
-            <View style={s.card}>
+            <View style={cardStyle}>
               <Pressable
                 onPress={handleDeleteMyData}
                 disabled={isDeleting}
@@ -500,7 +504,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           </View>
 
           {/* ── Version ── */}
-          <Text style={sLocal.versionText}>Rental Voice v1.0.0 ({BUILD_STAMP})</Text>
+          <Text style={[sLocal.versionText, { color: t.text.disabled }]}>Rental Voice v1.0.0 ({BUILD_STAMP})</Text>
 
           <View style={{ height: spacing['12'] }} />
 
