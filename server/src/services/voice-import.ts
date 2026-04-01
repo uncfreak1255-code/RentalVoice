@@ -8,9 +8,8 @@ export type VoiceOriginType = 'historical' | 'host_written' | 'ai_approved' | 'a
 
 /** Phrases that indicate a system/admin guest message, not a real guest */
 const SYSTEM_MESSAGE_MARKERS = [
-  'automated',
   'system notification',
-  'booking confirmed',
+  'your booking is confirmed',
   'booking cancelled',
   'booking modified',
   'auto-reply',
@@ -21,7 +20,7 @@ const SYSTEM_MESSAGE_MARKERS = [
   'no-reply',
   'this is an automated',
   'reservation confirmed',
-  'payment received',
+  'payment has been received',
   'payment processed',
 ];
 
@@ -227,22 +226,26 @@ export function buildVoiceExamplesFromHistory(
     }
   }
 
-  return examples;
+  // Batch-level template detection: remove duplicate host responses (3+ occurrences)
+  return filterQualityExamples(examples);
 }
 
 export async function importVoiceExamplesForOrg(
   orgId: string,
   examples: VoiceImportExample[]
 ): Promise<{ inserted: number; skipped: number; total: number }> {
-  if (examples.length === 0) {
+  // Apply quality + template filtering before import
+  const filtered = filterQualityExamples(examples);
+
+  if (filtered.length === 0) {
     return { inserted: 0, skipped: 0, total: 0 };
   }
 
-  const guestMessages = examples.map((example) => example.guestMessage);
+  const guestMessages = filtered.map((example) => example.guestMessage);
   const embeddings = await embedBatch(guestMessages);
   const supabase = getSupabaseAdmin();
 
-  const rows = examples.map((example, index) => ({
+  const rows = filtered.map((example, index) => ({
     org_id: orgId,
     property_id: example.propertyId ?? null,
     guest_message: example.guestMessage,
@@ -284,6 +287,6 @@ export async function importVoiceExamplesForOrg(
   return {
     inserted,
     skipped,
-    total: examples.length,
+    total: filtered.length,
   };
 }

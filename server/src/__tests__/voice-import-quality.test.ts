@@ -106,8 +106,26 @@ describe('isQualityVoiceExample', () => {
     it('rejects booking confirmed notification', () => {
       expect(
         isQualityVoiceExample(
-          'Booking confirmed for dates March 15-20',
+          'Your booking is confirmed for dates March 15-20',
           'Great, we will have everything ready for your arrival on March 15th.'
+        )
+      ).toBe(false);
+    });
+
+    it('does not reject guest asking about booking confirmation', () => {
+      expect(
+        isQualityVoiceExample(
+          'Has my booking confirmed yet?',
+          'Yes your booking is all set, you are confirmed for March 15th through the 20th.'
+        )
+      ).toBe(true);
+    });
+
+    it('rejects payment received notification', () => {
+      expect(
+        isQualityVoiceExample(
+          'Payment has been received for reservation #12345',
+          'We received your payment and your booking is all set.'
         )
       ).toBe(false);
     });
@@ -119,6 +137,15 @@ describe('isQualityVoiceExample', () => {
           'We received your payment and your booking is all set.'
         )
       ).toBe(false);
+    });
+
+    it('does not reject guest asking about payment', () => {
+      expect(
+        isQualityVoiceExample(
+          'Has my payment received by you guys yet?',
+          'Yes we have received your payment and everything looks good for your stay.'
+        )
+      ).toBe(true);
     });
 
     it('rejects reservation confirmed notification', () => {
@@ -146,6 +173,16 @@ describe('isQualityVoiceExample', () => {
           'Let me know if you have any questions about your updated booking.'
         )
       ).toBe(false);
+    });
+
+    it('does not reject guest message mentioning automated systems', () => {
+      // "automated" alone was removed to prevent false positives; only "this is an automated" matches
+      expect(
+        isQualityVoiceExample(
+          'The automated lock is not working and I cannot get in',
+          'I am so sorry about that, let me send you the manual override code right now.'
+        )
+      ).toBe(true);
     });
 
     it('does not reject normal guest message containing "system" as substring', () => {
@@ -282,7 +319,7 @@ describe('filterQualityExamples', () => {
 
   it('still applies individual quality filters', () => {
     const examples: VoiceImportExample[] = [
-      makeExample('Booking confirmed for March 15', 'Great, we are ready for you.'),
+      makeExample('Your booking is confirmed for March 15', 'Great, we are ready for you.'),
       makeExample('What is checkout time?', 'ok'),
       makeExample(
         'Where do I park?',
@@ -354,7 +391,7 @@ describe('buildVoiceExamplesFromHistory quality filtering', () => {
         msg(
           1,
           1,
-          'Booking confirmed for dates March 15-20',
+          'Your booking is confirmed for dates March 15-20',
           true,
           '2026-03-01T10:00:00Z'
         ),
@@ -390,5 +427,40 @@ describe('buildVoiceExamplesFromHistory quality filtering', () => {
     const examples = buildVoiceExamplesFromHistory(conversations, messages);
     expect(examples).toHaveLength(1);
     expect(examples[0].hostResponse).toContain('dedicated parking spot');
+  });
+
+  it('filters template responses across conversations via batch detection', () => {
+    const templateResponse = 'Thank you for your booking, we look forward to hosting you soon.';
+    const conversations: HistoryConversationLike[] = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+    const messages: Record<number, HistoryMessageLike[]> = {
+      1: [
+        msg(1, 1, 'Hi just booked my stay!', true, '2026-03-01T10:00:00Z'),
+        msg(2, 1, templateResponse, false, '2026-03-01T10:05:00Z'),
+      ],
+      2: [
+        msg(3, 2, 'Looking forward to visiting!', true, '2026-03-02T10:00:00Z'),
+        msg(4, 2, templateResponse, false, '2026-03-02T10:05:00Z'),
+      ],
+      3: [
+        msg(5, 3, 'Just made a reservation!', true, '2026-03-03T10:00:00Z'),
+        msg(6, 3, templateResponse, false, '2026-03-03T10:05:00Z'),
+      ],
+      4: [
+        msg(7, 4, 'What is the wifi password?', true, '2026-03-04T10:00:00Z'),
+        msg(
+          8,
+          4,
+          'The wifi password is on the card next to the router in the kitchen.',
+          false,
+          '2026-03-04T10:05:00Z'
+        ),
+      ],
+    };
+
+    const examples = buildVoiceExamplesFromHistory(conversations, messages);
+
+    // Template used 3 times should be removed; unique response stays
+    expect(examples).toHaveLength(1);
+    expect(examples[0].guestMessage).toBe('What is the wifi password?');
   });
 });
