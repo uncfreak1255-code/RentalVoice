@@ -229,13 +229,13 @@ export function HelpCenterScreen({ onBack }: HelpCenterScreenProps) {
             <Text style={s.contactLabel}>NEED MORE HELP?</Text>
             <View style={s.contactCard}>
               <Pressable
-                onPress={() => Linking.openURL('mailto:support@rentalreply.ai')}
+                onPress={() => Linking.openURL('mailto:support@rentalvoice.app')}
                 style={({ pressed }) => [s.contactRow, s.contactRowBorder, { opacity: pressed ? 0.7 : 1 }]}
               >
                 <View style={s.contactIcon}><Mail size={20} color={colors.text.muted} /></View>
                 <View style={s.flex}>
                   <Text style={s.contactTitle}>Email Support</Text>
-                  <Text style={s.contactSub}>support@rentalreply.ai</Text>
+                  <Text style={s.contactSub}>support@rentalvoice.app</Text>
                 </View>
                 <ExternalLink size={14} color={colors.text.disabled} />
               </Pressable>
