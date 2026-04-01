@@ -1593,9 +1593,9 @@ class FewShotIndexer {
       else if (example.originType === 'ai_edited') score += 15;
       // ai_approved and legacy (undefined) get no bonus
 
-      // Minimum quality threshold: require meaningful match (intent match=50, property=20, keyword=10)
-      // score >= 30 filters noise from single-keyword-only matches
-      if (score >= 30) {
+      // Minimum quality threshold: lowered to 10 so sparse-data properties still benefit
+      // from available examples (keyword overlap=10, recency bonus=2-15, etc.)
+      if (score >= 10) {
         scored.push({ example, score });
       }
     }
