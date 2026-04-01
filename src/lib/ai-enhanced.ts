@@ -695,20 +695,10 @@ export function calculateConfidence(
 
   // Factor: Style Match — measures training data availability (NOT output quality)
   // Post-generation validation adds/subtracts based on actual output match
-  let styleMatch = 40; // Low base without any profile
-  if (styleProfile && styleProfile.samplesAnalyzed > 100) {
-    styleMatch = 95; // Extensive training data — high confidence in voice match
-  } else if (styleProfile && styleProfile.samplesAnalyzed > 50) {
-    styleMatch = 90; // Strong training data
-  } else if (styleProfile && styleProfile.samplesAnalyzed > 20) {
-    styleMatch = 82; // Good training data
-  } else if (styleProfile && styleProfile.samplesAnalyzed > 10) {
-    styleMatch = 70;
-  } else if (styleProfile && styleProfile.samplesAnalyzed > 5) {
-    styleMatch = 58;
-  } else if (styleProfile && styleProfile.samplesAnalyzed > 0) {
-    styleMatch = 45;
-  }
+  // Smooth growth: 40 base + 55 * log(1 + samples) / log(1 + 150)
+  // At 0→40, 1→48, 5→60, 10→66, 20→73, 50→83, 100→91, 150+→95
+  const samplesAnalyzed = styleProfile?.samplesAnalyzed ?? 0;
+  const styleMatch = Math.min(95, Math.round(40 + 55 * Math.log(1 + samplesAnalyzed) / Math.log(1 + 150)));
 
   // Factor: Safety Check (hallucination prevention)
   let safetyCheck = 80;
