@@ -18,10 +18,12 @@ import { ChatHeader } from './ChatHeader';
 import { ChatMessageList } from './ChatMessageList';
 import { useChatDraftEngine } from './useChatDraftEngine';
 import { useChatIssues } from './useChatIssues';
+import { DemoModeBanner } from '../DemoModeBanner';
 
 export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreenProps) {
   const insets = useSafeAreaInsets();
   const t = useThemeColors();
+  const isDemoMode = useAppStore((s) => s.isDemoMode);
   const listRef = useRef<FlatList<Message>>(null);
   const bottomSheetRef = useRef<BottomSheet>(null);
   const [showGuestInfo, setShowGuestInfo] = useState(false);
@@ -149,6 +151,12 @@ export function ChatScreen({ conversationId, onBack, onOpenUpsells }: ChatScreen
       />
 
       <SafeAreaView style={styles.flex1} edges={['top']}>
+        {isDemoMode && (
+          <DemoModeBanner onExitDemo={() => {
+            useAppStore.getState().exitDemoMode();
+            onBack();
+          }} />
+        )}
         <ChatHeader
           conversation={conversation}
           onBack={onBack}
