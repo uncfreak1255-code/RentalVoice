@@ -11,9 +11,9 @@ import { loadFounderSession, clearFounderSession } from '@/lib/secure-storage';
 import { API_BASE_URL } from '@/lib/config';
 import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 
-interface PrivacySecurityScreenProps { onBack: () => void; }
+interface PrivacySecurityScreenProps { onBack: () => void; onNavigate?: (screen: string) => void; }
 
-export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
+export function PrivacySecurityScreen({ onBack, onNavigate }: PrivacySecurityScreenProps) {
   const biometricLockEnabled = useAppStore((s) => s.settings.biometricLockEnabled);
   const analyticsEnabled = useAppStore((s) => s.settings.analyticsEnabled);
   const updateSettings = useAppStore((s) => s.updateSettings);
@@ -324,8 +324,8 @@ export function PrivacySecurityScreen({ onBack }: PrivacySecurityScreenProps) {
           <Animated.View entering={FadeInDown.delay(500).duration(400)} style={s.legal}>
             <Text style={s.legalText}>
               By using Rental Voice, you agree to our{' '}
-              <Text style={{ color: colors.primary.light }}>Terms of Service</Text> and{' '}
-              <Text style={{ color: colors.primary.light }}>Privacy Policy</Text>.
+              <Text style={{ color: colors.primary.light }} onPress={() => onNavigate?.('privacy-policy')}>Privacy Policy</Text> and{' '}
+              <Text style={{ color: colors.primary.light }} onPress={() => onNavigate?.('terms-of-service')}>Terms of Service</Text>.
             </Text>
           </Animated.View>
         </ScrollView>
