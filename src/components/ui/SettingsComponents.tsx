@@ -3,31 +3,35 @@ import { View, Text, Pressable, Switch, StyleSheet } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
+import { useThemeColors, useIsDark } from '@/lib/useThemeColors';
 
 export function SectionHeader({ title }: { title: string }) {
+  const t = useThemeColors();
   return (
-    <Text style={s.sectionHeader} accessibilityRole="header">
+    <Text style={[s.sectionHeader, { color: t.text.muted }]} accessibilityRole="header">
       {title}
     </Text>
   );
 }
 
 export function SectionFooter({ text }: { text: string }) {
-  return <Text style={s.sectionFooter}>{text}</Text>;
+  const t = useThemeColors();
+  return <Text style={[s.sectionFooter, { color: t.text.muted }]}>{text}</Text>;
 }
 
 export function Row({ icon, iconBg, label, right, onPress, isLast = false }: {
   icon: React.ReactNode; iconBg?: string; label: string;
   right?: React.ReactNode; onPress?: () => void; isLast?: boolean;
 }) {
+  const t = useThemeColors();
   const content = (
     <View style={s.row}>
       <View style={[s.iconBox, iconBg ? { backgroundColor: iconBg } : undefined]}>{icon}</View>
-      <View style={[s.rowContent, !isLast && s.rowBorder]}>
-        <Text style={s.rowLabel}>{label}</Text>
+      <View style={[s.rowContent, !isLast && s.rowBorder, !isLast && { borderBottomColor: t.border.subtle }]}>
+        <Text style={[s.rowLabel, { color: t.text.primary }]}>{label}</Text>
         <View style={s.rowRight}>
           {right}
-          {onPress && <ChevronRight size={14} color="#C7C7CC" style={{ marginLeft: 6 }} />}
+          {onPress && <ChevronRight size={14} color={t.text.disabled} style={{ marginLeft: 6 }} />}
         </View>
       </View>
     </View>
@@ -52,18 +56,20 @@ export function ToggleRow({ icon, iconBg, trackColor: customTrackColor, label, v
   icon: React.ReactNode; iconBg?: string; trackColor?: string; label: string;
   value: boolean; onValueChange: (v: boolean) => void; isLast?: boolean;
 }) {
+  const t = useThemeColors();
+  const isDark = useIsDark();
   return (
     <View style={s.row}>
       <View style={[s.iconBox, iconBg ? { backgroundColor: iconBg } : undefined]}>{icon}</View>
-      <View style={[s.rowContent, !isLast && s.rowBorder]}>
-        <Text style={s.rowLabel}>{label}</Text>
+      <View style={[s.rowContent, !isLast && s.rowBorder, !isLast && { borderBottomColor: t.border.subtle }]}>
+        <Text style={[s.rowLabel, { color: t.text.primary }]}>{label}</Text>
         <View style={{ height: 31, justifyContent: 'center' }}>
           <Switch
             value={value}
             onValueChange={(v) => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onValueChange(v); }}
-            trackColor={{ false: '#E5E5EA', true: customTrackColor || colors.primary.DEFAULT }}
+            trackColor={{ false: isDark ? '#3A3A3C' : '#E5E5EA', true: customTrackColor || colors.primary.DEFAULT }}
             thumbColor="#FFFFFF"
-            ios_backgroundColor="#E5E5EA"
+            ios_backgroundColor={isDark ? '#3A3A3C' : '#E5E5EA'}
             accessibilityLabel={label}
             accessibilityRole="switch"
             accessibilityState={{ checked: value }}
@@ -78,13 +84,14 @@ export function ValueRow({ icon, iconBg, label, value, valueColor, isLast = fals
   icon: React.ReactNode; iconBg?: string; label: string;
   value: string | React.ReactNode; valueColor?: string; isLast?: boolean;
 }) {
+  const t = useThemeColors();
   return (
     <View style={s.row}>
       <View style={[s.iconBox, iconBg ? { backgroundColor: iconBg } : undefined]}>{icon}</View>
-      <View style={[s.rowContent, !isLast && s.rowBorder]}>
-        <Text style={s.rowLabel}>{label}</Text>
+      <View style={[s.rowContent, !isLast && s.rowBorder, !isLast && { borderBottomColor: t.border.subtle }]}>
+        <Text style={[s.rowLabel, { color: t.text.primary }]}>{label}</Text>
         {typeof value === 'string' ? (
-          <Text style={[s.rowValue, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
+          <Text style={[s.rowValue, { color: t.text.disabled }, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
         ) : (
           value
         )}
@@ -97,6 +104,7 @@ export function LinkRow({ icon, iconBg, label, onPress, isLast = false }: {
   icon: React.ReactNode; iconBg?: string; label: string;
   onPress: () => void; isLast?: boolean;
 }) {
+  const t = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -107,13 +115,19 @@ export function LinkRow({ icon, iconBg, label, onPress, isLast = false }: {
     >
       <View style={s.row}>
         <View style={[s.iconBox, iconBg ? { backgroundColor: iconBg } : undefined]}>{icon}</View>
-        <View style={[s.rowContent, !isLast && s.rowBorder]}>
-          <Text style={s.rowLabel}>{label}</Text>
-          <ChevronRight size={14} color="#C7C7CC" />
+        <View style={[s.rowContent, !isLast && s.rowBorder, !isLast && { borderBottomColor: t.border.subtle }]}>
+          <Text style={[s.rowLabel, { color: t.text.primary }]}>{label}</Text>
+          <ChevronRight size={14} color={t.text.disabled} />
         </View>
       </View>
     </Pressable>
   );
+}
+
+/** Hook to get themed card style — use instead of s.card for dynamic bg */
+export function useThemedCardStyle() {
+  const t = useThemeColors();
+  return [s.card, { backgroundColor: t.bg.card }];
 }
 
 export const s = StyleSheet.create({

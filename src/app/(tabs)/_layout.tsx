@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { MessageSquare, CalendarDays, Settings } from 'lucide-react-native';
 import { colors, typography } from '@/lib/design-tokens';
+import { useThemeColors } from '@/lib/useThemeColors';
 import { useAppStore } from '@/lib/store';
 import { isRenderableUnreadConversation } from '@/lib/inbox-trust';
 
@@ -10,16 +11,17 @@ export default function TabLayout() {
   const unreadCount = conversations.filter((c) =>
     c.status !== 'archived' && c.workflowStatus !== 'archived' && isRenderableUnreadConversation(c)
   ).length;
+  const t = useThemeColors();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary.DEFAULT,
-        tabBarInactiveTintColor: colors.text.disabled,
+        tabBarActiveTintColor: t.primary.DEFAULT,
+        tabBarInactiveTintColor: t.text.disabled,
         tabBarStyle: {
-          backgroundColor: colors.bg.base,
-          borderTopColor: colors.border.subtle,
+          backgroundColor: t.bg.base,
+          borderTopColor: t.border.subtle,
           borderTopWidth: 1,
           paddingTop: 8,
           paddingBottom: 4,
@@ -30,7 +32,7 @@ export default function TabLayout() {
           fontSize: 11,
           marginTop: 2,
         },
-        sceneStyle: { backgroundColor: colors.bg.base },
+        sceneStyle: { backgroundColor: t.bg.base },
       }}
     >
       <Tabs.Screen
@@ -42,7 +44,7 @@ export default function TabLayout() {
           ),
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
           tabBarBadgeStyle: {
-            backgroundColor: colors.primary.DEFAULT,
+            backgroundColor: t.primary.DEFAULT,
             fontSize: 10,
             fontFamily: typography.fontFamily.medium,
             minWidth: 18,

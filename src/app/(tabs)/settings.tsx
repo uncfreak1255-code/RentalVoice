@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { SettingsScreen } from '@/components/SettingsScreen';
 import { useRouter } from 'expo-router';
 import { useAppStore } from '@/lib/store';
+import { useThemeColors, useIsDark } from '@/lib/useThemeColors';
 
 // Map settings screen names to their route paths
 // Only push screens remain as routes; bottom sheet items are handled inline
@@ -43,6 +44,7 @@ const settingsRoutes: Record<string, string> = {
 export default function SettingsTab() {
   const router = useRouter();
   const resetStore = useAppStore((s) => s.resetStore);
+  const isDark = useIsDark();
 
   const handleNavigate = useCallback((screen: string) => {
     const route = settingsRoutes[screen];
@@ -58,7 +60,7 @@ export default function SettingsTab() {
   }, [resetStore]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7' }]}>
       <SettingsScreen
         onBack={() => router.back()}
         onLogout={handleLogout}
@@ -71,6 +73,5 @@ export default function SettingsTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F2F2F7', // iOS system grouped background
   },
 });

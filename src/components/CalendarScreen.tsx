@@ -55,6 +55,7 @@ import {
 import { isCommercial } from '@/lib/config';
 import { getDemoReservations } from '@/lib/demo-data';
 import { DemoModeBanner } from './DemoModeBanner';
+import { useThemeColors, useIsDark } from '@/lib/useThemeColors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LISTING_COLUMN_WIDTH = 110;
@@ -145,6 +146,8 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<CalendarEntry | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const t = useThemeColors();
+  const isDark = useIsDark();
 
   // Refs for synchronized scrolling
   const headerScrollRef = useRef<ScrollView>(null);
@@ -312,9 +315,9 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: t.bg.base, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color="#14B8A6" />
-        <Text style={{ marginTop: 16, color: '#6B7280', fontSize: 14 }}>
+        <Text style={{ marginTop: 16, color: t.text.muted, fontSize: 14 }}>
           Loading calendar...
         </Text>
       </View>
@@ -322,7 +325,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: t.bg.base }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         {/* Demo Mode Banner */}
         {isDemoMode && (
@@ -342,10 +345,10 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
             justifyContent: 'space-between',
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: t.bg.base,
           }}
         >
-          <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827' }}>
+          <Text style={{ fontSize: 28, fontWeight: '700', color: t.text.primary }}>
             Calendar
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -416,12 +419,12 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
               paddingVertical: 10,
               borderRadius: 8,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
-              backgroundColor: '#FFFFFF',
+              borderColor: t.border.DEFAULT,
+              backgroundColor: t.bg.card,
             })}
           >
-            <CalendarIcon size={18} color="#6B7280" />
-            <Text style={{ fontSize: 15, fontWeight: '500', color: '#111827', marginLeft: 8 }}>
+            <CalendarIcon size={18} color={t.text.muted} />
+            <Text style={{ fontSize: 15, fontWeight: '500', color: t.text.primary, marginLeft: 8 }}>
               {format(currentMonth, "MMM ''yy")}
             </Text>
           </Pressable>
@@ -435,7 +438,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 padding: 8,
               })}
             >
-              <ChevronLeft size={20} color="#6B7280" />
+              <ChevronLeft size={20} color={t.text.muted} />
             </Pressable>
             <Pressable
               onPress={handleNextMonth}
@@ -444,7 +447,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 padding: 8,
               })}
             >
-              <ChevronRight size={20} color="#6B7280" />
+              <ChevronRight size={20} color={t.text.muted} />
             </Pressable>
           </View>
 
@@ -455,7 +458,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
           <View
             style={{
               flexDirection: 'row',
-              backgroundColor: '#F3F4F6',
+              backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6',
               borderRadius: 8,
               padding: 4,
             }}
@@ -469,14 +472,14 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 paddingHorizontal: 20,
                 paddingVertical: 8,
                 borderRadius: 6,
-                backgroundColor: viewMode === 'multi' ? '#1F2937' : 'transparent',
+                backgroundColor: viewMode === 'multi' ? (isDark ? '#FFFFFF' : '#1F2937') : 'transparent',
               }}
             >
               <Text
                 style={{
                   fontSize: 14,
                   fontWeight: '600',
-                  color: viewMode === 'multi' ? '#FFFFFF' : '#6B7280',
+                  color: viewMode === 'multi' ? (isDark ? '#000000' : '#FFFFFF') : t.text.muted,
                 }}
               >
                 Multi
@@ -494,14 +497,14 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 paddingHorizontal: 20,
                 paddingVertical: 8,
                 borderRadius: 6,
-                backgroundColor: viewMode === 'single' ? '#1F2937' : 'transparent',
+                backgroundColor: viewMode === 'single' ? (isDark ? '#FFFFFF' : '#1F2937') : 'transparent',
               }}
             >
               <Text
                 style={{
                   fontSize: 14,
                   fontWeight: '600',
-                  color: viewMode === 'single' ? '#FFFFFF' : '#6B7280',
+                  color: viewMode === 'single' ? (isDark ? '#000000' : '#FFFFFF') : t.text.muted,
                 }}
               >
                 Single
@@ -515,7 +518,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 0, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}
+            style={{ flexGrow: 0, backgroundColor: t.bg.base, borderBottomWidth: 1, borderBottomColor: t.border.DEFAULT }}
             contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
           >
             {properties.map((property) => {
@@ -532,7 +535,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 20,
-                    backgroundColor: isSelected ? '#14B8A6' : '#F3F4F6',
+                    backgroundColor: isSelected ? '#14B8A6' : (isDark ? '#2C2C2E' : '#F3F4F6'),
                     marginRight: 8,
                   })}
                 >
@@ -540,7 +543,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                     style={{
                       fontSize: 13,
                       fontWeight: '600',
-                      color: isSelected ? '#FFFFFF' : '#374151',
+                      color: isSelected ? '#FFFFFF' : t.text.secondary,
                     }}
                   >
                     {property.name}
@@ -554,7 +557,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
         {/* Calendar Grid */}
         <View style={{ flex: 1 }}>
           {/* Fixed Header Row with Date Headers */}
-          <View style={{ flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: '#E5E7EB' }}>
+          <View style={{ flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: t.border.DEFAULT }}>
             {/* Today label cell */}
             <View
               style={{
@@ -562,12 +565,12 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 height: DATE_HEADER_HEIGHT,
                 justifyContent: 'center',
                 alignItems: 'center',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: t.bg.base,
                 borderRightWidth: 1,
-                borderRightColor: '#E5E7EB',
+                borderRightColor: t.border.DEFAULT,
               }}
             >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }}>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: t.text.primary }}>
                 Today
               </Text>
             </View>
@@ -593,16 +596,16 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                       height: DATE_HEADER_HEIGHT,
                       justifyContent: 'center',
                       alignItems: 'center',
-                      backgroundColor: isCurrentDay ? '#14B8A6' : '#FFFFFF',
+                      backgroundColor: isCurrentDay ? '#14B8A6' : t.bg.base,
                       borderRightWidth: 1,
-                      borderRightColor: '#E5E7EB',
+                      borderRightColor: t.border.DEFAULT,
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 11,
                         fontWeight: '500',
-                        color: isCurrentDay ? '#FFFFFF' : '#6B7280',
+                        color: isCurrentDay ? '#FFFFFF' : t.text.muted,
                       }}
                     >
                       {dayName}
@@ -611,7 +614,7 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                       style={{
                         fontSize: 16,
                         fontWeight: '700',
-                        color: isCurrentDay ? '#FFFFFF' : '#111827',
+                        color: isCurrentDay ? '#FFFFFF' : t.text.primary,
                       }}
                     >
                       {dayNumber}
@@ -663,10 +666,10 @@ export function CalendarScreen({ onBack }: CalendarScreenProps) {
                 }
               >
                 <Home size={48} color="#D1D5DB" />
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#6B7280', marginTop: 16 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: t.text.muted, marginTop: 16 }}>
                   No listings found
                 </Text>
-                <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' }}>
+                <Text style={{ fontSize: 14, color: t.text.muted, marginTop: 8, textAlign: 'center' }}>
                   Connect your Hostaway account to see your listings
                 </Text>
               </ScrollView>
@@ -720,6 +723,9 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
   onScroll,
   allEntries,
 }: ListingCalendarRowProps) {
+  const t = useThemeColors();
+  const isDark = useIsDark();
+
   // Get entry for a specific date
   const getEntryForDate = useCallback((date: Date) => {
     return entries.find(entry =>
@@ -737,7 +743,7 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
   };
 
   return (
-    <View style={{ borderBottomWidth: 1, borderBottomColor: '#E5E7EB' }}>
+    <View style={{ borderBottomWidth: 1, borderBottomColor: t.border.DEFAULT }}>
       {/* Main row with listing name and calendar */}
       <View style={{ flexDirection: 'row', height: ROW_HEIGHT - PRICE_ROW_HEIGHT }}>
         {/* Listing name column */}
@@ -747,9 +753,9 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
             paddingHorizontal: 10,
             paddingVertical: 8,
             justifyContent: 'center',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: t.bg.base,
             borderRightWidth: 1,
-            borderRightColor: '#E5E7EB',
+            borderRightColor: t.border.DEFAULT,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -769,7 +775,7 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
                 flex: 1,
                 fontSize: 13,
                 fontWeight: '600',
-                color: '#111827',
+                color: t.text.primary,
                 lineHeight: 17,
               }}
             >
@@ -802,11 +808,11 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
                     width: DAY_COLUMN_WIDTH,
                     height: '100%',
                     borderRightWidth: 1,
-                    borderRightColor: '#E5E7EB',
+                    borderRightColor: t.border.DEFAULT,
                     justifyContent: 'center',
                     paddingVertical: 4,
                     // Gray background for empty days (no reservation)
-                    backgroundColor: hasEntry ? '#FFFFFF' : '#F3F4F6',
+                    backgroundColor: hasEntry ? t.bg.base : (isDark ? '#1A1A1C' : '#F3F4F6'),
                   }}
                 >
                   {entry ? (
@@ -890,9 +896,9 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
         <View
           style={{
             width: LISTING_COLUMN_WIDTH,
-            backgroundColor: '#FFFFFF',
+            backgroundColor: t.bg.base,
             borderRightWidth: 1,
-            borderRightColor: '#E5E7EB',
+            borderRightColor: t.border.DEFAULT,
           }}
         />
         {/* Price cells - not scrollable, synced via state */}
@@ -920,11 +926,11 @@ const ListingCalendarRow = React.memo(function ListingCalendarRow({
                   justifyContent: 'center',
                   alignItems: 'center',
                   borderRightWidth: 1,
-                  borderRightColor: '#F3F4F6',
-                  backgroundColor: '#F9FAFB',
+                  borderRightColor: isDark ? t.border.subtle : '#F3F4F6',
+                  backgroundColor: isDark ? t.bg.subtle : '#F9FAFB',
                 }}
               >
-                <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '500' }}>
+                <Text style={{ fontSize: 11, color: t.text.muted, fontWeight: '500' }}>
                   {isNaN(displayPrice) ? '—' : `${displayPrice}$`}
                 </Text>
               </View>
@@ -946,6 +952,7 @@ const ReservationDetail = React.memo(function ReservationDetail({
   listing?: Property;
   onClose: () => void;
 }) {
+  const t = useThemeColors();
   const nights = differenceInDays(entry.endDate, entry.startDate);
   const otaBadge = getOTABadge(entry.channelName);
 
@@ -958,7 +965,7 @@ const ReservationDetail = React.memo(function ReservationDetail({
         top: 0,
         bottom: 0,
         width: SCREEN_WIDTH * 0.85,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: t.bg.card,
         shadowColor: '#000',
         shadowOffset: { width: -4, height: 0 },
         shadowOpacity: 0.15,
@@ -975,7 +982,7 @@ const ReservationDetail = React.memo(function ReservationDetail({
             paddingHorizontal: 16,
             paddingVertical: 12,
             borderBottomWidth: 1,
-            borderBottomColor: '#E5E7EB',
+            borderBottomColor: t.border.DEFAULT,
           }}
         >
           <Pressable
@@ -984,14 +991,14 @@ const ReservationDetail = React.memo(function ReservationDetail({
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: '#F3F4F6',
+              backgroundColor: t.bg.elevated,
               justifyContent: 'center',
               alignItems: 'center',
             }}
           >
-            <X size={18} color="#6B7280" />
+            <X size={18} color={t.text.muted} />
           </Pressable>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginLeft: 12 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: t.text.primary, marginLeft: 12 }}>
             {entry.type === 'block' ? 'Block' : 'Reservation'}
           </Text>
         </View>
@@ -1033,14 +1040,14 @@ const ReservationDetail = React.memo(function ReservationDetail({
                     {otaBadge.letter}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>
+                <Text style={{ fontSize: 22, fontWeight: '700', color: t.text.primary }}>
                   {entry.guestName || 'Guest'}
                 </Text>
               </View>
               {entry.guestCount != null && entry.guestCount > 0 && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft: 44 }}>
-                  <Users size={16} color="#6B7280" />
-                  <Text style={{ fontSize: 14, color: '#6B7280', marginLeft: 6 }}>
+                  <Users size={16} color={t.text.muted} />
+                  <Text style={{ fontSize: 14, color: t.text.muted, marginLeft: 6 }}>
                     {entry.guestCount} guest{entry.guestCount > 1 ? 's' : ''}
                   </Text>
                 </View>
@@ -1055,18 +1062,18 @@ const ReservationDetail = React.memo(function ReservationDetail({
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: 12,
-                backgroundColor: '#F9FAFB',
+                backgroundColor: t.bg.elevated,
                 borderRadius: 12,
                 marginBottom: 16,
               }}
             >
               <Home size={20} color="#14B8A6" />
               <View style={{ marginLeft: 12, flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: t.text.primary }}>
                   {listing.name}
                 </Text>
                 {listing.address ? (
-                  <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                  <Text style={{ fontSize: 12, color: t.text.muted, marginTop: 2 }}>
                     {listing.address}
                   </Text>
                 ) : null}
@@ -1080,14 +1087,14 @@ const ReservationDetail = React.memo(function ReservationDetail({
               flexDirection: 'row',
               justifyContent: 'space-between',
               padding: 16,
-              backgroundColor: '#F9FAFB',
+              backgroundColor: t.bg.elevated,
               borderRadius: 12,
               marginBottom: 16,
             }}
           >
             <View>
-              <Text style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>CHECK-IN</Text>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>
+              <Text style={{ fontSize: 11, color: t.text.muted, marginBottom: 4 }}>CHECK-IN</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: t.text.primary }}>
                 {format(entry.startDate, 'MMM d, yyyy')}
               </Text>
             </View>
@@ -1097,8 +1104,8 @@ const ReservationDetail = React.memo(function ReservationDetail({
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>CHECK-OUT</Text>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>
+              <Text style={{ fontSize: 11, color: t.text.muted, marginBottom: 4 }}>CHECK-OUT</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: t.text.primary }}>
                 {format(entry.endDate, 'MMM d, yyyy')}
               </Text>
             </View>
@@ -1134,7 +1141,7 @@ const ReservationDetail = React.memo(function ReservationDetail({
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: 12,
-                backgroundColor: '#F9FAFB',
+                backgroundColor: t.bg.elevated,
                 borderRadius: 12,
               }}
             >
@@ -1152,7 +1159,7 @@ const ReservationDetail = React.memo(function ReservationDetail({
                   {otaBadge.letter}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827', marginLeft: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: t.text.primary, marginLeft: 12 }}>
                 {entry.channelName}
               </Text>
             </View>
