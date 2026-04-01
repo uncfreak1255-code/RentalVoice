@@ -83,8 +83,9 @@ export function AIDraftActionsSheet({
   }, [bottomSheetRef, onRegenerate]);
 
   // Get confidence color
-  const confidenceColor = confidence >= 0.8 ? '#10B981' : confidence >= 0.6 ? '#F59E0B' : '#EF4444';
-  const confidenceLabel = confidence >= 0.8 ? 'High' : confidence >= 0.6 ? 'Medium' : 'Low';
+  // Confidence arrives as 0-100 integer from both client and server pipelines
+  const confidenceColor = confidence >= 80 ? '#10B981' : confidence >= 60 ? '#F59E0B' : '#EF4444';
+  const confidenceLabel = confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Low';
 
   return (
     <BottomSheet
@@ -103,10 +104,10 @@ export function AIDraftActionsSheet({
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title} accessibilityRole="header">AI Draft Actions</Text>
-          <View style={styles.confidenceBadge} accessible accessibilityLabel={`${confidenceLabel} confidence, ${Math.round(confidence * 100)} percent`}>
+          <View style={styles.confidenceBadge} accessible accessibilityLabel={`${confidenceLabel} confidence, ${Math.round(confidence)} percent`}>
             <View style={[styles.confidenceDot, { backgroundColor: confidenceColor }]} />
             <Text style={[styles.confidenceText, { color: confidenceColor }]}>
-              {confidenceLabel} Confidence ({Math.round(confidence * 100)}%)
+              {confidenceLabel} Confidence ({Math.round(confidence)}%)
             </Text>
           </View>
         </View>
