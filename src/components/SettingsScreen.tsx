@@ -287,7 +287,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
     return `${Math.round((analytics.aiResponsesApproved / total) * 100)}%`;
   })();
   const openAutoPilotUpgrade = () => {
-    if (features.serverProxiedAI) {
+    if (__DEV__ && features.serverProxiedAI) {
       handleNavigate('billingMemory');
       return;
     }
@@ -333,19 +333,23 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             />
           </View>
 
-          {/* ── Founder ── */}
-          <SectionHeader title="Founder" />
-          <View style={s.card}>
-            <LinkRow
-              icon={<User size={16} color="#FFFFFF" />}
-              iconBg={founderSession ? ic.green.fg : ic.purple.fg}
-              label={founderSession ? 'Founder Account Active' : 'Founder Access'}
-              onPress={() => handleNavigate('founderAccess')}
-              isLast
-            />
-          </View>
-          {founderSession && (
-            <SectionFooter text={`Signed in as ${founderSession.email}`} />
+          {/* ── Founder (dev-only) ── */}
+          {__DEV__ && (
+            <>
+              <SectionHeader title="Founder" />
+              <View style={s.card}>
+                <LinkRow
+                  icon={<User size={16} color="#FFFFFF" />}
+                  iconBg={founderSession ? ic.green.fg : ic.purple.fg}
+                  label={founderSession ? 'Founder Account Active' : 'Founder Access'}
+                  onPress={() => handleNavigate('founderAccess')}
+                  isLast
+                />
+              </View>
+              {founderSession && (
+                <SectionFooter text={`Signed in as ${founderSession.email}`} />
+              )}
+            </>
           )}
 
           {/* ── AI Usage ── */}
@@ -392,8 +396,8 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
           </View>
           <SectionFooter text={usageFooterText} />
 
-          {/* ── Commercial Memory Entitlements ── */}
-          {features.serverProxiedAI && (
+          {/* ── Commercial Memory Entitlements (dev-only) ── */}
+          {__DEV__ && features.serverProxiedAI && (
             <>
               <SectionHeader title="Memory Plan" />
               <View style={s.card}>
@@ -458,7 +462,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
                         icon={<Zap size={16} color="#FFFFFF" />}
                         iconBg={ic.orange.fg}
                         label="Upgrade Memory Capacity"
-                        onPress={() => handleNavigate(features.serverProxiedAI ? 'billingMemory' : 'upsells')}
+                        onPress={() => __DEV__ && handleNavigate(features.serverProxiedAI ? 'billingMemory' : 'upsells')}
                         isLast
                       />
                     )}
@@ -485,7 +489,7 @@ export function SettingsScreen({ onBack, onLogout, onNavigate }: SettingsScreenP
             </>
           )}
 
-          {features.serverProxiedAI && (
+          {__DEV__ && features.serverProxiedAI && (
             <>
               <SectionHeader title="Billing" />
               <View style={s.card}>

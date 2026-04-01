@@ -1,7 +1,7 @@
 // AI API Key Management
 // Secure on-device storage for user-provided AI provider keys
-// Falls back to .env keys when no user keys are saved
-// Supports Google OAuth as an alternative to API keys
+// All AI calls route through the server proxy — no client-side API keys needed.
+// User-saved keys are kept for the model picker / provider preference UI only.
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +31,7 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     description: 'Gemini 2.0 Flash — fast & free tier',
     placeholder: 'AIzaSy...',
     docsUrl: 'https://aistudio.google.com/apikey',
-    envKey: 'EXPO_PUBLIC_VIBECODE_GOOGLE_API_KEY',
+    envKey: '', // Keys are server-side only
     color: '#4285F4',
   },
   {
@@ -40,7 +40,7 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     description: 'Claude 3.5 Haiku — accurate & reliable',
     placeholder: 'sk-ant-...',
     docsUrl: 'https://console.anthropic.com/settings/keys',
-    envKey: 'EXPO_PUBLIC_VIBECODE_ANTHROPIC_API_KEY',
+    envKey: '', // Keys are server-side only
     color: '#D97757',
   },
   {
@@ -49,7 +49,7 @@ export const AI_PROVIDERS: AIProviderConfig[] = [
     description: 'GPT-4o Mini — versatile',
     placeholder: 'sk-proj-...',
     docsUrl: 'https://platform.openai.com/api-keys',
-    envKey: 'EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY',
+    envKey: '', // Keys are server-side only
     color: '#10A37F',
   },
 ];
@@ -122,27 +122,13 @@ async function deleteItem(key: string): Promise<void> {
   }
 }
 
-// ─── Env Key Lookup (static, avoids dynamic process.env access) ──
-
-function getEnvKey(provider: AIProvider): string | undefined {
-  switch (provider) {
-    case 'google':
-      return process.env.EXPO_PUBLIC_VIBECODE_GOOGLE_API_KEY;
-    case 'anthropic':
-      return process.env.EXPO_PUBLIC_VIBECODE_ANTHROPIC_API_KEY;
-    case 'openai':
-      return process.env.EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY;
-    default:
-      return undefined;
-  }
-}
-
 // ─── Public API ──────────────────────────────────────────
 
 /**
  * Get the API key (or OAuth token) for a provider.
- * For Google: OAuth token → user key → .env fallback
- * For others: user key → .env fallback
+ * All AI calls now route through the server proxy, so client-side keys
+ * are only needed for Google OAuth (device-level) or user-saved keys.
+ * No more .env fallback — secrets stay server-side.
  */
 export async function getAIKey(provider: AIProvider): Promise<string | null> {
   try {
@@ -152,15 +138,11 @@ export async function getAIKey(provider: AIProvider): Promise<string | null> {
       if (oauthToken) return oauthToken;
     }
 
-    // Check user-saved key
+    // Check user-saved key (from Settings UI)
     const userKey = await getItem(`${KEY_PREFIX}${provider}`);
     if (userKey) return userKey;
 
-    // Fall back to .env
-    const envKey = getEnvKey(provider);
-    if (envKey && !envKey.includes('n0tr3al') && !envKey.includes('your-')) {
-      return envKey;
-    }
+    // No .env fallback — server proxy handles keys
     return null;
   } catch (error) {
     console.error(`[AIKeys] Failed to get key for ${provider}:`, error);
@@ -255,73 +237,26 @@ export async function getAllProviderStatuses(): Promise<
 }
 
 /**
- * Test an API key by making a minimal call to the provider
+ * Test an API key by making a minimal call through the server proxy.
+ * The server validates the key against the real provider.
  */
 export async function testAIKey(
   provider: AIProvider,
   key: string
 ): Promise<{ valid: boolean; error?: string }> {
   try {
-    switch (provider) {
-      case 'google': {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Reply with just the word "ok"' }] }],
-            generationConfig: { maxOutputTokens: 5 },
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.text();
-          return { valid: false, error: err.includes('API_KEY_INVALID') ? 'Invalid API key' : `Error: ${res.status}` };
-        }
-        return { valid: true };
-      }
-      case 'anthropic': {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-20241022',
-            max_tokens: 5,
-            messages: [{ role: 'user', content: 'Reply with just the word "ok"' }],
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.text();
-          return { valid: false, error: err.includes('authentication_error') ? 'Invalid API key' : `Error: ${res.status}` };
-        }
-        return { valid: true };
-      }
-      case 'openai': {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            max_tokens: 5,
-            messages: [{ role: 'user', content: 'Reply with just the word "ok"' }],
-          }),
-        });
-        if (!res.ok) {
-          const err = await res.text();
-          return { valid: false, error: err.includes('invalid_api_key') ? 'Invalid API key' : `Error: ${res.status}` };
-        }
-        return { valid: true };
-      }
-      default:
-        return { valid: false, error: 'Unknown provider' };
+    const { API_BASE_URL } = require('./config');
+    const res = await fetch(`${API_BASE_URL}/api/ai-proxy/test-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, key }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: `Error: ${res.status}` }));
+      return { valid: false, error: data.error || `Error: ${res.status}` };
     }
+    const data = await res.json();
+    return { valid: data.valid !== false, error: data.error };
   } catch {
     return { valid: false, error: 'Network error — check your connection' };
   }
@@ -345,6 +280,7 @@ export async function clearAllAIKeys(): Promise<void> {
 /**
  * Detect which auth method is active for Google.
  * Returns: 'oauth' | 'api_key' | 'env' | 'none'
+ * Note: 'env' is no longer returned — keys live server-side only.
  */
 export async function getGoogleAuthMethod(): Promise<GoogleAuthMethod> {
   const signedIn = await isGoogleSignedIn();
@@ -353,9 +289,7 @@ export async function getGoogleAuthMethod(): Promise<GoogleAuthMethod> {
   const userKey = await getItem(`${KEY_PREFIX}google`);
   if (userKey) return 'api_key';
 
-  const envKey = getEnvKey('google');
-  if (envKey && !envKey.includes('n0tr3al') && !envKey.includes('your-')) return 'env';
-
+  // Server proxy handles keys; 'none' just means no local key
   return 'none';
 }
 

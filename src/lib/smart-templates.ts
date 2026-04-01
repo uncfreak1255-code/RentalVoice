@@ -3,8 +3,7 @@
 
 import type { Conversation, PropertyKnowledge, HostStyleProfile } from './store';
 import { generateStyleInstructions } from './ai-learning';
-
-const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
+import { API_BASE_URL } from './config';
 
 // Template Categories
 export type TemplateCategory =
@@ -292,20 +291,7 @@ export async function personalizeTemplate(
     };
   }
 
-  // Apply AI personalization
-  const apiKey = process.env.EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY;
-
-  if (!apiKey) {
-    // Return template without AI personalization
-    console.warn('[SmartTemplates] No API key, skipping personalization');
-    return {
-      originalTemplate: template,
-      personalizedContent: populatedContent,
-      variablesUsed: variableValues,
-      aiAdjustments: ['AI personalization skipped - no API key'],
-      confidence: 85,
-    };
-  }
+  // Apply AI personalization via server proxy
 
   try {
     // Build context from conversation
@@ -344,20 +330,25 @@ ${conversation.guest.previousStays ? `Returning guest (${conversation.guest.prev
 Personalize this template to sound natural and appropriate for this specific guest and conversation.
 Return ONLY the personalized message, no explanation.`;
 
-    const response = await fetch(OPENAI_API_URL, {
+    const openaiPayload = {
+      model: 'gpt-4o-mini',
+      max_tokens: 500,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
+        provider: 'openai',
         model: 'gpt-4o-mini',
-        input: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_output_tokens: 500,
+        payload: openaiPayload,
       }),
     });
 
@@ -366,7 +357,7 @@ Return ONLY the personalized message, no explanation.`;
     }
 
     const data = await response.json();
-    const personalizedContent = data.output?.[0]?.content?.[0]?.text || data.output_text || populatedContent;
+    const personalizedContent = data.choices?.[0]?.message?.content || populatedContent;
 
     return {
       originalTemplate: template,
@@ -432,13 +423,6 @@ export async function generatePostStayThankYou(
   hostName?: string,
   hostStyleProfile?: HostStyleProfile
 ): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY;
-
-  if (!apiKey) {
-    // Fallback template
-    return `Thank you so much for staying at ${conversation.property.name}, ${conversation.guest.name}! We hope you had a wonderful experience and would love to host you again. Safe travels!`;
-  }
-
   try {
     // Gather stay details from conversation
     const positiveTopics: string[] = [];
@@ -484,20 +468,25 @@ Host name: ${hostName || 'The Host'}
 
 Write a personalized thank-you message. Return ONLY the message.`;
 
-    const response = await fetch(OPENAI_API_URL, {
+    const openaiPayload = {
+      model: 'gpt-4o-mini',
+      max_tokens: 300,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.8,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
+        provider: 'openai',
         model: 'gpt-4o-mini',
-        input: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.8,
-        max_output_tokens: 300,
+        payload: openaiPayload,
       }),
     });
 
@@ -506,7 +495,7 @@ Write a personalized thank-you message. Return ONLY the message.`;
     }
 
     const data = await response.json();
-    return data.output?.[0]?.content?.[0]?.text || data.output_text || '';
+    return data.choices?.[0]?.message?.content || '';
   } catch (error) {
     console.error('[SmartTemplates] Post-stay generation error:', error);
     return `Thank you so much for staying at ${conversation.property.name}, ${conversation.guest.name}! We hope you had a wonderful experience and would love to host you again. Safe travels!`;

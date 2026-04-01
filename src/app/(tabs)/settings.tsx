@@ -11,11 +11,6 @@ const settingsRoutes: Record<string, string> = {
   issueTracker: '/settings/issue-tracker',
   automations: '/settings/automations',
   analytics: '/settings/analytics',
-  upsells: '/settings/upsells',
-  billing: '/settings/billing?source=settings',
-  billingMemory: '/settings/billing?source=memory_limit',
-  founderDiagnostics: '/settings/founder-diagnostics',
-  founderAccess: '/settings/founder-access',
   apiSettings: '/settings/api',
   syncData: '/settings/sync-data',
   languageSettings: '/settings/language',
@@ -33,6 +28,15 @@ const settingsRoutes: Record<string, string> = {
   aiProviders: '/settings/ai-providers',
   reviewResponse: '/settings/review-response',
   testVoice: '/settings/test-voice',
+  // v1: billing/commercial/founder screens hidden from production navigation.
+  // Accessible in __DEV__ only — files are NOT deleted, just ungated for dev.
+  ...__DEV__ ? {
+    upsells: '/settings/upsells',
+    billing: '/settings/billing?source=settings',
+    billingMemory: '/settings/billing?source=memory_limit',
+    founderDiagnostics: '/settings/founder-diagnostics',
+    founderAccess: '/settings/founder-access',
+  } : {},
 };
 
 export default function SettingsTab() {
