@@ -15,6 +15,7 @@ Use this workflow for:
 
 - `/Users/sawbeck/Projects/RentalVoice/AGENTS.md`
 - `/Users/sawbeck/Projects/RentalVoice/CLAUDE.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
 
 ## Current rules
@@ -22,6 +23,8 @@ Use this workflow for:
 - GitHub `main` is canonical
 - protected local baseline is the rollback anchor
 - do risky work on isolated branches or worktrees, not local `main`
+- before non-trivial edits, create or reuse an isolated worktree and run `/Users/sawbeck/bin/guardrail-preflight`
+- if the active checkout is protected root `main`, stop and move to a feature worktree before changing files
 - current app remains `personal` mode
 - current visible auth remains Hostaway-first
 - neither current Supabase project is the founder/live app-auth environment
@@ -44,6 +47,7 @@ npm run ops:founder:bootstrap
 
 ## Canonical runbooks
 
+- `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/founder-bootstrap.md`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/personal-to-founder-migration.md`

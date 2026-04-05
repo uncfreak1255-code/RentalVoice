@@ -12,6 +12,10 @@ Put durable operational truth in:
 - `/Users/sawbeck/Projects/RentalVoice/docs/status/`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/`
 
+For Codex Desktop sessions that may edit code, the primary git-safety runbook is:
+
+- `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
+
 ## Read order for new agents
 
 1. `/Users/sawbeck/Projects/RentalVoice/AGENTS.md`
@@ -20,7 +24,8 @@ Put durable operational truth in:
 4. `/Users/sawbeck/Projects/RentalVoice/docs/status/next-batch.md`
 5. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
 6. one relevant workflow in `/Users/sawbeck/Projects/RentalVoice/.agents/workflows/`
-7. one relevant runbook in `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/`
+7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
+8. one other relevant runbook in `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/`
 
 ## Available workflows
 

@@ -10,7 +10,8 @@ Then use this order:
 4. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
 5. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
 6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/github-canonical-promotion.md`
-7. task-specific runbooks or code
+7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
+8. task-specific runbooks or code
 
 ## Non-negotiable repo truths
 
@@ -33,6 +34,10 @@ Then use this order:
 
 - prefer the existing runbooks over inventing new ad hoc workflows
 - keep local `main` as a sync checkout; do feature work on isolated branches or worktrees
+- before non-trivial edits, run `/Users/sawbeck/bin/guardrail-preflight`
+- if the active checkout is root `/Users/sawbeck/Projects/RentalVoice` on protected `main`, stop and move to an isolated worktree before editing
+- in Codex Desktop, use `Create permanent worktree` or an existing worktree-owned thread for code changes; do not use the branch dropdown on dirty root `main` as a substitute
+- commit from the feature worktree that owns the task, not from the root sync checkout
 - keep personal-mode UX stable unless the task explicitly says otherwise
 - keep commercialization work staged and isolated
 - document source-of-truth, migration, and rollback assumptions clearly

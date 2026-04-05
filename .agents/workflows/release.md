@@ -14,11 +14,14 @@ Use this workflow before:
 
 - `/Users/sawbeck/Projects/RentalVoice/AGENTS.md`
 - `/Users/sawbeck/Projects/RentalVoice/CLAUDE.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
 - `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/github-canonical-promotion.md`
 
 ## Rules
 
 - GitHub `main` is canonical; local `main` should stay synced to it between feature batches
+- sync root `main` as the recovery checkout, but do promotion work from the owning feature worktree
+- if the active checkout is root `main`, stop and move back to the feature worktree before staging, committing, or pushing
 - refresh the protected local baseline before risky release or live-touching work
 - do not mix unrelated feature groups into one promotion batch
 - do not enable commercial mode by default as part of a general push

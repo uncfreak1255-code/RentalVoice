@@ -10,6 +10,7 @@ Read first:
 
 - `/Users/sawbeck/Projects/RentalVoice/AGENTS.md`
 - `/Users/sawbeck/Projects/RentalVoice/CLAUDE.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
 
 ## Quick Start (Run Every Session)
 
@@ -17,17 +18,24 @@ Read first:
 
 1. Confirm the task does not require a new protected baseline first.
 
-2. Start the Expo dev server:
+2. Confirm the active checkout is a feature worktree, not root `main`.
 ```bash
-cd /Users/sawbeck/Projects/RentalVoice && npx expo start
+git status --short --branch
+/Users/sawbeck/bin/guardrail-preflight
+```
+If preflight fails because the current branch is protected `main`, stop and move to an isolated worktree before starting the dev loop.
+
+3. Start the Expo dev server from the active worktree:
+```bash
+cd "$(git rev-parse --show-toplevel)" && npx expo start
 ```
 This runs the Metro bundler. The user's phone connects via the dev build, and the simulator connects locally. Code changes hot-reload on BOTH.
 
-3. If the iOS Simulator isn't running the app, press `i` in the Metro terminal to launch it.
+4. If the iOS Simulator isn't running the app, press `i` in the Metro terminal to launch it.
 
-4. Verify the app loads on the simulator. Use Maestro to take a screenshot:
+5. Verify the app loads on the simulator. Use Maestro to take a screenshot:
 ```bash
-maestro test /Users/sawbeck/Projects/RentalVoice/.maestro/onboarding_demo_mode.yaml
+maestro test "$(git rev-parse --show-toplevel)/.maestro/onboarding_demo_mode.yaml"
 ```
 
 ## When the User Reports a Bug or UI Issue
@@ -41,7 +49,7 @@ xcrun simctl io booted screenshot /tmp/current_ui.png
 
 3. **Verify the fix** on the simulator using Maestro or another screenshot.
 
-4. **Commit and push** when the fix is confirmed good.
+4. **Commit and push from the feature worktree** when the fix is confirmed good.
 
 Before pushing, use the release workflow:
 
@@ -52,7 +60,7 @@ Before pushing, use the release workflow:
 If the user needs to see changes on their phone but isn't connected to the dev server:
 
 ```bash
-cd /Users/sawbeck/Projects/RentalVoice && npx eas update --channel development --message "description of changes"
+cd "$(git rev-parse --show-toplevel)" && npx eas update --channel development --message "description of changes"
 ```
 
 This pushes a JS bundle update. Next time they open the app, it downloads the update.
@@ -63,13 +71,13 @@ This pushes a JS bundle update. Next time they open the app, it downloads the up
 
 If the simulator doesn't have the dev build:
 ```bash
-cd /Users/sawbeck/Projects/RentalVoice && npx expo run:ios
+cd "$(git rev-parse --show-toplevel)" && npx expo run:ios
 ```
 This builds the native app for the simulator (~5-10 min). Only needed once unless native dependencies change.
 
 If the user needs a fresh dev build on their PHONE:
 ```bash
-cd /Users/sawbeck/Projects/RentalVoice && npx eas build --profile development --platform ios
+cd "$(git rev-parse --show-toplevel)" && npx eas build --profile development --platform ios
 ```
 Then they install it via the link EAS provides.
 
@@ -77,12 +85,12 @@ Then they install it via the link EAS provides.
 
 Run all flows:
 ```bash
-maestro test /Users/sawbeck/Projects/RentalVoice/.maestro/
+maestro test "$(git rev-parse --show-toplevel)/.maestro/"
 ```
 
 Run a single flow:
 ```bash
-maestro test /Users/sawbeck/Projects/RentalVoice/.maestro/onboarding_demo_mode.yaml
+maestro test "$(git rev-parse --show-toplevel)/.maestro/onboarding_demo_mode.yaml"
 ```
 
 Available flows:
