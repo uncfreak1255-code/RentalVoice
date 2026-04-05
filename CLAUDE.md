@@ -18,6 +18,7 @@ Primary folders:
 - Canonical release truth: GitHub `main` / `origin/main`
 - Local workspace at `/Users/sawbeck/Projects/RentalVoice` is the primary sync and recovery checkout, not a local-only canonical override
 - New implementation work should happen on isolated feature branches or worktrees, not directly on local `main`
+- In Codex Desktop, branch switching inside the root checkout is not a substitute for moving a thread onto an isolated worktree
 - Protected local baseline is the rollback anchor for risky local/live operations
 
 Protected baseline artifacts:
@@ -129,6 +130,21 @@ Before risky work:
 5. treat GitHub promotion as a separate deliberate workflow
 6. read the `docs/status/` files before starting a new implementation batch
 
+Before non-trivial implementation work:
+
+1. create or reuse an isolated feature worktree
+2. run `/Users/sawbeck/bin/guardrail-preflight` inside that worktree
+3. if preflight fails because the active checkout is protected `main`, stop and move the work to a feature worktree before editing
+
+## Codex Desktop git safety
+
+- Root `/Users/sawbeck/Projects/RentalVoice` remains the sync/recovery checkout
+- Agents must refuse non-trivial edits when the active checkout is root `main`
+- Default code-work path is an isolated worktree under `/Users/sawbeck/.codex/worktrees/`
+- If the commit dialog says `main`, stop and verify the thread is attached to the correct worktree
+- Do not use the desktop branch dropdown on dirty root `main` as a substitute for `Create permanent worktree`
+- Canonical operator runbook: `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
+
 Additional live-founder rule:
 
 - do not recreate, rotate, or overwrite the live founder account casually
@@ -156,8 +172,9 @@ Read these in order:
 5. `/Users/sawbeck/Projects/RentalVoice/docs/status/open-risks.md`
 6. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/protected-local-baseline.md`
 7. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/github-canonical-promotion.md`
-8. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
-9. task-specific files
+8. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/codex-desktop-workflow.md`
+9. `/Users/sawbeck/Projects/RentalVoice/docs/runbooks/supabase-environment-workflow.md`
+10. task-specific files
 
 ## Known patterns and gotchas
 
