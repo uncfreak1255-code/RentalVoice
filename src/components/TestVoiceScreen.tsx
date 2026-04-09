@@ -7,13 +7,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft, ChevronDown, Mic, Send, CheckCircle2,
-  XCircle, Sparkles, MessageSquare, RotateCcw,
+  XCircle, Sparkles, RotateCcw,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore, type Property, type Conversation, type Message } from '@/lib/store';
 import { generateEnhancedAIResponse, type EnhancedAIResponse } from '@/lib/ai-enhanced';
 import { recordLearningEvent } from '@/lib/learning-events';
-import { colors, typography, spacing, radius } from '@/lib/design-tokens';
+import { colors, typography } from '@/lib/design-tokens';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ── Types ──────────────────────────────────────────
@@ -241,40 +241,6 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
     }
   }, [selectedProperty, knowledge, hostStyleProfiles, remainingTests]);
 
-  // ── Compare Responses ──
-
-  const handleCompare = useCallback(async () => {
-    if (!userResponseInput.trim() || !currentEntry) return;
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const trimmedResponse = userResponseInput.trim();
-    const comparison = compareVoice(currentEntry.aiDraft, trimmedResponse);
-
-    setCurrentEntry({
-      ...currentEntry,
-      userResponse: trimmedResponse,
-      comparison,
-      saveAsTraining,
-    });
-    setPhase('comparison_done');
-    setUserResponseInput('');
-    setTrainingSaveSummary(null);
-
-    // Save as training example if opted in
-    if (saveAsTraining) {
-      const receipt = await saveSandboxTrainingExample(
-        trimmedResponse,
-        currentEntry.guestMessage,
-        currentEntry.aiDraft,
-      );
-      if (receipt?.summary) {
-        setTrainingSaveSummary(receipt.summary);
-      }
-    }
-
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
-  }, [userResponseInput, currentEntry, saveAsTraining]);
-
   // ── Save Training Example ──
 
   const saveSandboxTrainingExample = useCallback(async (
@@ -323,6 +289,40 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
       return null;
     }
   }, [selectedPropertyId]);
+
+  // ── Compare Responses ──
+
+  const handleCompare = useCallback(async () => {
+    if (!userResponseInput.trim() || !currentEntry) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const trimmedResponse = userResponseInput.trim();
+    const comparison = compareVoice(currentEntry.aiDraft, trimmedResponse);
+
+    setCurrentEntry({
+      ...currentEntry,
+      userResponse: trimmedResponse,
+      comparison,
+      saveAsTraining,
+    });
+    setPhase('comparison_done');
+    setUserResponseInput('');
+    setTrainingSaveSummary(null);
+
+    // Save as training example if opted in
+    if (saveAsTraining) {
+      const receipt = await saveSandboxTrainingExample(
+        trimmedResponse,
+        currentEntry.guestMessage,
+        currentEntry.aiDraft,
+      );
+      if (receipt?.summary) {
+        setTrainingSaveSummary(receipt.summary);
+      }
+    }
+
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
+  }, [userResponseInput, currentEntry, saveAsTraining, saveSandboxTrainingExample]);
 
   // ── Reset for New Test ──
 
@@ -436,7 +436,7 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
                   <Sparkles size={14} color={colors.primary.DEFAULT} />
                   <Text style={styles.draftHeaderText}>AI Draft</Text>
                   <View style={styles.confidenceBadge}>
-                  <Text style={styles.confidenceText}>
+                    <Text style={styles.confidenceText}>
                       {Math.round(currentEntry.aiConfidence)}%
                     </Text>
                   </View>

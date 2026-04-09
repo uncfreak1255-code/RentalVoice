@@ -1,4 +1,7 @@
+import AsyncStorageMock from '@react-native-async-storage/async-storage/jest/async-storage-mock';
 import { createRetrievalSourceReader } from '../retrieval-source';
+
+jest.mock('@react-native-async-storage/async-storage', () => AsyncStorageMock);
 
 function makeReader(overrides: Partial<Parameters<typeof createRetrievalSourceReader>[0]> = {}) {
   return createRetrievalSourceReader({

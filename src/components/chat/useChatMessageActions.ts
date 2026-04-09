@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '@/lib/store';
@@ -51,7 +51,7 @@ export function useChatMessageActions({
   const [learningToastType, setLearningToastType] = useState<LearningToastType>('edit');
 
   const conversation = conversations.find((c) => c.id === conversationId);
-  const messages = conversation?.messages ?? [];
+  const messages = useMemo(() => conversation?.messages ?? [], [conversation?.messages]);
 
   // -- Outcome tracking --
   const trackDraftOutcome = useCallback(
@@ -174,6 +174,7 @@ export function useChatMessageActions({
       currentEnhancedDraft,
       conversation,
       incrementAnalytic,
+      setCurrentEnhancedDraft,
     ],
   );
 
@@ -281,6 +282,8 @@ export function useChatMessageActions({
       apiKey,
       isSending,
       incrementAnalytic,
+      conversation?.property?.id,
+      setCurrentEnhancedDraft,
     ],
   );
 
@@ -308,6 +311,7 @@ export function useChatMessageActions({
       isGeneratingDraft,
       generateDraftForConversation,
       incrementAnalytic,
+      setCurrentEnhancedDraft,
     ],
   );
 
@@ -324,7 +328,7 @@ export function useChatMessageActions({
         : null,
     );
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+  }, [setCurrentEnhancedDraft]);
 
   // -- Dismiss --
   const handleDismissAiDraft = useCallback(() => {
@@ -379,7 +383,18 @@ export function useChatMessageActions({
     setCurrentEnhancedDraft(null);
     incrementAnalytic('aiResponsesRejected');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [messages, conversationId, updateConversation, incrementAnalytic, currentEnhancedDraft, conversation]);
+  }, [
+    messages,
+    conversationId,
+    updateConversation,
+    incrementAnalytic,
+    currentEnhancedDraft,
+    conversation,
+    aiLearningProgress,
+    setCurrentEnhancedDraft,
+    trackDraftOutcome,
+    updateAILearningProgress,
+  ]);
 
   // -- Fix conflict --
   const handleFixConflict = useCallback(
@@ -399,7 +414,7 @@ export function useChatMessageActions({
         });
       }
     },
-    [conversation?.property?.id, updatePropertyKnowledge, currentEnhancedDraft],
+    [conversation?.property?.id, updatePropertyKnowledge, currentEnhancedDraft, setCurrentEnhancedDraft],
   );
 
   return {

@@ -1,4 +1,6 @@
 import type { IndexedResponsePatternLike } from './ai-learning';
+import { fewShotIndexer } from './advanced-training';
+import { getStoredPatterns } from './edit-diff-analysis';
 
 export type ActiveRetrievalMode = 'local_few_shot';
 
@@ -44,18 +46,10 @@ export interface RetrievalSourceDeps {
 function defaultDeps(): RetrievalSourceDeps {
   return {
     now: () => Date.now(),
-    getFewShotStats: () => {
-      const { fewShotIndexer } = require('./advanced-training');
-      return fewShotIndexer.getStats();
-    },
-    findRelevantExamples: (guestMessage, propertyId, limit) => {
-      const { fewShotIndexer } = require('./advanced-training');
-      return fewShotIndexer.findRelevantExamples(guestMessage, propertyId, limit);
-    },
-    getStoredEditPatterns: async () => {
-      const { getStoredPatterns } = require('./edit-diff-analysis');
-      return getStoredPatterns();
-    },
+    getFewShotStats: () => fewShotIndexer.getStats(),
+    findRelevantExamples: (guestMessage, propertyId, limit) =>
+      fewShotIndexer.findRelevantExamples(guestMessage, propertyId, limit),
+    getStoredEditPatterns: async () => getStoredPatterns(),
   };
 }
 

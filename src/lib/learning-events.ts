@@ -1,4 +1,11 @@
 import { createCalibrationEntry, analyzeReplyDelta } from './ai-intelligence';
+import { incrementalTrainer, fewShotIndexer } from './advanced-training';
+import {
+  recordDraftOutcomeViaServer,
+  submitEditFeedback,
+  type DraftOutcomeFeedbackRequest,
+  type EditFeedbackRequest,
+} from './api-client';
 import {
   analyzeEdit,
   analyzeIndependentReply,
@@ -8,6 +15,7 @@ import {
   storeIndependentReplyPattern,
   type IndependentReplyPattern,
 } from './edit-diff-analysis';
+import * as semanticVoiceIndex from './semantic-voice-index';
 import type {
   AILearningProgress,
   DraftOutcome,
@@ -15,7 +23,7 @@ import type {
   LearningEntry,
   MessageOriginType,
 } from './store';
-import type { DraftOutcomeFeedbackRequest, EditFeedbackRequest } from './api-client';
+import { useAppStore } from './store';
 
 type FounderSessionLike = {
   accessToken?: string;
@@ -140,22 +148,12 @@ function defaultDeps(): LearningEventDeps {
   return {
     now: () => Date.now(),
     randomId: () => Math.random().toString(36).slice(2, 11),
-    getStoreState: () => {
-      const { useAppStore } = require('./store');
-      return useAppStore.getState() as LearningEventStoreState;
-    },
-    queueTrainingMessage: async (message) => {
-      const { incrementalTrainer } = require('./advanced-training');
-      return incrementalTrainer.queueMessage(message);
-    },
-    addFewShotExample: async (guestMessage, hostResponse, propertyId, originType) => {
-      const { fewShotIndexer } = require('./advanced-training');
-      return fewShotIndexer.addExample(guestMessage, hostResponse, propertyId, originType);
-    },
-    syncSemanticExample: async (guestMessage, hostResponse, propertyId, originType, intent) => {
-      const semanticVoiceIndex = require('./semantic-voice-index');
-      return semanticVoiceIndex.learn(guestMessage, hostResponse, propertyId, originType, intent);
-    },
+    getStoreState: () => useAppStore.getState() as LearningEventStoreState,
+    queueTrainingMessage: async (message) => incrementalTrainer.queueMessage(message),
+    addFewShotExample: async (guestMessage, hostResponse, propertyId, originType) =>
+      fewShotIndexer.addExample(guestMessage, hostResponse, propertyId, originType),
+    syncSemanticExample: async (guestMessage, hostResponse, propertyId, originType, intent) =>
+      semanticVoiceIndex.learn(guestMessage, hostResponse, propertyId, originType, intent),
     analyzeEdit,
     storeEditPattern,
     getEditSummary,
@@ -164,14 +162,8 @@ function defaultDeps(): LearningEventDeps {
     getIndependentReplySummary,
     createCalibrationEntry,
     analyzeReplyDelta,
-    recordServerOutcome: async (req) => {
-      const { recordDraftOutcomeViaServer } = require('./api-client');
-      return recordDraftOutcomeViaServer(req);
-    },
-    submitServerEditFeedback: async (req) => {
-      const { submitEditFeedback } = require('./api-client');
-      return submitEditFeedback(req);
-    },
+    recordServerOutcome: async (req) => recordDraftOutcomeViaServer(req),
+    submitServerEditFeedback: async (req) => submitEditFeedback(req),
   };
 }
 
