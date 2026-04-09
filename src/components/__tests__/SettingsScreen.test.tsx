@@ -16,6 +16,23 @@ jest.mock('react-native-safe-area-context', () => {
 
 jest.mock('@react-native-community/slider', () => 'Slider');
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    setItem: jest.fn().mockResolvedValue(undefined),
+    getItem: jest.fn().mockResolvedValue(null),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+    multiGet: jest.fn().mockResolvedValue([]),
+    multiSet: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock('expo-secure-store', () => ({
+  setItemAsync: jest.fn().mockResolvedValue(undefined),
+  getItemAsync: jest.fn().mockResolvedValue(null),
+  deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
   notificationAsync: jest.fn(),
@@ -76,10 +93,57 @@ jest.mock('lucide-react-native', () => {
 jest.mock('@/lib/design-tokens', () => ({
   colors: {
     primary: { DEFAULT: '#14B8A6' },
+    danger: { DEFAULT: '#EF4444' },
+    bg: { base: '#FFFFFF', card: '#F9FAFB', elevated: '#F3F4F6' },
+    text: { primary: '#111827', secondary: '#374151', muted: '#6B7280' },
+    border: { subtle: '#E5E7EB' },
   },
   typography: {
     fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
   },
+  spacing: { '2': 8, '3': 12, '4': 16 },
+  radius: { md: 12 },
+}));
+
+jest.mock('@/lib/useThemeColors', () => ({
+  useThemeColors: () => ({
+    bg: { base: '#FFFFFF', card: '#F9FAFB' },
+    text: { primary: '#111827', secondary: '#374151', muted: '#6B7280' },
+  }),
+  useIsDark: () => false,
+}));
+
+jest.mock('../ui/SettingsBottomSheet', () => ({
+  SettingsBottomSheet: () => null,
+}));
+
+jest.mock('../DemoModeBanner', () => ({
+  DemoModeBanner: () => null,
+}));
+
+jest.mock('@/lib/learning-sync', () => ({
+  syncLearningToCloud: jest.fn(),
+  canSync: jest.fn(() => false),
+}));
+
+jest.mock('../ConfidenceDetail', () => () => null);
+jest.mock('../TestVoiceScreen', () => ({
+  TestVoiceScreen: () => null,
+}));
+jest.mock('../AIProviderSettingsScreen', () => ({
+  AIProviderSettingsScreen: () => null,
+}));
+jest.mock('../AutomationsScreen', () => ({
+  AutomationsScreen: () => null,
+}));
+jest.mock('../SyncDataScreen', () => ({
+  SyncDataScreen: () => null,
+}));
+jest.mock('../HelpCenterScreen', () => ({
+  HelpCenterScreen: () => null,
+}));
+jest.mock('../ApiSettingsScreen', () => ({
+  ApiSettingsScreen: () => null,
 }));
 
 jest.mock('../ui/SettingsComponents', () => {
@@ -123,6 +187,7 @@ jest.mock('../ui/SettingsComponents', () => {
     ToggleRow,
     ValueRow,
     LinkRow,
+    useThemedCardStyle: () => ({}),
     s: {
       card: {},
       tealValue: {},
@@ -182,8 +247,7 @@ describe('SettingsScreen', () => {
     );
 
     await waitFor(() => {
-      expect(getByText('Messages Trained')).toBeTruthy();
-      expect(getByText('475')).toBeTruthy();
+      expect(getByText('475 messages trained. The AI learns from your edits and approvals.')).toBeTruthy();
     });
   });
 

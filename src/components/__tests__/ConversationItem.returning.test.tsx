@@ -27,9 +27,30 @@ jest.mock('expo-haptics', () => ({
 }));
 
 jest.mock('@/lib/design-tokens', () => ({
+  colors: {
+    platform: {
+      airbnb: '#FF5A5F',
+      vrbo: '#2557A7',
+      booking: '#003580',
+    },
+    status: { online: '#22C55E' },
+    text: {
+      primary: '#111827',
+      secondary: '#374151',
+      muted: '#6B7280',
+      inverse: '#FFFFFF',
+    },
+    primary: { DEFAULT: '#14B8A6', muted: '#DFF7F3' },
+    success: { DEFAULT: '#22C55E', muted: '#DCFCE7' },
+    danger: { DEFAULT: '#EF4444' },
+    border: { subtle: '#E5E7EB' },
+    bg: { elevated: '#F6F7F9' },
+  },
   typography: {
     fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
   },
+  spacing: { '1': 4, '2': 8, '3': 12, '4': 16 },
+  radius: { sm: 8, md: 12, lg: 16, full: 9999 },
 }));
 
 jest.mock('@/components/ui/PremiumPressable', () => {

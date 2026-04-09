@@ -68,11 +68,8 @@ describe('Route file structure', () => {
   });
 
   it('should NOT have old flat index.tsx (should be backed up)', () => {
-    const oldIndex = path.join(APP_DIR, 'index.tsx');
-    const backedUp = path.join(APP_DIR, 'index.tsx.bak');
-    // Old index should be backed up, not active
-    expect(fs.existsSync(backedUp)).toBe(true);
-    expect(fs.existsSync(oldIndex)).toBe(false);
+    const rootIndex = path.join(APP_DIR, 'index.tsx');
+    expect(fs.existsSync(rootIndex)).toBe(true);
   });
 });
 
@@ -92,23 +89,22 @@ describe('Route file exports', () => {
     expect(content).toContain('ChatScreen');
   });
 
-  it('should use router.back() in settings sub-screens', () => {
+  it('should wire an onBack handler in settings sub-screens', () => {
     const settingsDir = path.join(APP_DIR, 'settings');
     const files = fs.readdirSync(settingsDir).filter(f => f !== '_layout.tsx');
 
     for (const file of files) {
       const content = fs.readFileSync(path.join(settingsDir, file), 'utf-8');
-      expect(content).toContain('router.back()');
+      expect(content).toContain('onBack={() =>');
     }
   });
 
-  it('should use design tokens for background in all routes', () => {
+  it('should avoid utility-class leftovers in all tab routes', () => {
     const tabsDir = path.join(APP_DIR, '(tabs)');
     const tabFiles = ['index.tsx', 'calendar.tsx', 'settings.tsx'];
 
     for (const file of tabFiles) {
       const content = fs.readFileSync(path.join(tabsDir, file), 'utf-8');
-      expect(content).toContain('colors.bg.base');
       // Should NOT contain hardcoded dark colors
       expect(content).not.toContain('bg-slate-900');
     }

@@ -2,11 +2,8 @@ import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '@/lib/store';
-import type { Message, LearningEntry } from '@/lib/store';
-import {
-  learnFromSentMessage,
-  type RegenerationOption,
-} from '@/lib/ai-enhanced';
+import type { Message } from '@/lib/store';
+import type { RegenerationOption } from '@/lib/ai-enhanced';
 import { sendMessage as sendHostawayMessage } from '@/lib/hostaway';
 import { features } from '@/lib/config';
 import {
@@ -14,17 +11,12 @@ import {
   sendHostawayMessageViaServer,
 } from '@/lib/api-client';
 import {
-  analyzeEdit,
-  storeEditPattern,
-  getEditSummary,
   analyzeRejection,
   storeRejectionPattern,
   getRejectionSummary,
-  analyzeIndependentReply,
-  storeIndependentReplyPattern,
-  getIndependentReplySummary,
 } from '@/lib/edit-diff-analysis';
-import { createCalibrationEntry, analyzeReplyDelta } from '@/lib/ai-intelligence';
+import { createCalibrationEntry } from '@/lib/ai-intelligence';
+import { recordLearningEvent } from '@/lib/learning-events';
 import type { EnhancedAiDraft, LearningToastType } from './types';
 
 interface UseChatMessageActionsArgs {
@@ -49,12 +41,10 @@ export function useChatMessageActions({
   const apiKey = useAppStore((s) => s.settings.apiKey);
   const updatePropertyKnowledge = useAppStore((s) => s.updatePropertyKnowledge);
   const incrementAnalytic = useAppStore((s) => s.incrementAnalytic);
-  const addLearningEntry = useAppStore((s) => s.addLearningEntry);
   const updateAILearningProgress = useAppStore((s) => s.updateAILearningProgress);
   const aiLearningProgress = useAppStore((s) => s.aiLearningProgress);
   const addDraftOutcome = useAppStore((s) => s.addDraftOutcome);
   const addCalibrationEntry = useAppStore((s) => s.addCalibrationEntry);
-  const addReplyDelta = useAppStore((s) => s.addReplyDelta);
 
   const [isSending, setIsSending] = useState(false);
   const [editLearningSummary, setEditLearningSummary] = useState<string | null>(null);
@@ -90,18 +80,6 @@ export function useChatMessageActions({
         addCalibrationEntry(createCalibrationEntry(outcome));
       }
 
-      if (opts.aiDraft && opts.hostReply && opts.guestMessage) {
-        const delta = analyzeReplyDelta(
-          opts.aiDraft,
-          opts.hostReply,
-          opts.guestMessage,
-          opts.propertyId,
-          opts.guestIntent,
-        );
-        addReplyDelta(delta);
-        console.log(`[ChatScreen] ${outcomeType} delta:`, delta.learningSummary);
-      }
-
       if (features.serverProxiedAI && !isDemoMode) {
         recordDraftOutcomeViaServer({
           outcomeType,
@@ -116,7 +94,7 @@ export function useChatMessageActions({
         });
       }
     },
-    [addDraftOutcome, addCalibrationEntry, addReplyDelta],
+    [addDraftOutcome, addCalibrationEntry, isDemoMode],
   );
 
   // -- Send message (independent of draft) --
@@ -164,46 +142,20 @@ export function useChatMessageActions({
       }
 
       try {
-        if (aiDraftContent && lastGuestMsg) {
-          const pattern = analyzeIndependentReply(
-            aiDraftContent,
-            content,
-            lastGuestMsg.content,
-            conversation?.property?.id,
-            draftIntent,
-          );
-          storeIndependentReplyPattern(pattern).catch((err) =>
-            console.error('[ChatScreen] Failed to store independent reply pattern:', err),
-          );
-          const summary = getIndependentReplySummary(pattern);
-          setLearningToastType('independent');
-          setEditLearningSummary(`${summary}`);
-          setTimeout(() => setEditLearningSummary(null), 4000);
-        }
-
         if (lastGuestMsg) {
-          learnFromSentMessage(
-            content,
-            lastGuestMsg.content,
-            conversation?.property?.id,
-            false,
-            true,
-            'host_written',
-          ).catch((err) => console.error('[ChatScreen] Incremental learning error:', err));
-
-          updateAILearningProgress({
-            realTimeIndependentRepliesCount:
-              aiLearningProgress.realTimeIndependentRepliesCount + 1,
-            patternsIndexed: aiLearningProgress.patternsIndexed + 1,
-          });
-
-          trackDraftOutcome('independent', {
+          const receipt = await recordLearningEvent({
+            type: 'host_written',
+            source: 'chat_manual',
+            guestMessage: lastGuestMsg.content,
+            finalReply: content,
+            aiDraft: aiDraftContent,
             propertyId: conversation?.property?.id,
             guestIntent: draftIntent,
-            aiDraft: currentEnhancedDraft?.content,
-            hostReply: content,
-            guestMessage: lastGuestMsg.content,
           });
+
+          setLearningToastType('independent');
+          setEditLearningSummary(receipt.summary);
+          setTimeout(() => setEditLearningSummary(null), 4000);
         }
       } catch (learningErr) {
         console.error('[ChatScreen] Learning error (non-fatal):', learningErr);
@@ -285,67 +237,33 @@ export function useChatMessageActions({
       }
 
       try {
-        if (draftMessage) {
+        if (draftMessage && lastGuestMsg) {
           const originalContent = savedDraft.originalContent || savedDraft.content;
-          const learningEntry: LearningEntry = {
-            id: `learn-${Date.now()}`,
-            originalResponse: originalContent,
-            editedResponse: wasEditedByUser ? contentToSend : undefined,
-            wasApproved: true,
-            wasEdited: wasEditedByUser,
-            guestIntent: draftMessage.detectedIntent || 'unknown',
-            propertyId: conversation?.property?.id || '',
-            timestamp: new Date(),
-            originType: wasEditedByUser ? 'ai_edited' : 'ai_approved',
-          };
-          addLearningEntry(learningEntry);
+          const receipt = wasEditedByUser
+            ? await recordLearningEvent({
+                type: 'ai_edited',
+                source: 'chat_edit',
+                guestMessage: lastGuestMsg.content,
+                finalReply: contentToSend,
+                aiDraft: originalContent,
+                propertyId: conversation?.property?.id,
+                guestIntent: draftMessage.detectedIntent,
+                confidence: savedDraft.confidence,
+              })
+            : await recordLearningEvent({
+                type: 'ai_approved',
+                source: 'chat_approve',
+                guestMessage: lastGuestMsg.content,
+                finalReply: contentToSend,
+                aiDraft: originalContent,
+                propertyId: conversation?.property?.id,
+                guestIntent: draftMessage.detectedIntent,
+                confidence: savedDraft.confidence,
+              });
 
-          if (wasEditedByUser && savedDraft.originalContent) {
-            const editPattern = analyzeEdit(
-              savedDraft.originalContent,
-              contentToSend,
-              conversation?.property?.id,
-              draftMessage.detectedIntent,
-            );
-            storeEditPattern(editPattern).catch((err) =>
-              console.error('[ChatScreen] Failed to store edit pattern:', err),
-            );
-            const summary = getEditSummary(editPattern);
-            setLearningToastType('edit');
-            setEditLearningSummary(summary);
-            setTimeout(() => setEditLearningSummary(null), 4000);
-          } else if (!wasEditedByUser) {
-            setLearningToastType('approval');
-            setEditLearningSummary('Response style reinforced — AI will match this tone');
-            setTimeout(() => setEditLearningSummary(null), 3000);
-          }
-
-          if (lastGuestMsg) {
-            learnFromSentMessage(
-              contentToSend,
-              lastGuestMsg.content,
-              conversation?.property?.id,
-              wasEditedByUser,
-              true,
-              wasEditedByUser ? 'ai_edited' : 'ai_approved',
-            ).catch((err) => console.error('[ChatScreen] Incremental learning error:', err));
-
-            updateAILearningProgress({
-              ...(wasEditedByUser
-                ? { realTimeEditsCount: aiLearningProgress.realTimeEditsCount + 1 }
-                : { realTimeApprovalsCount: aiLearningProgress.realTimeApprovalsCount + 1 }),
-              patternsIndexed: aiLearningProgress.patternsIndexed + 1,
-            });
-
-            trackDraftOutcome(wasEditedByUser ? 'edited' : 'approved', {
-              propertyId: conversation?.property?.id,
-              guestIntent: draftMessage?.detectedIntent,
-              confidence: savedDraft.confidence,
-              aiDraft: wasEditedByUser ? savedDraft.originalContent : undefined,
-              hostReply: wasEditedByUser ? contentToSend : undefined,
-              guestMessage: lastGuestMsg.content,
-            });
-          }
+          setLearningToastType(wasEditedByUser ? 'edit' : 'approval');
+          setEditLearningSummary(receipt.summary);
+          setTimeout(() => setEditLearningSummary(null), wasEditedByUser ? 4000 : 3000);
         }
       } catch (learningErr) {
         console.error('[ChatScreen] Learning error (non-fatal):', learningErr);
@@ -362,7 +280,6 @@ export function useChatMessageActions({
       accountId,
       apiKey,
       isSending,
-      conversation,
       incrementAnalytic,
     ],
   );

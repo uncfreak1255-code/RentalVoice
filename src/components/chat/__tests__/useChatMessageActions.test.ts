@@ -11,24 +11,13 @@ jest.mock('expo-haptics', () => ({
 }));
 
 jest.mock('@/lib/edit-diff-analysis', () => ({
-  analyzeEdit: jest.fn(() => ({ type: 'tone', summary: 'tone shift' })),
-  storeEditPattern: jest.fn(() => Promise.resolve()),
-  getEditSummary: jest.fn(() => 'Tone adjusted'),
   analyzeRejection: jest.fn(() => ({ type: 'off-topic', summary: 'wrong topic' })),
   storeRejectionPattern: jest.fn(() => Promise.resolve()),
   getRejectionSummary: jest.fn(() => 'Draft was off-topic'),
-  analyzeIndependentReply: jest.fn(() => ({ type: 'rewrite', summary: 'full rewrite' })),
-  storeIndependentReplyPattern: jest.fn(() => Promise.resolve()),
-  getIndependentReplySummary: jest.fn(() => 'Host rewrote reply'),
 }));
 
 jest.mock('@/lib/ai-intelligence', () => ({
   createCalibrationEntry: jest.fn(() => ({ id: 'cal-1' })),
-  analyzeReplyDelta: jest.fn(() => ({ learningSummary: 'delta summary' })),
-}));
-
-jest.mock('@/lib/ai-enhanced', () => ({
-  learnFromSentMessage: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('@/lib/hostaway', () => ({
@@ -44,13 +33,30 @@ jest.mock('@/lib/api-client', () => ({
   sendHostawayMessageViaServer: jest.fn(() => Promise.resolve()),
 }));
 
+const mockRecordLearningEvent = jest.fn(async (event) => ({
+  storedLocalExample: true,
+  storedLocalCorrection: event.type !== 'ai_approved',
+  queuedIncrementalTraining: true,
+  syncedServerExample: false,
+  syncedServerCorrection: false,
+  updatedOutcomeMetrics: true,
+  summary:
+    event.type === 'ai_edited'
+      ? 'Saved correction pattern: shorter • warmer'
+      : event.type === 'ai_approved'
+        ? 'Saved approved reply as a strong example'
+        : 'Saved manual rewrite pattern: rewrote opening • added direct answer',
+}));
+
+jest.mock('@/lib/learning-events', () => ({
+  recordLearningEvent: (event: any) => mockRecordLearningEvent(event),
+}));
+
 const mockUpdateConversation = jest.fn();
 const mockIncrementAnalytic = jest.fn();
-const mockAddLearningEntry = jest.fn();
 const mockUpdateAILearningProgress = jest.fn();
 const mockAddDraftOutcome = jest.fn();
 const mockAddCalibrationEntry = jest.fn();
-const mockAddReplyDelta = jest.fn();
 const mockUpdatePropertyKnowledge = jest.fn();
 
 const mockMessages = [
@@ -72,7 +78,6 @@ jest.mock('@/lib/store', () => ({
       settings: { accountId: 'acc-1', apiKey: 'key-1' },
       updatePropertyKnowledge: mockUpdatePropertyKnowledge,
       incrementAnalytic: mockIncrementAnalytic,
-      addLearningEntry: mockAddLearningEntry,
       updateAILearningProgress: mockUpdateAILearningProgress,
       aiLearningProgress: {
         realTimeEditsCount: 0,
@@ -83,7 +88,6 @@ jest.mock('@/lib/store', () => ({
       },
       addDraftOutcome: mockAddDraftOutcome,
       addCalibrationEntry: mockAddCalibrationEntry,
-      addReplyDelta: mockAddReplyDelta,
     };
     return selector(state);
   },
@@ -145,6 +149,17 @@ describe('useChatMessageActions', () => {
     });
     expect(mockUpdateConversation).toHaveBeenCalled();
     expect(mockIncrementAnalytic).toHaveBeenCalledWith('totalMessagesHandled');
+    expect(mockRecordLearningEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'host_written',
+        source: 'chat_manual',
+        finalReply: 'My custom reply',
+        aiDraft: 'Check-in is at 3pm.',
+      }),
+    );
+    expect(result.current.editLearningSummary).toBe(
+      'Saved manual rewrite pattern: rewrote opening • added direct answer',
+    );
   });
 
   it('handleApproveAiDraft sends the draft content', async () => {
@@ -155,6 +170,32 @@ describe('useChatMessageActions', () => {
     expect(mockUpdateConversation).toHaveBeenCalled();
     expect(mockIncrementAnalytic).toHaveBeenCalledWith('totalMessagesHandled');
     expect(mockIncrementAnalytic).toHaveBeenCalledWith('aiResponsesApproved');
+    expect(mockRecordLearningEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ai_approved',
+        source: 'chat_approve',
+        guestMessage: 'What time is check-in?',
+        finalReply: 'Check-in is at 3pm.',
+        aiDraft: 'Check-in is at 3pm.',
+      }),
+    );
+    expect(result.current.editLearningSummary).toBe('Saved approved reply as a strong example');
+  });
+
+  it('handleApproveAiDraft with edits records an ai_edited event', async () => {
+    const { result } = renderHook(() => useChatMessageActions(baseArgs));
+    await act(async () => {
+      await result.current.handleApproveAiDraft('Check-in starts at 4pm.');
+    });
+    expect(mockRecordLearningEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ai_edited',
+        source: 'chat_edit',
+        finalReply: 'Check-in starts at 4pm.',
+        aiDraft: 'Check-in is at 3pm.',
+      }),
+    );
+    expect(result.current.editLearningSummary).toBe('Saved correction pattern: shorter • warmer');
   });
 
   it('handleFixConflict updates property knowledge', () => {

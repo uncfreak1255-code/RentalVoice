@@ -11,7 +11,8 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore, type Property, type Conversation, type Message } from '@/lib/store';
-import { generateEnhancedAIResponse, learnFromSentMessage, type EnhancedAIResponse } from '@/lib/ai-enhanced';
+import { generateEnhancedAIResponse, type EnhancedAIResponse } from '@/lib/ai-enhanced';
+import { recordLearningEvent } from '@/lib/learning-events';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -174,6 +175,7 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
   const [currentEntry, setCurrentEntry] = useState<SandboxEntry | null>(null);
   const [usageToday, setUsageToday] = useState(0);
   const [saveAsTraining, setSaveAsTraining] = useState(true);
+  const [trainingSaveSummary, setTrainingSaveSummary] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const userInputRef = useRef<TextInput>(null);
@@ -199,6 +201,7 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPhase('generating');
     setGuestInput('');
+    setTrainingSaveSummary(null);
 
     const syntheticConv = buildSyntheticConversation(message, selectedProperty);
 
@@ -240,24 +243,33 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
 
   // ── Compare Responses ──
 
-  const handleCompare = useCallback(() => {
+  const handleCompare = useCallback(async () => {
     if (!userResponseInput.trim() || !currentEntry) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const comparison = compareVoice(currentEntry.aiDraft, userResponseInput.trim());
+    const trimmedResponse = userResponseInput.trim();
+    const comparison = compareVoice(currentEntry.aiDraft, trimmedResponse);
 
     setCurrentEntry({
       ...currentEntry,
-      userResponse: userResponseInput.trim(),
+      userResponse: trimmedResponse,
       comparison,
       saveAsTraining,
     });
     setPhase('comparison_done');
     setUserResponseInput('');
+    setTrainingSaveSummary(null);
 
     // Save as training example if opted in
     if (saveAsTraining) {
-      saveSandboxTrainingExample(userResponseInput.trim(), currentEntry.guestMessage);
+      const receipt = await saveSandboxTrainingExample(
+        trimmedResponse,
+        currentEntry.guestMessage,
+        currentEntry.aiDraft,
+      );
+      if (receipt?.summary) {
+        setTrainingSaveSummary(receipt.summary);
+      }
     }
 
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
@@ -265,36 +277,50 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
 
   // ── Save Training Example ──
 
-  const saveSandboxTrainingExample = useCallback(async (hostResponse: string, guestMessage: string) => {
+  const saveSandboxTrainingExample = useCallback(async (
+    hostResponse: string,
+    guestMessage: string,
+    aiDraft?: string,
+  ) => {
     try {
-      // Save to store for persistence
-      const addLearningEntry = useAppStore.getState().addLearningEntry;
-      if (addLearningEntry) {
-        addLearningEntry({
-          id: `sandbox-training-${Date.now()}`,
-          originalResponse: hostResponse,
-          wasApproved: false,
-          wasEdited: false,
-          guestIntent: guestMessage.slice(0, 100),
-          propertyId: selectedPropertyId || '',
-          timestamp: new Date(),
-          originType: 'host_written',
-        });
-      }
+      const trimmedResponse = hostResponse.trim();
+      const trimmedDraft = aiDraft?.trim();
+      const receipt = trimmedDraft
+        ? await recordLearningEvent(
+            trimmedDraft === trimmedResponse
+              ? {
+                  type: 'ai_approved',
+                  source: 'test_my_voice',
+                  guestMessage,
+                  finalReply: trimmedResponse,
+                  aiDraft: trimmedDraft,
+                  propertyId: selectedPropertyId || undefined,
+                  guestIntent: guestMessage.slice(0, 100),
+                }
+              : {
+                  type: 'ai_edited',
+                  source: 'test_my_voice',
+                  guestMessage,
+                  finalReply: trimmedResponse,
+                  aiDraft: trimmedDraft,
+                  propertyId: selectedPropertyId || undefined,
+                  guestIntent: guestMessage.slice(0, 100),
+                },
+          )
+        : await recordLearningEvent({
+            type: 'host_written',
+            source: 'test_my_voice',
+            guestMessage,
+            finalReply: trimmedResponse,
+            propertyId: selectedPropertyId || undefined,
+            guestIntent: guestMessage.slice(0, 100),
+          });
 
-      // CRITICAL: Also feed into the actual learning pipeline (few-shot indexer + incremental trainer)
-      // Without this, Test My Voice examples are stored but never used for draft generation
-      await learnFromSentMessage(
-        hostResponse,
-        guestMessage,
-        selectedPropertyId || undefined,
-        false,  // wasEdited
-        true,   // wasApproved
-        'host_written'
-      );
-      console.log('[TestVoice] Saved training example to store AND few-shot indexer');
+      console.log('[TestVoice] Saved canonical learning event:', receipt.summary);
+      return receipt;
     } catch (error) {
       console.error('[TestVoice] Failed to save training example:', error);
+      return null;
     }
   }, [selectedPropertyId]);
 
@@ -306,6 +332,7 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
     setPhase('input');
     setUserResponseInput('');
     setSaveAsTraining(true);
+    setTrainingSaveSummary(null);
   }, []);
 
   // ── Render Helpers ──
@@ -409,8 +436,8 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
                   <Sparkles size={14} color={colors.primary.DEFAULT} />
                   <Text style={styles.draftHeaderText}>AI Draft</Text>
                   <View style={styles.confidenceBadge}>
-                    <Text style={styles.confidenceText}>
-                      {Math.round(currentEntry.aiConfidence * 100)}%
+                  <Text style={styles.confidenceText}>
+                      {Math.round(currentEntry.aiConfidence)}%
                     </Text>
                   </View>
                 </View>
@@ -496,10 +523,10 @@ export function TestVoiceScreen({ onBack, embedded }: TestVoiceScreenProps) {
                 {renderCheckItem('Emoji use', currentEntry.comparison.emoji)}
               </View>
 
-              {saveAsTraining && (
+              {saveAsTraining && trainingSaveSummary && (
                 <View style={styles.savedIndicator}>
                   <CheckCircle2 size={12} color={colors.primary.DEFAULT} />
-                  <Text style={styles.savedText}>Saved as training example</Text>
+                  <Text style={styles.savedText}>{trainingSaveSummary}</Text>
                 </View>
               )}
 

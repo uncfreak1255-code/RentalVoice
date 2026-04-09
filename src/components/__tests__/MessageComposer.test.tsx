@@ -28,6 +28,10 @@ jest.mock('react-native-reanimated', () => {
     useAnimatedStyle: () => ({}),
     useSharedValue: (initial: any) => ({ value: initial }),
     withSpring: (val: any) => val,
+    withTiming: (val: any) => val,
+    withDelay: (_delay: number, val: any) => val,
+    withSequence: (...values: any[]) => values[values.length - 1],
+    withRepeat: (val: any) => val,
     useReducedMotion: () => false,
     FadeIn: { duration: () => ({}) },
     FadeInDown: { duration: () => ({}) },
@@ -35,6 +39,10 @@ jest.mock('react-native-reanimated', () => {
     SlideInDown: { duration: () => ({}) },
   };
 });
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
 
 // Mock expo-haptics
 jest.mock('expo-haptics', () => ({
@@ -227,6 +235,19 @@ describe('MessageComposer', () => {
       expect(getByText(/Thanks for reaching out/)).toBeTruthy();
     });
 
+    it('should show the learning proof summary when present', () => {
+      const { getByText } = render(
+        <MessageComposer
+          {...defaultProps}
+          aiDraft={makeDraft({
+            learningProofSummary: 'Using 2 similar examples and 1 recent correction',
+          })}
+        />
+      );
+
+      expect(getByText('Using 2 similar examples and 1 recent correction')).toBeTruthy();
+    });
+
     it('should show "AI Draft Ready" header', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft()} />
@@ -245,7 +266,7 @@ describe('MessageComposer', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} isGenerating={true} />
       );
-      expect(getByText('Drafting a response...')).toBeTruthy();
+      expect(getByText('Writing your reply')).toBeTruthy();
     });
 
     it('should not show draft panel when aiDraft is null', () => {
@@ -302,7 +323,7 @@ describe('MessageComposer', () => {
       expect(getByText('Editing AI Draft')).toBeTruthy();
     });
 
-    it('should call onApproveAiDraft with edited content on Save & Send', async () => {
+    it('should call onApproveAiDraft with edited content on Send Edited Draft', async () => {
       const onApprove = jest.fn();
       const { getByLabelText, getByText, getByDisplayValue } = render(
         <MessageComposer {...defaultProps} onApproveAiDraft={onApprove} aiDraft={makeDraft()} />
@@ -315,8 +336,8 @@ describe('MessageComposer', () => {
       const editInput = getByDisplayValue('Thanks for reaching out! We look forward to hosting you.');
       fireEvent.changeText(editInput, 'Custom edited reply here');
 
-      // Press Save & Send
-      fireEvent.press(getByText('Save & Send'));
+      // Press Send Edited Draft
+      fireEvent.press(getByText('Send Edited Draft'));
 
       expect(onApprove).toHaveBeenCalledWith('Custom edited reply here');
     });
@@ -331,7 +352,7 @@ describe('MessageComposer', () => {
       const editInput = getByDisplayValue('Thanks for reaching out! We look forward to hosting you.');
       fireEvent.changeText(editInput, '   ');
 
-      fireEvent.press(getByText('Save & Send'));
+      fireEvent.press(getByText('Send Edited Draft'));
       expect(onApprove).not.toHaveBeenCalled();
     });
 

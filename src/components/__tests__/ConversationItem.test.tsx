@@ -41,9 +41,30 @@ jest.mock('expo-haptics', () => ({
 }));
 
 jest.mock('@/lib/design-tokens', () => ({
+  colors: {
+    platform: {
+      airbnb: '#FF5A5F',
+      vrbo: '#2557A7',
+      booking: '#003580',
+    },
+    status: { online: '#22C55E' },
+    text: {
+      primary: '#111827',
+      secondary: '#374151',
+      muted: '#6B7280',
+      inverse: '#FFFFFF',
+    },
+    primary: { DEFAULT: '#14B8A6', muted: '#DFF7F3' },
+    success: { DEFAULT: '#22C55E', muted: '#DCFCE7' },
+    danger: { DEFAULT: '#EF4444' },
+    border: { subtle: '#E5E7EB' },
+    bg: { elevated: '#F6F7F9' },
+  },
   typography: {
     fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
   },
+  spacing: { '1': 4, '2': 8, '3': 12, '4': 16 },
+  radius: { sm: 8, md: 12, lg: 16, full: 9999 },
   animation: { spring: { bouncy: {}, subtle: {}, snappy: {} }, duration: {} },
 }));
 
@@ -57,6 +78,12 @@ jest.mock('@/components/ui/PremiumPressable', () => {
     ),
   };
 });
+
+jest.mock('@/lib/advanced-training', () => ({
+  guestMemoryManager: {
+    getGuestMemory: jest.fn(() => null),
+  },
+}));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
@@ -116,7 +143,7 @@ describe('ConversationItem', () => {
       expect(getByText('Thomas Ramsey')).toBeTruthy();
     });
 
-    it('should render message preview with guest first name', () => {
+    it('should render guest message preview without a host prefix', () => {
       const { getByText } = render(
         <ConversationItem
           conversation={makeConversation({
@@ -125,7 +152,7 @@ describe('ConversationItem', () => {
           onPress={jest.fn()}
         />
       );
-      expect(getByText(/Thomas: Hello/)).toBeTruthy();
+      expect(getByText('Hello, what time is check-in?')).toBeTruthy();
     });
 
     it('should show "You:" prefix for host messages', () => {
@@ -177,8 +204,8 @@ describe('ConversationItem', () => {
   // ─────────────────────────────────────────
 
   describe('Unread State', () => {
-    it('should show NEW label for unread guest messages', () => {
-      const { getByText } = render(
+    it('should include unread state in accessibility label for unread guest messages', () => {
+      const { getByLabelText, queryByText } = render(
         <ConversationItem
           conversation={makeConversation({
             unreadCount: 3,
@@ -187,11 +214,12 @@ describe('ConversationItem', () => {
           onPress={jest.fn()}
         />
       );
-      expect(getByText('NEW')).toBeTruthy();
+      expect(getByLabelText(/unread/)).toBeTruthy();
+      expect(queryByText('NEW')).toBeNull();
     });
 
-    it('should show REPLIED label when last message is from host', () => {
-      const { getByText } = render(
+    it('should show host-prefixed preview when last message is from host', () => {
+      const { getByText, queryByLabelText } = render(
         <ConversationItem
           conversation={makeConversation({
             unreadCount: 0,
@@ -200,7 +228,8 @@ describe('ConversationItem', () => {
           onPress={jest.fn()}
         />
       );
-      expect(getByText('REPLIED')).toBeTruthy();
+      expect(getByText('You: Thanks!')).toBeTruthy();
+      expect(queryByLabelText(/unread/)).toBeNull();
     });
 
     it('should NOT show NEW when unread + last sender is host', () => {
@@ -252,28 +281,16 @@ describe('ConversationItem', () => {
   // ─────────────────────────────────────────
 
   describe('Inline Tags', () => {
-    it('should show Question tag when message contains a question', () => {
+    it('should show Inquiry tag when the conversation is marked as an inquiry', () => {
       const { getByText } = render(
         <ConversationItem
           conversation={makeConversation({
-            lastMessage: makeMessage({ content: 'What time is check-in?' }),
+            isInquiry: true,
           })}
           onPress={jest.fn()}
         />
       );
-      expect(getByText('Question')).toBeTruthy();
-    });
-
-    it('should show Thanks tag when message contains thanks', () => {
-      const { getByText } = render(
-        <ConversationItem
-          conversation={makeConversation({
-            lastMessage: makeMessage({ content: 'Thank you so much!' }),
-          })}
-          onPress={jest.fn()}
-        />
-      );
-      expect(getByText('Thanks')).toBeTruthy();
+      expect(getByText('Inquiry')).toBeTruthy();
     });
   });
 
@@ -282,8 +299,8 @@ describe('ConversationItem', () => {
   // ─────────────────────────────────────────
 
   describe('Message Truncation', () => {
-    it('should truncate long messages at 60 characters', () => {
-      const longMessage = 'A'.repeat(100);
+    it('should truncate long messages once they exceed the preview limit', () => {
+      const longMessage = 'A'.repeat(140);
       const { getByText } = render(
         <ConversationItem
           conversation={makeConversation({

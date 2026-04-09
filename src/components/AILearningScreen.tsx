@@ -51,6 +51,7 @@ import {
   buildRecurringIntentCoverage,
   calculateLearningProgress,
 } from '@/lib/ai-learning';
+import { getActiveRetrievalCoverageSource } from '@/lib/retrieval-source';
 import { historySyncManager, formatTimeRemaining, type SyncProgress, type HostawayConversation, type HostawayMessage } from '@/lib/history-sync';
 import {
   backgroundSyncManager,
@@ -900,7 +901,10 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
   const canStartHistoryImport = isCommercialMode ? isServerConnected : !!(accountId && apiKey);
   const backgroundSyncAvailableInMode = isCommercialMode ? canStartHistoryImport : backgroundFetchAvailable === true;
   const trainingResult = aiLearningProgress.lastTrainingResult;
-  const responseIndex = useMemo(() => aiTrainingService.getResponseIndex(), [trainingState?.lastTrainingTime, trainingResult?.patternsIndexed, aiLearningProgress.patternsIndexed]);
+  const retrievalCoverageSource = useMemo(
+    () => getActiveRetrievalCoverageSource(),
+    [trainingState?.lastTrainingTime, trainingResult?.patternsIndexed, aiLearningProgress.patternsIndexed],
+  );
   const learningImportSummary = useMemo(() => buildLearningImportSummary({
     historySyncStatus,
     aiLearningProgress,
@@ -911,16 +915,16 @@ export function AILearningScreen({ onBack }: AILearningScreenProps) {
       return buildRecurringIntentCoverage({
         conversations: [],
         messagesByConversation: {},
-        indexedPatterns: responseIndex.patterns,
+        indexedPatterns: retrievalCoverageSource.indexedPatterns,
       });
     }
 
     return buildRecurringIntentCoverage({
       conversations: fetchedHistoryData.conversations,
       messagesByConversation: fetchedHistoryData.messages,
-      indexedPatterns: responseIndex.patterns,
+      indexedPatterns: retrievalCoverageSource.indexedPatterns,
     });
-  }, [fetchedHistoryData, responseIndex.patterns]);
+  }, [fetchedHistoryData, retrievalCoverageSource.indexedPatterns]);
   const globalProfile = hostStyleProfiles['global'];
   const hasVisibleGlobalProfile = !!globalProfile && globalProfile.samplesAnalyzed > 0;
   const hasTrainingEvidence =

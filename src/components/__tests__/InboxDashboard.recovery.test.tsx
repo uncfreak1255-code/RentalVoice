@@ -42,13 +42,17 @@ jest.mock('@/lib/design-tokens', () => ({
   colors: {
     primary: { DEFAULT: '#14B8A6', muted: '#DFF7F3' },
     bg: { elevated: '#F6F7F9', subtle: '#FAFBFC' },
-    text: { primary: '#111827', muted: '#6B7280', secondary: '#374151' },
+    text: { primary: '#111827', muted: '#6B7280', secondary: '#374151', inverse: '#FFFFFF' },
     border: { subtle: '#E5E7EB' },
   },
   typography: {
     fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
+    styles: {
+      h2: { fontSize: 24, fontWeight: '600' },
+      body: { fontSize: 16, lineHeight: 24 },
+    },
   },
-  spacing: { '1': 4, '2': 8, '3': 12, '4': 16, '8': 32 },
+  spacing: { '1': 4, '2': 8, '3': 12, '4': 16, '5': 20, '8': 32 },
   radius: { md: 12 },
 }));
 
