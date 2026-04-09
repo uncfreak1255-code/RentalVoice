@@ -16,6 +16,12 @@ export interface ChatScreenProps {
 export interface EnhancedAiDraft {
   content: string;
   confidence: number;
+  learningProofSummary?: string;
+  learningProof?: {
+    similarExamplesCount: number;
+    recentCorrectionsCount: number;
+    mode: string;
+  };
   sentiment?: EnhancedAIResponse['sentiment'];
   confidenceDetails?: EnhancedAIResponse['confidence'];
   actionItems?: ActionItem[];

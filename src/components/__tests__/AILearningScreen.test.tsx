@@ -31,6 +31,12 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
+jest.mock('expo-secure-store', () => ({
+  setItemAsync: jest.fn().mockResolvedValue(undefined),
+  getItemAsync: jest.fn().mockResolvedValue(null),
+  deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('react-native-reanimated', () => {
   const View = require('react-native').View;
   return {
@@ -58,6 +64,14 @@ jest.mock('expo-haptics', () => ({
 
 jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn(),
+}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  }),
 }));
 
 jest.mock('expo-linear-gradient', () => ({
@@ -175,6 +189,25 @@ jest.mock('@/lib/ai-training-service', () => ({
   getTrainingSummary: jest.fn(() => 'Training complete'),
 }));
 
+jest.mock('@/lib/retrieval-source', () => ({
+  getActiveRetrievalCoverageSource: jest.fn(() => ({
+    mode: 'local_few_shot',
+    patternCount: 6,
+    byIntent: {
+      question: 4,
+      check_in: 2,
+    },
+    indexedPatterns: [
+      { guestIntent: 'question' },
+      { guestIntent: 'question' },
+      { guestIntent: 'question' },
+      { guestIntent: 'question' },
+      { guestIntent: 'check_in' },
+      { guestIntent: 'check_in' },
+    ],
+  })),
+}));
+
 jest.mock('@/lib/api-client', () => ({
   clearHostawayHistorySyncViaServer: jest.fn(),
   getHostawayConversationsViaServer: jest.fn(),
@@ -265,11 +298,11 @@ describe('AILearningScreen', () => {
     const { getAllByText, getByText } = render(<AILearningScreen onBack={jest.fn()} />);
 
     await waitFor(() => {
-      expect(getAllByText('Fetching messages for conversation 1465 of 1465').length).toBeGreaterThan(0);
-      expect(getAllByText('22486 messages fetched').length).toBeGreaterThan(0);
-      expect(getByText('Recurring Coverage')).toBeTruthy();
+      expect(getAllByText('Reading your messages (100%)').length).toBeGreaterThan(0);
+      expect(getAllByText('22,486 messages imported').length).toBeGreaterThan(0);
+      expect(getByText('Top Repeated Guest Questions')).toBeTruthy();
       expect(getAllByText('50%').length).toBeGreaterThan(0);
-      expect(getByText('wifi')).toBeTruthy();
+      expect(getByText('question')).toBeTruthy();
       expect(getByText('covered')).toBeTruthy();
       expect(getByText('History imported. Learning signals are ready.')).toBeTruthy();
     });

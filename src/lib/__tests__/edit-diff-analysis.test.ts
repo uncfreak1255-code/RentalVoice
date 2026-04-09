@@ -4,6 +4,15 @@
  * getEditSummary, getRejectionSummary, getIndependentReplySummary.
  */
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    setItem: jest.fn().mockResolvedValue(undefined),
+    getItem: jest.fn().mockResolvedValue(null),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 import {
   analyzeEdit,
   getEditSummary,

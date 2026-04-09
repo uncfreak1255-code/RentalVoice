@@ -210,8 +210,8 @@ describe('buildLearningImportSummary', () => {
       totalConversationsDiscovered: 1465,
     });
 
-    expect(summary.statusLabel).toBe('Fetching messages for conversation 1465 of 1465');
-    expect(summary.detailLabel).toBe('22486 messages fetched');
+    expect(summary.statusLabel).toBe('Reading your messages (100%)');
+    expect(summary.detailLabel).toBe('22,486 messages imported');
     expect(summary.hostMessagesAnalyzed).toBe(13151);
     expect(summary.patternsIndexed).toBe(420);
     expect(summary.isImported).toBe(true);
@@ -287,25 +287,24 @@ describe('buildRecurringIntentCoverage', () => {
       conversations,
       messagesByConversation,
       indexedPatterns: [
-        { guestIntent: 'wifi' },
-        { guestIntent: 'wifi' },
-        { guestIntent: 'wifi' },
-        { guestIntent: 'wifi' },
-        { guestIntent: 'early_checkin' },
-        { guestIntent: 'early_checkin' },
+        { guestIntent: 'question' },
+        { guestIntent: 'question' },
+        { guestIntent: 'question' },
+        { guestIntent: 'question' },
+        { guestIntent: 'check_in' },
+        { guestIntent: 'check_in' },
       ],
       minimumRecurringVolume: 4,
       coveredPatternThreshold: 3,
     });
 
-    expect(coverage.recurringIntentCount).toBe(3);
+    expect(coverage.recurringIntentCount).toBe(2);
     expect(coverage.coveredIntentCount).toBe(1);
-    expect(coverage.coveragePercent).toBe(33);
+    expect(coverage.coveragePercent).toBe(50);
     expect(coverage.targetPercent).toBe(75);
-    expect(coverage.rows[0].intent).toBe('wifi');
+    expect(coverage.rows[0].intent).toBe('question');
     expect(coverage.rows[0].status).toBe('covered');
-    expect(coverage.rows.find((row) => row.intent === 'early_checkin')?.status).toBe('weak');
-    expect(coverage.rows.find((row) => row.intent === 'parking')?.status).toBe('missing');
+    expect(coverage.rows.find((row) => row.intent === 'check_in')?.status).toBe('weak');
   });
 
   it('ignores low-volume intents below the recurring threshold', () => {
@@ -313,10 +312,10 @@ describe('buildRecurringIntentCoverage', () => {
       conversations: [makeConversation(1), makeConversation(2), makeConversation(3)],
       messagesByConversation: {
         1: [makeGuestMessage(1, 1, 'What is the wifi password?')],
-        2: [makeGuestMessage(2, 2, 'Where can we park?')],
+        2: [makeGuestMessage(2, 2, 'The house is dirty and unacceptable.')],
         3: [makeGuestMessage(3, 3, 'Can we check in early?')],
       },
-      indexedPatterns: [{ guestIntent: 'wifi' }],
+      indexedPatterns: [{ guestIntent: 'question' }],
       minimumRecurringVolume: 2,
       coveredPatternThreshold: 2,
     });

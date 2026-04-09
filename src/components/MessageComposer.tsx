@@ -31,6 +31,12 @@ interface AiDraft {
 }
 
 interface EnhancedAiDraft extends AiDraft {
+  learningProofSummary?: string;
+  learningProof?: {
+    similarExamplesCount: number;
+    recentCorrectionsCount: number;
+    mode: string;
+  };
   sentiment?: SentimentAnalysis;
   confidenceDetails?: ConfidenceScore;
   actionItems?: ActionItem[];
@@ -450,6 +456,15 @@ export function MessageComposer({
                 <Text style={{ fontSize: 11.5, fontFamily: typography.fontFamily.medium, color: '#92400E', paddingHorizontal: 4, marginTop: -2 }}>
                   Low confidence — consider editing before sending
                 </Text>
+              )}
+
+              {aiDraft?.learningProofSummary && (
+                <View style={mcStyles.v2LearningProofRow}>
+                  <Sparkles size={12} color={t.text.secondary} />
+                  <Text style={[mcStyles.v2LearningProofText, { color: t.text.secondary }]}>
+                    {aiDraft.learningProofSummary}
+                  </Text>
+                </View>
               )}
 
               {/* 3. Action Row — Big Send + icon buttons */}
@@ -1070,6 +1085,20 @@ const mcStyles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 2,
     marginBottom: 12,
+  },
+  v2LearningProofRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    paddingHorizontal: 4,
+    marginTop: -2,
+    marginBottom: 10,
+  },
+  v2LearningProofText: {
+    flex: 1,
+    fontSize: 11.5,
+    lineHeight: 16,
+    fontFamily: typography.fontFamily.medium,
   },
   v2DraftText: {
     color: '#000000',

@@ -20,6 +20,7 @@ import {
   getCurrentEntitlements,
   type ServerVoiceReadiness,
 } from '@/lib/api-client';
+import { getDraftLearningProof } from '@/lib/retrieval-source';
 import type { EnhancedAiDraft } from './types';
 import { useChatMessageActions } from './useChatMessageActions';
 import { useAutoSend } from './useAutoSend';
@@ -143,6 +144,9 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
       try {
         let enhancedResponse: EnhancedAIResponse | null = null;
         let latestVoiceReadiness: ServerVoiceReadiness | null = null;
+        const lastGuest = [...conversation.messages]
+          .reverse()
+          .find((m) => m.sender === 'guest');
 
         if (isDemoMode) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -203,9 +207,6 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
             );
           }
 
-          const lastGuest = [...conversation.messages]
-            .reverse()
-            .find((m) => m.sender === 'guest');
           const serverResponse = await generateAIDraftViaServer({
             message: lastGuest?.content || '',
             conversationHistory: conversation.messages.map((m) => ({
@@ -256,6 +257,18 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
           });
         }
 
+        let learningProof = null;
+        if (!isDemoMode && lastGuest) {
+          try {
+            learningProof = await getDraftLearningProof(
+              lastGuest.content,
+              conversation.property?.id,
+            );
+          } catch (proofError) {
+            console.warn('[ChatScreen] Failed to build learning proof:', proofError);
+          }
+        }
+
         console.log('[ChatScreen] Setting enhanced draft:', {
           content: enhancedResponse.content.substring(0, 50),
           confidence: enhancedResponse.confidence.overall,
@@ -265,6 +278,14 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
         setCurrentEnhancedDraft({
           content: enhancedResponse.content,
           confidence: enhancedResponse.confidence.overall,
+          learningProofSummary: learningProof?.summary || undefined,
+          learningProof: learningProof
+            ? {
+                similarExamplesCount: learningProof.similarExamplesCount,
+                recentCorrectionsCount: learningProof.recentCorrectionsCount,
+                mode: learningProof.mode,
+              }
+            : undefined,
           sentiment: enhancedResponse.sentiment,
           confidenceDetails: enhancedResponse.confidence,
           actionItems: enhancedResponse.actionItems,
