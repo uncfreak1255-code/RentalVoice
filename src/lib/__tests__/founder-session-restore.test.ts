@@ -42,6 +42,7 @@ const { useAppStore } = require('../store');
 const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 const SecureStore = require('expo-secure-store');
 const secureStorage = require('../secure-storage');
+const actualSecureStorage = jest.requireActual('../secure-storage');
 const accountSession = require('../account-session');
 const apiClient = require('../api-client');
 const autoProvision = require('../auto-provision');
@@ -111,6 +112,35 @@ beforeEach(() => {
   mockGetCurrentUser.mockReset().mockResolvedValue(null);
   mockEnsureFreshToken.mockReset().mockResolvedValue(false);
   useAppStore.setState(useAppStore.getInitialState());
+});
+
+describe('founder session storage trust', () => {
+  it('treats founder session storage without validatedAt as untrusted', async () => {
+    mockSecureGetItem.mockImplementation(async (key: string) => {
+      switch (key) {
+        case '__test_secure_store__':
+          return null;
+        case 'rv_founder_access_token':
+          return 'stored-access-token';
+        case 'rv_founder_refresh_token':
+          return 'stored-refresh-token';
+        case 'rv_founder_user_id':
+          return 'founder-user';
+        case 'rv_founder_org_id':
+          return 'founder-org';
+        case 'rv_founder_email':
+          return 'founder@example.com';
+        case 'rv_founder_session_validated_at':
+          return null;
+        case 'rv_founder_migration_state':
+          return 'pending';
+        default:
+          return null;
+      }
+    });
+
+    await expect(actualSecureStorage.loadFounderSession()).resolves.toBeNull();
+  });
 });
 
 describe('restoreFounderSession', () => {

@@ -432,7 +432,7 @@ export async function saveFounderSession(session: FounderSessionData): Promise<v
 
 /**
  * Load the founder session from secure storage.
- * Returns null if any required field is missing.
+ * Returns null if any required field or validation metadata is missing.
  */
 export async function loadFounderSession(): Promise<FounderSessionData | null> {
   try {
@@ -447,7 +447,7 @@ export async function loadFounderSession(): Promise<FounderSessionData | null> {
         getItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE),
       ]);
 
-    if (!accessToken || !refreshToken || !userId || !orgId || !email) {
+    if (!accessToken || !refreshToken || !userId || !orgId || !email || !validatedAt) {
       return null;
     }
 
@@ -457,7 +457,7 @@ export async function loadFounderSession(): Promise<FounderSessionData | null> {
       userId,
       orgId,
       email,
-      validatedAt: validatedAt || new Date().toISOString(),
+      validatedAt,
       migrationState: (migrationState as FounderMigrationState) || 'pending',
     };
   } catch (error) {
