@@ -25,6 +25,17 @@ export interface CommercialLearningMigrationResult {
   response?: LocalLearningMigrationImportResponse;
 }
 
+export interface VerifiedFounderMigrationParams {
+  founderEmail: string;
+  founderUserId: string;
+  snapshotId?: string;
+}
+
+export interface VerifiedFounderMigrationResult {
+  importResponse: LocalLearningMigrationImportResponse;
+  verification: LocalLearningMigrationStatusResponse;
+}
+
 export async function buildLocalLearningMigrationSnapshot(
   options: BuildLocalLearningMigrationSnapshotOptions = {},
 ): Promise<LocalLearningMigrationImportRequest> {
@@ -110,6 +121,33 @@ export async function migrateLocalLearningToFounderCommercial(
 ): Promise<LocalLearningMigrationImportResponse> {
   const payload = await buildFounderLearningMigrationSnapshot(founderEmail, snapshotId);
   return importLocalLearningSnapshot(payload);
+}
+
+export async function migrateLocalLearningToVerifiedFounderCommercial({
+  founderEmail,
+  founderUserId,
+  snapshotId,
+}: VerifiedFounderMigrationParams): Promise<VerifiedFounderMigrationResult> {
+  const importResponse = await migrateLocalLearningToFounderCommercial(founderEmail, snapshotId);
+  const verification = await getCommercialLearningMigrationVerification();
+
+  const latestSnapshotId = verification.latestSnapshot?.id;
+  const latestImportedByUserId = verification.latestSnapshot?.importedByUserId;
+  const verified =
+    verification.hasSnapshot &&
+    latestSnapshotId === importResponse.snapshotId &&
+    latestImportedByUserId === founderUserId;
+
+  if (!verified) {
+    throw new Error(
+      `Founder migration verification failed: expected snapshot ${importResponse.snapshotId} for ${founderUserId}, got ${latestSnapshotId || 'none'} for ${latestImportedByUserId || 'none'}`,
+    );
+  }
+
+  return {
+    importResponse,
+    verification,
+  };
 }
 
 export async function getCommercialLearningMigrationVerification():

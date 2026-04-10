@@ -25,7 +25,9 @@ import {
   verifyEmailCode,
   type CurrentUserResponseData,
   type PasswordlessAuthResponseData,
+  type LocalLearningMigrationStatusResponse,
 } from '@/lib/api-client';
+import { migrateLocalLearningToVerifiedFounderCommercial } from '@/lib/commercial-migration';
 
 interface FounderAccessScreenProps {
   onBack: () => void;
@@ -38,15 +40,20 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
   const clearFounderAuthSession = useAppStore((s) => s.clearFounderAuthSession);
   const setFounderAuthSession = useAppStore((s) => s.setFounderAuthSession);
+  const setFounderSession = useAppStore((s) => s.setFounderSession);
 
   const [isRestoring, setIsRestoring] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isMigratingLearning, setIsMigratingLearning] = useState(false);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [isRequestingCode, setIsRequestingCode] = useState(false);
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [migrationVerification, setMigrationVerification] = useState<LocalLearningMigrationStatusResponse | null>(null);
+  const [verifiedSnapshotId, setVerifiedSnapshotId] = useState<string | null>(null);
 
   const isSignedIn = !!founderSession;
   const trimmedEmail = email.trim();
@@ -150,19 +157,50 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     }
   }, [clearFounderAuthSession, isVerifyingCode, setFounderAuthSession, trimmedCode, trimmedEmail]);
 
-  const handleMigrateLearning = useCallback(() => {
+  const handleMigrateLearning = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isMigratingLearning) {
+      return;
+    }
     if (!founderSession) {
       Alert.alert('Sign In Required', 'You must have an active founder session to migrate learning data.');
       return;
     }
-    // Learning migration UI will be wired in a future task.
-    Alert.alert(
-      'Learning Migration',
-      `Migration state: ${founderSession.migrationState}\n\n` +
-      'Full migration flow will be available in a future update.',
-    );
-  }, [founderSession]);
+
+    const inProgressSession: FounderSession = {
+      ...founderSession,
+      migrationState: 'in_progress',
+    };
+
+    setFounderSession(inProgressSession);
+    setMigrationError(null);
+    setMigrationVerification(null);
+    setVerifiedSnapshotId(null);
+    setIsMigratingLearning(true);
+
+    try {
+      const result = await migrateLocalLearningToVerifiedFounderCommercial({
+        founderEmail: founderSession.email,
+        founderUserId: founderSession.userId,
+      });
+
+      setFounderSession({
+        ...inProgressSession,
+        migrationState: 'completed',
+      });
+      setVerifiedSnapshotId(result.importResponse.snapshotId);
+      setMigrationVerification(result.verification);
+    } catch (error) {
+      console.error('[FounderAccessScreen] Founder migration failed:', error);
+      setFounderSession({
+        ...inProgressSession,
+        migrationState: 'failed',
+      });
+      setMigrationError(error instanceof Error ? error.message : 'Founder migration failed.');
+    } finally {
+      setIsMigratingLearning(false);
+    }
+  }, [founderSession, isMigratingLearning, setFounderSession]);
 
   const handleOpenDiagnostics = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -219,6 +257,10 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
       default: return '#6B7280';
     }
   };
+
+  const serverTotalsSummary = migrationVerification
+    ? `${migrationVerification.serverTotals.hostStyleProfiles} style profiles · ${migrationVerification.serverTotals.editPatterns} edit patterns`
+    : null;
 
   return (
     <View style={styles.root}>
@@ -374,10 +416,31 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                       label="Migration State"
                       value={migrationStateLabel(founderSession.migrationState)}
                       valueColor={migrationStateColor(founderSession.migrationState)}
-                      isLast
+                      isLast={!verifiedSnapshotId && !serverTotalsSummary}
                     />
+                    {verifiedSnapshotId ? (
+                      <ValueRow
+                        icon={<Database size={18} color={colors.primary.DEFAULT} />}
+                        label="Imported Snapshot"
+                        value={verifiedSnapshotId}
+                        isLast={!serverTotalsSummary}
+                      />
+                    ) : null}
+                    {serverTotalsSummary ? (
+                      <ValueRow
+                        icon={<Database size={18} color={colors.primary.DEFAULT} />}
+                        label="Server Totals"
+                        value={serverTotalsSummary}
+                        isLast
+                      />
+                    ) : null}
                   </View>
-                  <SectionFooter text="Imports your local AI learning data into the durable founder account." />
+                  <SectionFooter
+                    text={
+                      migrationError ||
+                      'Imports your local AI learning data into the durable founder account.'
+                    }
+                  />
                 </>
               )}
 
@@ -396,7 +459,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                 {isSignedIn && (
                   <LinkRow
                     icon={<Brain size={18} color={colors.primary.DEFAULT} />}
-                    label="Migrate Learning"
+                    label={isMigratingLearning ? 'Migrating Learning...' : 'Migrate Learning'}
                     onPress={handleMigrateLearning}
                   />
                 )}

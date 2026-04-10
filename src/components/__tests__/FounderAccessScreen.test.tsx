@@ -9,6 +9,8 @@ const mockVerifyEmailCode = jest.fn();
 const mockGetCurrentUser = jest.fn();
 const mockSetFounderAuthSession = jest.fn();
 const mockClearFounderAuthSession = jest.fn();
+const mockSetFounderSession = jest.fn();
+const mockMigrateLocalLearningToVerifiedFounderCommercial = jest.fn();
 
 jest.mock('react-native-safe-area-context', () => {
   const { View } = jest.requireActual('react-native');
@@ -32,6 +34,11 @@ jest.mock('@/lib/api-client', () => ({
   requestEmailCode: (...args: any[]) => mockRequestEmailCode(...args),
   verifyEmailCode: (...args: any[]) => mockVerifyEmailCode(...args),
   getCurrentUser: (...args: any[]) => mockGetCurrentUser(...args),
+}));
+
+jest.mock('@/lib/commercial-migration', () => ({
+  migrateLocalLearningToVerifiedFounderCommercial: (...args: any[]) =>
+    mockMigrateLocalLearningToVerifiedFounderCommercial(...args),
 }));
 
 jest.mock('@/lib/store', () => ({
@@ -129,6 +136,7 @@ describe('FounderAccessScreen', () => {
         clearFounderSession: jest.fn(),
         clearFounderAuthSession: mockClearFounderAuthSession,
         setFounderAuthSession: mockSetFounderAuthSession,
+        setFounderSession: mockSetFounderSession,
       })
     );
   });
@@ -238,6 +246,7 @@ describe('FounderAccessScreen', () => {
         clearFounderSession: jest.fn(),
         clearFounderAuthSession: mockClearFounderAuthSession,
         setFounderAuthSession: mockSetFounderAuthSession,
+        setFounderSession: mockSetFounderSession,
       })
     );
 
@@ -269,6 +278,134 @@ describe('FounderAccessScreen', () => {
     await waitFor(() => {
       expect(queryByPlaceholderText('6-digit code')).toBeNull();
       expect(getByText('Send Code')).toBeTruthy();
+    });
+  });
+
+  it('marks migration completed only after founder verification succeeds', async () => {
+    mockMigrateLocalLearningToVerifiedFounderCommercial.mockResolvedValue({
+      importResponse: {
+        snapshotId: 'org-1:user-1:snapshot-1',
+        source: 'personal_local_store_to_founder_account_v1',
+        stats: {
+          importedAt: '2026-03-27T00:00:00.000Z',
+          hostStyleProfilesReceived: 1,
+          hostStyleProfilesUpserted: 1,
+          learningEntriesReceived: 2,
+          editPatternsInserted: 2,
+          draftOutcomesReceived: 3,
+          replyDeltasReceived: 4,
+          calibrationEntriesReceived: 5,
+          conversationFlowsReceived: 6,
+        },
+        imported: {
+          hostStyleProfiles: 1,
+          editPatterns: 2,
+        },
+      },
+      verification: {
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:snapshot-1',
+          source: 'personal_local_store_to_founder_account_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {},
+        },
+        serverTotals: {
+          hostStyleProfiles: 11,
+          editPatterns: 22,
+        },
+      },
+    });
+
+    mockUseAppStore.mockImplementation((selector: any) =>
+      selector({
+        founderSession: {
+          userId: 'user-1',
+          orgId: 'org-1',
+          email: 'sawyerbeck25@gmail.com',
+          accessToken: 'token-1',
+          refreshToken: 'refresh-1',
+          validatedAt: '2026-01-01T00:00:00.000Z',
+          migrationState: 'pending',
+        },
+        founderSessionLoading: false,
+        restoreFounderSession: jest.fn().mockResolvedValue(null),
+        clearFounderSession: jest.fn(),
+        clearFounderAuthSession: mockClearFounderAuthSession,
+        setFounderAuthSession: mockSetFounderAuthSession,
+        setFounderSession: mockSetFounderSession,
+      })
+    );
+
+    const { getByText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Migrate Learning'));
+
+    await waitFor(() => {
+      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ migrationState: 'in_progress' }),
+      );
+      expect(mockMigrateLocalLearningToVerifiedFounderCommercial).toHaveBeenCalledWith({
+        founderEmail: 'sawyerbeck25@gmail.com',
+        founderUserId: 'user-1',
+      });
+      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ migrationState: 'completed' }),
+      );
+      expect(getByText('Imported Snapshot')).toBeTruthy();
+      expect(getByText('org-1:user-1:snapshot-1')).toBeTruthy();
+      expect(getByText('Server Totals')).toBeTruthy();
+      expect(getByText('11 style profiles · 22 edit patterns')).toBeTruthy();
+    });
+  });
+
+  it('marks migration failed when founder verification errors', async () => {
+    mockMigrateLocalLearningToVerifiedFounderCommercial.mockRejectedValue(
+      new Error('Founder migration verification failed: snapshot mismatch'),
+    );
+
+    mockUseAppStore.mockImplementation((selector: any) =>
+      selector({
+        founderSession: {
+          userId: 'user-1',
+          orgId: 'org-1',
+          email: 'sawyerbeck25@gmail.com',
+          accessToken: 'token-1',
+          refreshToken: 'refresh-1',
+          validatedAt: '2026-01-01T00:00:00.000Z',
+          migrationState: 'pending',
+        },
+        founderSessionLoading: false,
+        restoreFounderSession: jest.fn().mockResolvedValue(null),
+        clearFounderSession: jest.fn(),
+        clearFounderAuthSession: mockClearFounderAuthSession,
+        setFounderAuthSession: mockSetFounderAuthSession,
+        setFounderSession: mockSetFounderSession,
+      })
+    );
+
+    const { getByText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Migrate Learning'));
+
+    await waitFor(() => {
+      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ migrationState: 'in_progress' }),
+      );
+      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ migrationState: 'failed' }),
+      );
+      expect(getByText('Founder migration verification failed: snapshot mismatch')).toBeTruthy();
     });
   });
 });
