@@ -11,6 +11,7 @@ const mockSetFounderAuthSession = jest.fn();
 const mockClearFounderAuthSession = jest.fn();
 const mockSetFounderSession = jest.fn();
 const mockMigrateLocalLearningToVerifiedFounderCommercial = jest.fn();
+let mockStoreState: any;
 
 jest.mock('react-native-safe-area-context', () => {
   const { View } = jest.requireActual('react-native');
@@ -41,9 +42,13 @@ jest.mock('@/lib/commercial-migration', () => ({
     mockMigrateLocalLearningToVerifiedFounderCommercial(...args),
 }));
 
-jest.mock('@/lib/store', () => ({
-  useAppStore: (selector: any) => mockUseAppStore(selector),
-}));
+jest.mock('@/lib/store', () => {
+  const mockedStore = (selector: any) => mockUseAppStore(selector);
+  mockedStore.getState = () => mockStoreState;
+  return {
+    useAppStore: mockedStore,
+  };
+});
 
 jest.mock('@/lib/design-tokens', () => ({
   colors: {
@@ -128,17 +133,24 @@ describe('FounderAccessScreen', () => {
       founderAccess: true,
     });
 
-    mockUseAppStore.mockImplementation((selector: any) =>
-      selector({
-        founderSession: null,
-        founderSessionLoading: false,
-        restoreFounderSession: jest.fn().mockResolvedValue(null),
-        clearFounderSession: jest.fn(),
-        clearFounderAuthSession: mockClearFounderAuthSession,
-        setFounderAuthSession: mockSetFounderAuthSession,
-        setFounderSession: mockSetFounderSession,
-      })
-    );
+    mockSetFounderSession.mockImplementation((session) => {
+      mockStoreState = {
+        ...mockStoreState,
+        founderSession: session,
+      };
+    });
+
+    mockStoreState = {
+      founderSession: null,
+      founderSessionLoading: false,
+      restoreFounderSession: jest.fn().mockResolvedValue(null),
+      clearFounderSession: jest.fn(),
+      clearFounderAuthSession: mockClearFounderAuthSession,
+      setFounderAuthSession: mockSetFounderAuthSession,
+      setFounderSession: mockSetFounderSession,
+    };
+
+    mockUseAppStore.mockImplementation((selector: any) => selector(mockStoreState));
   });
 
   afterEach(() => {
@@ -230,25 +242,18 @@ describe('FounderAccessScreen', () => {
       buttons?.find((button) => button.text === 'Sign Out')?.onPress?.();
     });
 
-    mockUseAppStore.mockImplementation((selector: any) =>
-      selector({
-        founderSession: {
-          userId: 'user-1',
-          orgId: 'org-1',
-          email: 'sawyerbeck25@gmail.com',
-          accessToken: 'token-1',
-          refreshToken: 'refresh-1',
-          validatedAt: '2026-01-01T00:00:00.000Z',
-          migrationState: 'pending',
-        },
-        founderSessionLoading: false,
-        restoreFounderSession: jest.fn().mockResolvedValue(null),
-        clearFounderSession: jest.fn(),
-        clearFounderAuthSession: mockClearFounderAuthSession,
-        setFounderAuthSession: mockSetFounderAuthSession,
-        setFounderSession: mockSetFounderSession,
-      })
-    );
+    mockStoreState = {
+      ...mockStoreState,
+      founderSession: {
+        userId: 'user-1',
+        orgId: 'org-1',
+        email: 'sawyerbeck25@gmail.com',
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        validatedAt: '2026-01-01T00:00:00.000Z',
+        migrationState: 'pending',
+      },
+    };
 
     const { getByText } = render(
       <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
@@ -320,25 +325,18 @@ describe('FounderAccessScreen', () => {
       },
     });
 
-    mockUseAppStore.mockImplementation((selector: any) =>
-      selector({
-        founderSession: {
-          userId: 'user-1',
-          orgId: 'org-1',
-          email: 'sawyerbeck25@gmail.com',
-          accessToken: 'token-1',
-          refreshToken: 'refresh-1',
-          validatedAt: '2026-01-01T00:00:00.000Z',
-          migrationState: 'pending',
-        },
-        founderSessionLoading: false,
-        restoreFounderSession: jest.fn().mockResolvedValue(null),
-        clearFounderSession: jest.fn(),
-        clearFounderAuthSession: mockClearFounderAuthSession,
-        setFounderAuthSession: mockSetFounderAuthSession,
-        setFounderSession: mockSetFounderSession,
-      })
-    );
+    mockStoreState = {
+      ...mockStoreState,
+      founderSession: {
+        userId: 'user-1',
+        orgId: 'org-1',
+        email: 'sawyerbeck25@gmail.com',
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        validatedAt: '2026-01-01T00:00:00.000Z',
+        migrationState: 'pending',
+      },
+    };
 
     const { getByText } = render(
       <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
@@ -373,25 +371,18 @@ describe('FounderAccessScreen', () => {
       new Error('Founder migration verification failed: snapshot mismatch'),
     );
 
-    mockUseAppStore.mockImplementation((selector: any) =>
-      selector({
-        founderSession: {
-          userId: 'user-1',
-          orgId: 'org-1',
-          email: 'sawyerbeck25@gmail.com',
-          accessToken: 'token-1',
-          refreshToken: 'refresh-1',
-          validatedAt: '2026-01-01T00:00:00.000Z',
-          migrationState: 'pending',
-        },
-        founderSessionLoading: false,
-        restoreFounderSession: jest.fn().mockResolvedValue(null),
-        clearFounderSession: jest.fn(),
-        clearFounderAuthSession: mockClearFounderAuthSession,
-        setFounderAuthSession: mockSetFounderAuthSession,
-        setFounderSession: mockSetFounderSession,
-      })
-    );
+    mockStoreState = {
+      ...mockStoreState,
+      founderSession: {
+        userId: 'user-1',
+        orgId: 'org-1',
+        email: 'sawyerbeck25@gmail.com',
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        validatedAt: '2026-01-01T00:00:00.000Z',
+        migrationState: 'pending',
+      },
+    };
 
     const { getByText } = render(
       <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
@@ -409,6 +400,104 @@ describe('FounderAccessScreen', () => {
         expect.objectContaining({ migrationState: 'failed' }),
       );
       expect(getByText('Founder migration verification failed: snapshot mismatch')).toBeTruthy();
+    });
+  });
+
+  it('does not resurrect a cleared founder session after migration resolves', async () => {
+    let resolveMigration: ((value: {
+      status: 'verified';
+      importResponse: any;
+      verification: any;
+    }) => void) | null = null;
+    mockMigrateLocalLearningToVerifiedFounderCommercial.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveMigration = resolve;
+        }),
+    );
+
+    mockStoreState = {
+      ...mockStoreState,
+      founderSession: {
+        userId: 'user-1',
+        orgId: 'org-1',
+        email: 'sawyerbeck25@gmail.com',
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        validatedAt: '2026-01-01T00:00:00.000Z',
+        migrationState: 'pending',
+      },
+    };
+
+    const { getByText, queryByText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Migrate Learning'));
+
+    await waitFor(() => {
+      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ migrationState: 'in_progress' }),
+      );
+    });
+
+    mockStoreState = {
+      ...mockStoreState,
+      founderSession: null,
+    };
+
+    if (!resolveMigration) {
+      throw new Error('Expected migration promise resolver');
+    }
+
+    const resolver = resolveMigration as (value: {
+      status: 'verified';
+      importResponse: any;
+      verification: any;
+    }) => void;
+
+    resolver({
+      status: 'verified',
+      importResponse: {
+        snapshotId: 'org-1:user-1:snapshot-1',
+        source: 'personal_local_store_to_founder_account_v1',
+        stats: {
+          importedAt: '2026-03-27T00:00:00.000Z',
+          hostStyleProfilesReceived: 1,
+          hostStyleProfilesUpserted: 1,
+          learningEntriesReceived: 2,
+          editPatternsInserted: 2,
+          draftOutcomesReceived: 3,
+          replyDeltasReceived: 4,
+          calibrationEntriesReceived: 5,
+          conversationFlowsReceived: 6,
+        },
+        imported: {
+          hostStyleProfiles: 1,
+          editPatterns: 2,
+        },
+      },
+      verification: {
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:snapshot-1',
+          source: 'personal_local_store_to_founder_account_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {},
+        },
+        serverTotals: {
+          hostStyleProfiles: 11,
+          editPatterns: 22,
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(mockSetFounderSession).toHaveBeenCalledTimes(1);
+      expect(queryByText('Imported Snapshot')).toBeNull();
     });
   });
 });

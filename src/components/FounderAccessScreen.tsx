@@ -59,6 +59,22 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const trimmedEmail = email.trim();
   const trimmedCode = code.trim();
 
+  const founderSessionMatchesCurrentStore = useCallback((expectedSession: FounderSession) => {
+    const currentFounderSession = useAppStore.getState().founderSession;
+
+    if (!currentFounderSession) {
+      return false;
+    }
+
+    return (
+      currentFounderSession.userId === expectedSession.userId &&
+      currentFounderSession.orgId === expectedSession.orgId &&
+      currentFounderSession.email === expectedSession.email &&
+      currentFounderSession.accessToken === expectedSession.accessToken &&
+      currentFounderSession.refreshToken === expectedSession.refreshToken
+    );
+  }, []);
+
   const handleEmailChange = useCallback((nextEmail: string) => {
     setEmail(nextEmail);
     setAuthError(null);
@@ -184,6 +200,10 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
         founderUserId: founderSession.userId,
       });
 
+      if (!founderSessionMatchesCurrentStore(inProgressSession)) {
+        return;
+      }
+
       setFounderSession({
         ...inProgressSession,
         migrationState: 'completed',
@@ -192,6 +212,11 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
       setMigrationImportResponse(result.importResponse);
     } catch (error) {
       console.error('[FounderAccessScreen] Founder migration failed:', error);
+
+      if (!founderSessionMatchesCurrentStore(inProgressSession)) {
+        return;
+      }
+
       setFounderSession({
         ...inProgressSession,
         migrationState: 'failed',
@@ -200,7 +225,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     } finally {
       setIsMigratingLearning(false);
     }
-  }, [founderSession, isMigratingLearning, setFounderSession]);
+  }, [founderSession, founderSessionMatchesCurrentStore, isMigratingLearning, setFounderSession]);
 
   const handleOpenDiagnostics = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

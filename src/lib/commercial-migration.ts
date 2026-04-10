@@ -37,6 +37,40 @@ export interface VerifiedFounderMigrationResult {
   verification: LocalLearningMigrationStatusResponse;
 }
 
+function readNumericStat(stats: Record<string, unknown>, key: string): number {
+  const value = stats[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function buildImportResponseFromVerification(
+  verification: LocalLearningMigrationStatusResponse,
+): LocalLearningMigrationImportResponse {
+  const snapshot = verification.latestSnapshot;
+  const stats = (snapshot?.stats as Record<string, unknown> | undefined) || {};
+  const hostStyleProfilesUpserted = readNumericStat(stats, 'hostStyleProfilesUpserted');
+  const editPatternsInserted = readNumericStat(stats, 'editPatternsInserted');
+
+  return {
+    snapshotId: snapshot?.id || 'verified-existing-snapshot',
+    source: snapshot?.source || 'personal_local_store_to_founder_account_v1',
+    stats: {
+      importedAt: snapshot?.importedAt || new Date().toISOString(),
+      hostStyleProfilesReceived: readNumericStat(stats, 'hostStyleProfilesReceived') || hostStyleProfilesUpserted,
+      hostStyleProfilesUpserted,
+      learningEntriesReceived: readNumericStat(stats, 'learningEntriesReceived'),
+      editPatternsInserted,
+      draftOutcomesReceived: readNumericStat(stats, 'draftOutcomesReceived'),
+      replyDeltasReceived: readNumericStat(stats, 'replyDeltasReceived'),
+      calibrationEntriesReceived: readNumericStat(stats, 'calibrationEntriesReceived'),
+      conversationFlowsReceived: readNumericStat(stats, 'conversationFlowsReceived'),
+    },
+    imported: {
+      hostStyleProfiles: hostStyleProfilesUpserted,
+      editPatterns: editPatternsInserted,
+    },
+  };
+}
+
 export async function buildLocalLearningMigrationSnapshot(
   options: BuildLocalLearningMigrationSnapshotOptions = {},
 ): Promise<LocalLearningMigrationImportRequest> {
@@ -129,6 +163,19 @@ export async function migrateLocalLearningToVerifiedFounderCommercial({
   founderUserId,
   snapshotId,
 }: VerifiedFounderMigrationParams): Promise<VerifiedFounderMigrationResult> {
+  const preflightVerification = await getCommercialLearningMigrationVerification();
+
+  if (
+    preflightVerification.hasSnapshot &&
+    preflightVerification.latestSnapshot?.importedByUserId === founderUserId
+  ) {
+    return {
+      status: 'verified',
+      importResponse: buildImportResponseFromVerification(preflightVerification),
+      verification: preflightVerification,
+    };
+  }
+
   const importResponse = await migrateLocalLearningToFounderCommercial(founderEmail, snapshotId);
   const verification = await getCommercialLearningMigrationVerification();
 
