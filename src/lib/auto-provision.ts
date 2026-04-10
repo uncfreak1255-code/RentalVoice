@@ -15,6 +15,15 @@ import {
   type FounderSessionData,
 } from './secure-storage';
 
+function decodeBase64UrlJson<T>(value: string): T {
+  const normalized = value
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(value.length / 4) * 4, '=');
+
+  return JSON.parse(atob(normalized)) as T;
+}
+
 /**
  * Provision a Supabase identity for the given Hostaway account.
  *
@@ -97,7 +106,7 @@ export async function ensureFreshToken(existingSession?: FounderSessionData | nu
       return false;
     }
 
-    const payload = JSON.parse(atob(parts[1]));
+    const payload = decodeBase64UrlJson<{ exp: number }>(parts[1]);
     const expMs = payload.exp * 1000;
     const fiveMinutes = 5 * 60 * 1000;
 
