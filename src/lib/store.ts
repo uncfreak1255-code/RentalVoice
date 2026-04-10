@@ -671,6 +671,10 @@ interface AppState {
   founderSession: FounderSession | null;
   founderSessionLoading: boolean;
   setFounderSession: (session: FounderSession) => void;
+  setFounderAuthSession: (session: {
+    accountSession: AccountSession;
+    founderSession: FounderSession;
+  }) => void;
   clearFounderSession: () => void;
   restoreFounderSession: () => Promise<FounderSession | null>;
 
@@ -1388,6 +1392,17 @@ export const useAppStore = create<AppState>()(
         set({ founderSession: session, founderSessionLoading: false });
         // Persist to secure storage in background
         saveFounderSessionToStorage(session).catch((err) => {
+          console.error('[Store] Failed to persist founder session:', err);
+        });
+      },
+      setFounderAuthSession: ({ accountSession, founderSession }) => {
+        set({
+          accountSession,
+          accountSessionLoading: false,
+          founderSession,
+          founderSessionLoading: false,
+        });
+        saveFounderSessionToStorage(founderSession).catch((err) => {
           console.error('[Store] Failed to persist founder session:', err);
         });
       },

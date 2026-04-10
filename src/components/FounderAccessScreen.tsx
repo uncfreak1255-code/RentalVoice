@@ -1,15 +1,31 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft, Shield, User, Mail, Clock, Database,
-  LogIn, RefreshCw, Brain, Stethoscope, LogOut,
+  RefreshCw, Brain, Stethoscope, LogOut,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, ValueRow, LinkRow, s } from './ui/SettingsComponents';
 import { useAppStore, type FounderSession } from '@/lib/store';
 import { APP_MODE } from '@/lib/config';
+import {
+  getCurrentUser,
+  requestEmailCode,
+  verifyEmailCode,
+  type CurrentUserResponseData,
+  type PasswordlessAuthResponseData,
+} from '@/lib/api-client';
 
 interface FounderAccessScreenProps {
   onBack: () => void;
@@ -21,11 +37,20 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const founderSessionLoading = useAppStore((s) => s.founderSessionLoading);
   const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
   const clearFounderSession = useAppStore((s) => s.clearFounderSession);
+  const setFounderAuthSession = useAppStore((s) => s.setFounderAuthSession);
 
   const [isRestoring, setIsRestoring] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const isSignedIn = !!founderSession;
+  const trimmedEmail = email.trim();
+  const trimmedCode = code.trim();
 
   const handleRestoreSession = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -45,16 +70,75 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     }
   }, [restoreFounderSession]);
 
-  const handleSignIn = useCallback(() => {
+  const handleRequestCode = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Founder sign-in flow will be implemented in a future task.
-    // For now, show an informational alert.
-    Alert.alert(
-      'Founder Sign In',
-      'Founder authentication flow is not yet connected to the app UI. ' +
-      'Use the bootstrap script to establish the founder session, then restore it here.',
-    );
-  }, []);
+    if (!trimmedEmail || isRequestingCode) {
+      return;
+    }
+
+    setIsRequestingCode(true);
+    setAuthError(null);
+    try {
+      await requestEmailCode(trimmedEmail);
+      setCodeRequested(true);
+      setCode('');
+    } catch (error) {
+      console.error('[FounderAccessScreen] Failed to request founder code:', error);
+      setAuthError('We could not send the code. Check the email and try again.');
+    } finally {
+      setIsRequestingCode(false);
+    }
+  }, [isRequestingCode, trimmedEmail]);
+
+  const handleVerifyCode = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!trimmedEmail || !trimmedCode || isVerifyingCode) {
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    setAuthError(null);
+    try {
+      const authSession: PasswordlessAuthResponseData = await verifyEmailCode(trimmedEmail, trimmedCode);
+      const currentUser: CurrentUserResponseData = await getCurrentUser();
+
+      if (currentUser.founderAccess === false) {
+        throw new Error('Founder access is not enabled for this account.');
+      }
+
+      if (!currentUser.organization?.id) {
+        throw new Error('Founder organization was not returned by the server.');
+      }
+
+      const validatedAt = new Date().toISOString();
+      setFounderAuthSession({
+        accountSession: {
+          token: authSession.token,
+          refreshToken: authSession.refreshToken,
+          user: authSession.user,
+        },
+        founderSession: {
+          userId: currentUser.user.id,
+          orgId: currentUser.organization.id,
+          email: currentUser.user.email,
+          accessToken: authSession.token,
+          refreshToken: authSession.refreshToken,
+          validatedAt,
+          migrationState: 'pending',
+        },
+      });
+
+      setCodeRequested(false);
+      setCode('');
+      setAuthError(null);
+      Alert.alert('Founder Access Ready', `Signed in as ${currentUser.user.email}`);
+    } catch (error) {
+      console.error('[FounderAccessScreen] Failed to verify founder code:', error);
+      setAuthError('That code did not work. Check the email and try again.');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  }, [isVerifyingCode, setFounderAuthSession, trimmedCode, trimmedEmail]);
 
   const handleMigrateLearning = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -191,9 +275,81 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                 text={
                   isSignedIn
                     ? 'Founder session active. Personal-mode Hostaway remains the default workflow.'
-                    : 'No active founder session. Sign in or restore from secure storage.'
+                    : 'No active founder session. Use email code sign-in or restore from secure storage.'
                 }
               />
+
+              {!isSignedIn && (
+                <>
+                  <SectionHeader title="Founder Sign In" />
+                  <View style={s.card}>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Email"
+                      placeholderTextColor={colors.text.secondary}
+                      style={styles.input}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                    />
+
+                    {codeRequested && (
+                      <>
+                        <Text style={styles.inputLabel}>Code</Text>
+                        <TextInput
+                          value={code}
+                          onChangeText={setCode}
+                          placeholder="6-digit code"
+                          placeholderTextColor={colors.text.secondary}
+                          style={styles.input}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          keyboardType="number-pad"
+                        />
+                      </>
+                    )}
+
+                    {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+
+                    {!codeRequested ? (
+                      <Pressable
+                        onPress={handleRequestCode}
+                        disabled={!trimmedEmail || isRequestingCode}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          (!trimmedEmail || isRequestingCode) && styles.primaryButtonDisabled,
+                          pressed && trimmedEmail && !isRequestingCode && styles.primaryButtonPressed,
+                        ]}
+                      >
+                        {isRequestingCode ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.primaryButtonText}>Send Code</Text>
+                        )}
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={handleVerifyCode}
+                        disabled={!trimmedCode || isVerifyingCode}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          (!trimmedCode || isVerifyingCode) && styles.primaryButtonDisabled,
+                          pressed && trimmedCode && !isVerifyingCode && styles.primaryButtonPressed,
+                        ]}
+                      >
+                        {isVerifyingCode ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.primaryButtonText}>Verify Code</Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                  <SectionFooter text="We send a one-time code to the founder email. No password is created or stored." />
+                </>
+              )}
 
               {/* ── Learning Migration ── */}
               {isSignedIn && founderSession && (
@@ -215,13 +371,6 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
               {/* ── Actions ── */}
               <SectionHeader title="Actions" />
               <View style={s.card}>
-                {!isSignedIn && (
-                  <LinkRow
-                    icon={<LogIn size={18} color={colors.primary.DEFAULT} />}
-                    label="Sign In"
-                    onPress={handleSignIn}
-                  />
-                )}
                 <LinkRow
                   icon={
                     isRestoring
@@ -307,6 +456,51 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontFamily: typography.fontFamily.regular,
     fontSize: 14,
+  },
+  inputLabel: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    marginBottom: 8,
+  },
+  input: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    color: colors.text.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    fontFamily: typography.fontFamily.regular,
+  },
+  primaryButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: colors.primary.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  primaryButtonPressed: {
+    opacity: 0.9,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.55,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: typography.fontFamily.semibold,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+    fontFamily: typography.fontFamily.regular,
   },
   signOutLabel: {
     flex: 1,

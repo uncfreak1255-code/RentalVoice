@@ -563,12 +563,15 @@ export async function consumeMagicLink(code: string): Promise<PasswordlessAuthRe
   return data;
 }
 
-export async function getCurrentUser(): Promise<{
+export interface CurrentUserResponseData {
   user: AuthUser;
   organization: { id: string; role: string; name: string } | null;
-}> {
+  founderAccess?: boolean;
+}
+
+export async function getCurrentUser(): Promise<CurrentUserResponseData> {
   const { data } = await apiClient.get('/api/auth/me');
-  return data as { user: AuthUser; organization: { id: string; role: string; name: string } | null };
+  return data as CurrentUserResponseData;
 }
 
 export async function refreshTokens(): Promise<{ token: string; refreshToken: string }> {
