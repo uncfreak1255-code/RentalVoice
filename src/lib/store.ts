@@ -15,8 +15,9 @@ import {
   restoreAccountSession as restoreAccountSessionFromStorage,
   type AccountSession,
 } from './account-session';
-import { clearAuthTokens, setAuthTokens } from './api-client';
+import { clearAuthTokens, getCurrentUser, setAuthTokens } from './api-client';
 import { getDemoConversations, getDemoProperties, getDemoPropertyKnowledge } from './demo-data';
+import { ensureFreshToken } from './auto-provision';
 
 // Types
 export interface Guest {
@@ -1436,27 +1437,63 @@ export const useAppStore = create<AppState>()(
       },
       restoreFounderSession: async () => {
         set({ founderSessionLoading: true });
+        let foundStoredFounderSession = false;
+
         try {
-          const session = await loadFounderSessionFromStorage();
-          if (session) {
-            const founderSession: FounderSession = {
-              userId: session.userId,
-              orgId: session.orgId,
-              email: session.email,
-              accessToken: session.accessToken,
-              refreshToken: session.refreshToken,
-              validatedAt: session.validatedAt,
-              migrationState: session.migrationState,
-            };
-            set({ founderSession, founderSessionLoading: false });
-            console.log('[Store] Founder session restored for', session.email);
-            return founderSession;
+          const storedSession = await loadFounderSessionFromStorage();
+          if (storedSession) {
+            foundStoredFounderSession = true;
+          } else {
+            set({ founderSessionLoading: false });
+            return null;
           }
-          set({ founderSessionLoading: false });
-          return null;
+
+          const tokenIsFresh = await ensureFreshToken();
+          if (!tokenIsFresh) {
+            console.warn('[Store] Founder session refresh failed during restore; clearing stored auth state');
+            await get().clearFounderAuthSession();
+            return null;
+          }
+
+          const refreshedSession = await loadFounderSessionFromStorage();
+          if (!refreshedSession) {
+            console.warn('[Store] Founder session disappeared after refresh; clearing stored auth state');
+            await get().clearFounderAuthSession();
+            return null;
+          }
+
+          await setAuthTokens(refreshedSession.accessToken, refreshedSession.refreshToken);
+
+          const currentUser = await getCurrentUser();
+          if (!currentUser?.user?.id || !currentUser.user.email || !currentUser.organization?.id) {
+            console.warn('[Store] Founder session validation failed; clearing stored auth state');
+            await get().clearFounderAuthSession();
+            return null;
+          }
+
+          const founderSession: FounderSession = {
+            userId: currentUser.user.id,
+            orgId: currentUser.organization.id,
+            email: currentUser.user.email,
+            accessToken: refreshedSession.accessToken,
+            refreshToken: refreshedSession.refreshToken,
+            validatedAt: new Date().toISOString(),
+            migrationState: refreshedSession.migrationState,
+          };
+
+          set({ founderSession, founderSessionLoading: false });
+          saveFounderSessionToStorage(founderSession).catch((err) => {
+            console.error('[Store] Failed to persist validated founder session:', err);
+          });
+          console.log('[Store] Founder session restored for', founderSession.email);
+          return founderSession;
         } catch (error) {
           console.error('[Store] Failed to restore founder session:', error);
-          set({ founderSessionLoading: false });
+          if (foundStoredFounderSession) {
+            await get().clearFounderAuthSession();
+          } else {
+            set({ founderSessionLoading: false });
+          }
           return null;
         }
       },
