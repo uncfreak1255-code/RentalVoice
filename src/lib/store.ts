@@ -676,6 +676,7 @@ interface AppState {
     founderSession: FounderSession;
   }) => void;
   clearFounderSession: () => void;
+  clearFounderAuthSession: () => Promise<void>;
   restoreFounderSession: () => Promise<FounderSession | null>;
 
   // Account Session
@@ -1411,6 +1412,27 @@ export const useAppStore = create<AppState>()(
         clearFounderSessionFromStorage().catch((err) => {
           console.error('[Store] Failed to clear founder session from storage:', err);
         });
+      },
+      clearFounderAuthSession: async () => {
+        set({
+          founderSession: null,
+          founderSessionLoading: false,
+          accountSession: null,
+          accountSessionLoading: false,
+          voiceReadiness: initialVoiceReadiness,
+        });
+
+        await Promise.all([
+          clearFounderSessionFromStorage().catch((err) => {
+            console.error('[Store] Failed to clear founder session from storage:', err);
+          }),
+          clearStoredAccountSession().catch((err) => {
+            console.error('[Store] Failed to clear account session from storage:', err);
+          }),
+          clearAuthTokens().catch((err) => {
+            console.error('[Store] Failed to clear auth tokens:', err);
+          }),
+        ]);
       },
       restoreFounderSession: async () => {
         set({ founderSessionLoading: true });

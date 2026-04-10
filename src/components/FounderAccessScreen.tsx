@@ -36,7 +36,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const founderSession = useAppStore((s) => s.founderSession);
   const founderSessionLoading = useAppStore((s) => s.founderSessionLoading);
   const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
-  const clearFounderSession = useAppStore((s) => s.clearFounderSession);
+  const clearFounderAuthSession = useAppStore((s) => s.clearFounderAuthSession);
   const setFounderAuthSession = useAppStore((s) => s.setFounderAuthSession);
 
   const [isRestoring, setIsRestoring] = useState(false);
@@ -51,6 +51,15 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const isSignedIn = !!founderSession;
   const trimmedEmail = email.trim();
   const trimmedCode = code.trim();
+
+  const handleEmailChange = useCallback((nextEmail: string) => {
+    setEmail(nextEmail);
+    setAuthError(null);
+    if (codeRequested) {
+      setCodeRequested(false);
+      setCode('');
+    }
+  }, [codeRequested]);
 
   const handleRestoreSession = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -134,11 +143,12 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
       Alert.alert('Founder Access Ready', `Signed in as ${currentUser.user.email}`);
     } catch (error) {
       console.error('[FounderAccessScreen] Failed to verify founder code:', error);
+      await clearFounderAuthSession();
       setAuthError('That code did not work. Check the email and try again.');
     } finally {
       setIsVerifyingCode(false);
     }
-  }, [isVerifyingCode, setFounderAuthSession, trimmedCode, trimmedEmail]);
+  }, [clearFounderAuthSession, isVerifyingCode, setFounderAuthSession, trimmedCode, trimmedEmail]);
 
   const handleMigrateLearning = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -163,21 +173,24 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Sign Out Founder',
-      'This will clear the founder session from this device. Your account data on the server is not affected.',
+      'This will clear the founder and account sessions from this device. Your account data on the server is not affected.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             setIsSigningOut(true);
-            clearFounderSession();
-            setIsSigningOut(false);
+            try {
+              await clearFounderAuthSession();
+            } finally {
+              setIsSigningOut(false);
+            }
           },
         },
       ],
     );
-  }, [clearFounderSession]);
+  }, [clearFounderAuthSession]);
 
   const formatValidatedAt = (iso: string): string => {
     try {
@@ -286,7 +299,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                     <Text style={styles.inputLabel}>Email</Text>
                     <TextInput
                       value={email}
-                      onChangeText={setEmail}
+                      onChangeText={handleEmailChange}
                       placeholder="Email"
                       placeholderTextColor={colors.text.secondary}
                       style={styles.input}

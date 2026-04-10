@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { FounderAccessScreen } from '../FounderAccessScreen';
 
 const mockUseAppStore = jest.fn();
@@ -7,6 +8,7 @@ const mockRequestEmailCode = jest.fn();
 const mockVerifyEmailCode = jest.fn();
 const mockGetCurrentUser = jest.fn();
 const mockSetFounderAuthSession = jest.fn();
+const mockClearFounderAuthSession = jest.fn();
 
 jest.mock('react-native-safe-area-context', () => {
   const { View } = jest.requireActual('react-native');
@@ -125,9 +127,14 @@ describe('FounderAccessScreen', () => {
         founderSessionLoading: false,
         restoreFounderSession: jest.fn().mockResolvedValue(null),
         clearFounderSession: jest.fn(),
+        clearFounderAuthSession: mockClearFounderAuthSession,
         setFounderAuthSession: mockSetFounderAuthSession,
       })
     );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('requests an email code and verifies it into an active founder session', async () => {
@@ -170,6 +177,98 @@ describe('FounderAccessScreen', () => {
           }),
         })
       );
+    });
+  });
+
+  it('clears leaked account auth when founder verification succeeds but org data is missing', async () => {
+    mockGetCurrentUser.mockResolvedValueOnce({
+      user: {
+        id: 'user-1',
+        email: 'sawyerbeck25@gmail.com',
+        name: 'Sawyer',
+        plan: 'enterprise',
+        trialEndsAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      organization: null,
+      founderAccess: true,
+    });
+
+    const { getByPlaceholderText, getByText, queryByText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.changeText(getByPlaceholderText('Email'), 'sawyerbeck25@gmail.com');
+    fireEvent.press(getByText('Send Code'));
+
+    await waitFor(() => {
+      expect(getByPlaceholderText('6-digit code')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByPlaceholderText('6-digit code'), '123456');
+    fireEvent.press(getByText('Verify Code'));
+
+    await waitFor(() => {
+      expect(mockVerifyEmailCode).toHaveBeenCalledWith('sawyerbeck25@gmail.com', '123456');
+      expect(mockClearFounderAuthSession).toHaveBeenCalled();
+      expect(mockSetFounderAuthSession).not.toHaveBeenCalled();
+      expect(queryByText('Founder Access Ready')).toBeNull();
+      expect(getByText('That code did not work. Check the email and try again.')).toBeTruthy();
+    });
+  });
+
+  it('clears founder and account auth when signing out', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.text === 'Sign Out')?.onPress?.();
+    });
+
+    mockUseAppStore.mockImplementation((selector: any) =>
+      selector({
+        founderSession: {
+          userId: 'user-1',
+          orgId: 'org-1',
+          email: 'sawyerbeck25@gmail.com',
+          accessToken: 'token-1',
+          refreshToken: 'refresh-1',
+          validatedAt: '2026-01-01T00:00:00.000Z',
+          migrationState: 'pending',
+        },
+        founderSessionLoading: false,
+        restoreFounderSession: jest.fn().mockResolvedValue(null),
+        clearFounderSession: jest.fn(),
+        clearFounderAuthSession: mockClearFounderAuthSession,
+        setFounderAuthSession: mockSetFounderAuthSession,
+      })
+    );
+
+    const { getByText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Sign Out Founder'));
+
+    await waitFor(() => {
+      expect(mockClearFounderAuthSession).toHaveBeenCalled();
+    });
+  });
+
+  it('resets the code step when the founder email changes', async () => {
+    const { getByPlaceholderText, getByText, queryByPlaceholderText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.changeText(getByPlaceholderText('Email'), 'sawyerbeck25@gmail.com');
+    fireEvent.press(getByText('Send Code'));
+
+    await waitFor(() => {
+      expect(getByPlaceholderText('6-digit code')).toBeTruthy();
+    });
+
+    fireEvent.changeText(getByPlaceholderText('Email'), 'different@example.com');
+
+    await waitFor(() => {
+      expect(queryByPlaceholderText('6-digit code')).toBeNull();
+      expect(getByText('Send Code')).toBeTruthy();
     });
   });
 });
