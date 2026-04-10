@@ -1,6 +1,6 @@
 # Rental Voice open risks
 
-Last updated: 2026-03-27
+Last updated: 2026-04-10
 
 ## Highest risks
 
@@ -9,13 +9,14 @@ Last updated: 2026-03-27
 - That is a PMS connection flow, not a durable Rental Voice account identity
 - Without account-backed identity, learning and recovery remain fragile
 
-2. Founder backend exists, but founder auth is not app-ready yet
+2. Founder canary is real, but the public account-first path is still missing
 - The real founder backend account now exists in `Rental Voice Live`
-- The current app still does not expose a durable founder login/recovery path as normal UX
+- Founder Access now works in-app for sign-in, restore, migration, and managed drafts
+- None of that is the same thing as a production-ready public account onboarding path
 
-3. Durable account-backed AI learning is still not live in the app
-- Imported history and learning surfaces improved, but permanent founder-account-backed learning persistence is not the current app reality yet
-- App container resets can still wipe local-only learning state before migration is completed
+3. Durable account-backed AI learning is still founder-canary only
+- Verified founder migration now exists in the app, but the default user path is still local-first
+- Cold-start users still do not get an account-first learning experience or clear coverage guidance
 - Server-canonical generation must be the only eval target; founder-only prompt scores are not proof that onboarding works for a new account
 
 4. Current linked Supabase project is still the default local runtime
@@ -61,9 +62,8 @@ Last updated: 2026-03-27
 ## What remains blocked
 
 - **Google AI API key expired** — blocks Gemini draft generation, semantic voice queries, and promptfoo eval suite. Need fresh key from Google AI Studio.
-- durable app identity layer for founder and future users
-- app-side founder login/recovery path
-- durable learning migration into the founder account
+- public account-first onboarding path for non-founder users
+- cold-start coverage/readiness UX that explains strength, weakness, and learning state to a new account
 - founder billing-bypass validation from an app session
 - personal-to-founder migration rehearsal on a distinct rehearsal target
 - any real commercial cutover

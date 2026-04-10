@@ -1,5 +1,15 @@
 import type { ServerVoiceReadiness } from './api-client';
 
+export function shouldUseManagedDrafts({
+  serverProxiedAI,
+  hasFounderSession,
+}: {
+  serverProxiedAI: boolean;
+  hasFounderSession: boolean;
+}): boolean {
+  return serverProxiedAI || hasFounderSession;
+}
+
 export function canGenerateDraft(
   readiness: { state: ServerVoiceReadiness['state'] | 'unknown' } | null | undefined
 ): boolean {
