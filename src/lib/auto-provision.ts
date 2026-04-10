@@ -15,6 +15,15 @@ import {
   type FounderSessionData,
 } from './secure-storage';
 
+function decodeBase64UrlJson<T>(value: string): T {
+  const normalized = value
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(value.length / 4) * 4, '=');
+
+  return JSON.parse(atob(normalized)) as T;
+}
+
 /**
  * Provision a Supabase identity for the given Hostaway account.
  *
@@ -83,9 +92,9 @@ export async function autoProvisionIdentity(
  * - Attempts refresh otherwise; returns true on success, false on failure.
  * - Never throws.
  */
-export async function ensureFreshToken(): Promise<boolean> {
+export async function ensureFreshToken(existingSession?: FounderSessionData | null): Promise<boolean> {
   try {
-    const session = await loadFounderSession();
+    const session = existingSession ?? await loadFounderSession();
     if (!session) {
       return false;
     }
@@ -97,7 +106,7 @@ export async function ensureFreshToken(): Promise<boolean> {
       return false;
     }
 
-    const payload = JSON.parse(atob(parts[1]));
+    const payload = decodeBase64UrlJson<{ exp: number }>(parts[1]);
     const expMs = payload.exp * 1000;
     const fiveMinutes = 5 * 60 * 1000;
 

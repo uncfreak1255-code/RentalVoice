@@ -20,6 +20,7 @@ import {
   getCurrentEntitlements,
   type ServerVoiceReadiness,
 } from '@/lib/api-client';
+import { shouldUseManagedDrafts } from '@/lib/managed-draft-gating';
 import { getDraftLearningProof } from '@/lib/retrieval-source';
 import type { EnhancedAiDraft } from './types';
 import { useChatMessageActions } from './useChatMessageActions';
@@ -42,6 +43,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
   const incrementAnalytic = useAppStore((s) => s.incrementAnalytic);
   const hostStyleProfiles = useAppStore((s) => s.hostStyleProfiles);
   const addIssue = useAppStore((s) => s.addIssue);
+  const founderSession = useAppStore((s) => s.founderSession);
   const responseLanguageMode = useAppStore((s) => s.settings.responseLanguageMode ?? 'match_guest');
   const defaultLanguage = useAppStore((s) => s.settings.defaultLanguage ?? 'en');
   const voiceReadiness = useAppStore((s) => s.voiceReadiness);
@@ -54,6 +56,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
   const [, setCurrentModifier] = useState<RegenerationOption['modifier'] | undefined>();
 
   const lastGeneratedForMessageId = useRef<string | null>(null);
+  const composerNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const conversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
@@ -70,20 +73,32 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
     if (!conversation?.property?.id) return hostStyleProfiles['global'];
     return hostStyleProfiles[conversation.property.id] || hostStyleProfiles['global'];
   }, [conversation?.property?.id, hostStyleProfiles]);
+  const managedDraftsEnabled = shouldUseManagedDrafts({
+    serverProxiedAI: features.serverProxiedAI,
+    hasFounderSession: !!founderSession,
+  });
 
   // -- Composer notice helpers --
   const dismissComposerNotice = useCallback(() => {
+    if (composerNoticeTimerRef.current) {
+      clearTimeout(composerNoticeTimerRef.current);
+      composerNoticeTimerRef.current = null;
+    }
     setRateLimitError(null);
     setRateLimitActionLabel(null);
   }, []);
 
   const showComposerNotice = useCallback((message: string, actionLabel: string | null = null) => {
+    if (composerNoticeTimerRef.current) {
+      clearTimeout(composerNoticeTimerRef.current);
+    }
     setRateLimitError(message);
     setRateLimitActionLabel(actionLabel);
-    setTimeout(() => {
+    composerNoticeTimerRef.current = setTimeout(() => {
       setRateLimitError((current) => {
         if (current === message) {
           setRateLimitActionLabel(null);
+          composerNoticeTimerRef.current = null;
           return null;
         }
         return current;
@@ -91,9 +106,16 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
     }, 8000);
   }, []);
 
+  useEffect(() => () => {
+    if (composerNoticeTimerRef.current) {
+      clearTimeout(composerNoticeTimerRef.current);
+      composerNoticeTimerRef.current = null;
+    }
+  }, []);
+
   // -- Voice readiness --
   const refreshVoiceReadiness = useCallback(async () => {
-    if (!features.serverProxiedAI || !conversation?.property?.id) return null;
+    if (!managedDraftsEnabled || !conversation?.property?.id) return null;
     try {
       const readiness = await getVoiceReadinessViaServer(conversation.property.id);
       setVoiceReadiness({ ...readiness, updatedAt: new Date().toISOString() });
@@ -102,7 +124,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
       console.warn('[ChatScreen] Failed to fetch voice readiness:', readinessError);
       return null;
     }
-  }, [conversation?.property?.id, setVoiceReadiness]);
+  }, [conversation?.property?.id, managedDraftsEnabled, setVoiceReadiness]);
 
   // -- Action items handler --
   const handleActionItems = useCallback(
@@ -182,7 +204,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
             detectedLanguage: 'en',
             regenerationOptions: getRegenerationOptions(sentiment),
           };
-        } else if (features.serverProxiedAI) {
+        } else if (managedDraftsEnabled) {
           latestVoiceReadiness = await refreshVoiceReadiness();
           let supermemoryMode: 'off' | 'full' | 'degraded' = 'full';
           try {
@@ -294,6 +316,14 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
           historicalMatches: enhancedResponse.historicalMatches,
           knowledgeConflicts: enhancedResponse.knowledgeConflicts,
         });
+
+        if (managedDraftsEnabled && latestVoiceReadiness?.state === 'learning') {
+          showComposerNotice(
+            latestVoiceReadiness.reason ||
+              'Founder-managed drafts are active. Autopilot stays off until voice learning finishes.',
+            null,
+          );
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
         if (enhancedResponse.actionItems.length > 0) {
@@ -320,7 +350,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
           aiDraftConfidence: enhancedResponse.confidence.overall,
         });
 
-        const managedAutoSendReady = features.serverProxiedAI
+        const managedAutoSendReady = managedDraftsEnabled
           ? (latestVoiceReadiness?.autopilotEligible ?? voiceReadiness.autopilotEligible)
           : true;
         if (
@@ -335,9 +365,9 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
         } else if (
           autoPilotEnabled &&
           (enhancedResponse.confidence.blockedForAutoSend ||
-            (features.serverProxiedAI && !managedAutoSendReady))
+            (managedDraftsEnabled && !managedAutoSendReady))
         ) {
-          if (features.serverProxiedAI && !managedAutoSendReady) {
+          if (managedDraftsEnabled && !managedAutoSendReady) {
             showComposerNotice(
               latestVoiceReadiness?.reason ||
                 voiceReadiness.reason ||
@@ -377,6 +407,7 @@ export function useChatDraftEngine({ conversationId, onOpenUpsells }: UseChatDra
       handleActionItems,
       showComposerNotice,
       onOpenUpsells,
+      managedDraftsEnabled,
       refreshVoiceReadiness,
       voiceReadiness,
       handleAutoSend,

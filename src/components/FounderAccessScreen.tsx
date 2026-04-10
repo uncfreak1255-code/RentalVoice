@@ -1,15 +1,33 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft, Shield, User, Mail, Clock, Database,
-  LogIn, RefreshCw, Brain, Stethoscope, LogOut,
+  RefreshCw, Brain, Stethoscope, LogOut,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, typography } from '@/lib/design-tokens';
 import { SectionHeader, SectionFooter, ValueRow, LinkRow, s } from './ui/SettingsComponents';
 import { useAppStore, type FounderSession } from '@/lib/store';
 import { APP_MODE } from '@/lib/config';
+import {
+  getCurrentUser,
+  requestEmailCode,
+  verifyEmailCode,
+  type CurrentUserResponseData,
+  type LocalLearningMigrationImportResponse,
+  type PasswordlessAuthResponseData,
+} from '@/lib/api-client';
+import { migrateLocalLearningToVerifiedFounderCommercial } from '@/lib/commercial-migration';
 
 interface FounderAccessScreenProps {
   onBack: () => void;
@@ -20,12 +38,51 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const founderSession = useAppStore((s) => s.founderSession);
   const founderSessionLoading = useAppStore((s) => s.founderSessionLoading);
   const restoreFounderSession = useAppStore((s) => s.restoreFounderSession);
-  const clearFounderSession = useAppStore((s) => s.clearFounderSession);
+  const clearFounderAuthSession = useAppStore((s) => s.clearFounderAuthSession);
+  const setFounderAuthSession = useAppStore((s) => s.setFounderAuthSession);
+  const setFounderSession = useAppStore((s) => s.setFounderSession);
 
   const [isRestoring, setIsRestoring] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isMigratingLearning, setIsMigratingLearning] = useState(false);
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [isRequestingCode, setIsRequestingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [migrationImportResponse, setMigrationImportResponse] = useState<LocalLearningMigrationImportResponse | null>(null);
+  const [verifiedSnapshotId, setVerifiedSnapshotId] = useState<string | null>(null);
 
   const isSignedIn = !!founderSession;
+  const trimmedEmail = email.trim();
+  const trimmedCode = code.trim();
+
+  const founderSessionMatchesCurrentStore = useCallback((expectedSession: FounderSession) => {
+    const currentFounderSession = useAppStore.getState().founderSession;
+
+    if (!currentFounderSession) {
+      return false;
+    }
+
+    return (
+      currentFounderSession.userId === expectedSession.userId &&
+      currentFounderSession.orgId === expectedSession.orgId &&
+      currentFounderSession.email === expectedSession.email &&
+      currentFounderSession.accessToken === expectedSession.accessToken &&
+      currentFounderSession.refreshToken === expectedSession.refreshToken
+    );
+  }, []);
+
+  const handleEmailChange = useCallback((nextEmail: string) => {
+    setEmail(nextEmail);
+    setAuthError(null);
+    if (codeRequested) {
+      setCodeRequested(false);
+      setCode('');
+    }
+  }, [codeRequested]);
 
   const handleRestoreSession = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -45,30 +102,126 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     }
   }, [restoreFounderSession]);
 
-  const handleSignIn = useCallback(() => {
+  const handleRequestCode = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Founder sign-in flow will be implemented in a future task.
-    // For now, show an informational alert.
-    Alert.alert(
-      'Founder Sign In',
-      'Founder authentication flow is not yet connected to the app UI. ' +
-      'Use the bootstrap script to establish the founder session, then restore it here.',
-    );
-  }, []);
+    if (!trimmedEmail || isRequestingCode) {
+      return;
+    }
 
-  const handleMigrateLearning = useCallback(() => {
+    setIsRequestingCode(true);
+    setAuthError(null);
+    try {
+      await requestEmailCode(trimmedEmail);
+      setCodeRequested(true);
+      setCode('');
+    } catch (error) {
+      console.error('[FounderAccessScreen] Failed to request founder code:', error);
+      setAuthError('We could not send the code. Check the email and try again.');
+    } finally {
+      setIsRequestingCode(false);
+    }
+  }, [isRequestingCode, trimmedEmail]);
+
+  const handleVerifyCode = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!trimmedEmail || !trimmedCode || isVerifyingCode) {
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    setAuthError(null);
+    try {
+      const authSession: PasswordlessAuthResponseData = await verifyEmailCode(trimmedEmail, trimmedCode);
+      const currentUser: CurrentUserResponseData = await getCurrentUser();
+
+      if (currentUser.founderAccess === false) {
+        throw new Error('Founder access is not enabled for this account.');
+      }
+
+      if (!currentUser.organization?.id) {
+        throw new Error('Founder organization was not returned by the server.');
+      }
+
+      const validatedAt = new Date().toISOString();
+      setFounderAuthSession({
+        accountSession: {
+          token: authSession.token,
+          refreshToken: authSession.refreshToken,
+          user: authSession.user,
+        },
+        founderSession: {
+          userId: currentUser.user.id,
+          orgId: currentUser.organization.id,
+          email: currentUser.user.email,
+          accessToken: authSession.token,
+          refreshToken: authSession.refreshToken,
+          validatedAt,
+          migrationState: 'pending',
+        },
+      });
+
+      setCodeRequested(false);
+      setCode('');
+      setAuthError(null);
+      Alert.alert('Founder Access Ready', `Signed in as ${currentUser.user.email}`);
+    } catch (error) {
+      console.error('[FounderAccessScreen] Failed to verify founder code:', error);
+      await clearFounderAuthSession();
+      setAuthError('That code did not work. Check the email and try again.');
+    } finally {
+      setIsVerifyingCode(false);
+    }
+  }, [clearFounderAuthSession, isVerifyingCode, setFounderAuthSession, trimmedCode, trimmedEmail]);
+
+  const handleMigrateLearning = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (isMigratingLearning) {
+      return;
+    }
     if (!founderSession) {
       Alert.alert('Sign In Required', 'You must have an active founder session to migrate learning data.');
       return;
     }
-    // Learning migration UI will be wired in a future task.
-    Alert.alert(
-      'Learning Migration',
-      `Migration state: ${founderSession.migrationState}\n\n` +
-      'Full migration flow will be available in a future update.',
-    );
-  }, [founderSession]);
+
+    setMigrationError(null);
+    setMigrationImportResponse(null);
+    setVerifiedSnapshotId(null);
+    setIsMigratingLearning(true);
+
+    try {
+      const result = await migrateLocalLearningToVerifiedFounderCommercial({
+        founderEmail: founderSession.email,
+        founderUserId: founderSession.userId,
+      });
+
+      if (!founderSessionMatchesCurrentStore(founderSession)) {
+        return;
+      }
+
+      setFounderSession({
+        ...founderSession,
+        migrationState: 'completed',
+      });
+      setVerifiedSnapshotId(result.importResponse.snapshotId);
+      setMigrationImportResponse(result.importResponse);
+    } catch (error) {
+      console.error('[FounderAccessScreen] Founder migration failed:', error);
+
+      if (!founderSessionMatchesCurrentStore(founderSession)) {
+        return;
+      }
+
+      if (founderSession.migrationState !== 'completed') {
+        setFounderSession({
+          ...founderSession,
+          migrationState: 'failed',
+        });
+      }
+      setMigrationError(error instanceof Error ? error.message : 'Founder migration failed.');
+    } finally {
+      setIsMigratingLearning(false);
+    }
+  }, [founderSession, founderSessionMatchesCurrentStore, isMigratingLearning, setFounderSession]);
 
   const handleOpenDiagnostics = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -79,21 +232,24 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Sign Out Founder',
-      'This will clear the founder session from this device. Your account data on the server is not affected.',
+      'This will clear the founder and account sessions from this device. Your account data on the server is not affected.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             setIsSigningOut(true);
-            clearFounderSession();
-            setIsSigningOut(false);
+            try {
+              await clearFounderAuthSession();
+            } finally {
+              setIsSigningOut(false);
+            }
           },
         },
       ],
     );
-  }, [clearFounderSession]);
+  }, [clearFounderAuthSession]);
 
   const formatValidatedAt = (iso: string): string => {
     try {
@@ -122,6 +278,16 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
       default: return '#6B7280';
     }
   };
+
+  const importedCountsSummary = migrationImportResponse
+    ? `${migrationImportResponse.imported.hostStyleProfiles} style profiles · ${migrationImportResponse.imported.editPatterns} edit patterns`
+    : null;
+  const importedDetailSummary = migrationImportResponse
+    ? `${migrationImportResponse.stats.learningEntriesReceived} learning entries · ${migrationImportResponse.stats.draftOutcomesReceived} draft outcomes · ${migrationImportResponse.stats.replyDeltasReceived} reply deltas`
+    : null;
+  const displayedMigrationState: FounderSession['migrationState'] | null = founderSession
+    ? (isMigratingLearning ? 'in_progress' : founderSession.migrationState)
+    : null;
 
   return (
     <View style={styles.root}>
@@ -191,9 +357,81 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                 text={
                   isSignedIn
                     ? 'Founder session active. Personal-mode Hostaway remains the default workflow.'
-                    : 'No active founder session. Sign in or restore from secure storage.'
+                    : 'No active founder session. Use email code sign-in or restore from secure storage.'
                 }
               />
+
+              {!isSignedIn && (
+                <>
+                  <SectionHeader title="Founder Sign In" />
+                  <View style={s.card}>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <TextInput
+                      value={email}
+                      onChangeText={handleEmailChange}
+                      placeholder="Email"
+                      placeholderTextColor={colors.text.secondary}
+                      style={styles.input}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                    />
+
+                    {codeRequested && (
+                      <>
+                        <Text style={styles.inputLabel}>Code</Text>
+                        <TextInput
+                          value={code}
+                          onChangeText={setCode}
+                          placeholder="6-digit code"
+                          placeholderTextColor={colors.text.secondary}
+                          style={styles.input}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          keyboardType="number-pad"
+                        />
+                      </>
+                    )}
+
+                    {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
+
+                    {!codeRequested ? (
+                      <Pressable
+                        onPress={handleRequestCode}
+                        disabled={!trimmedEmail || isRequestingCode}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          (!trimmedEmail || isRequestingCode) && styles.primaryButtonDisabled,
+                          pressed && trimmedEmail && !isRequestingCode && styles.primaryButtonPressed,
+                        ]}
+                      >
+                        {isRequestingCode ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.primaryButtonText}>Send Code</Text>
+                        )}
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={handleVerifyCode}
+                        disabled={!trimmedCode || isVerifyingCode}
+                        style={({ pressed }) => [
+                          styles.primaryButton,
+                          (!trimmedCode || isVerifyingCode) && styles.primaryButtonDisabled,
+                          pressed && trimmedCode && !isVerifyingCode && styles.primaryButtonPressed,
+                        ]}
+                      >
+                        {isVerifyingCode ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.primaryButtonText}>Verify Code</Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                  <SectionFooter text="We send a one-time code to the founder email. No password is created or stored." />
+                </>
+              )}
 
               {/* ── Learning Migration ── */}
               {isSignedIn && founderSession && (
@@ -201,27 +439,49 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                   <SectionHeader title="Learning Migration" />
                   <View style={s.card}>
                     <ValueRow
-                      icon={<Brain size={18} color={migrationStateColor(founderSession.migrationState)} />}
+                      icon={<Brain size={18} color={migrationStateColor(displayedMigrationState || 'pending')} />}
                       label="Migration State"
-                      value={migrationStateLabel(founderSession.migrationState)}
-                      valueColor={migrationStateColor(founderSession.migrationState)}
-                      isLast
+                      value={migrationStateLabel(displayedMigrationState || 'pending')}
+                      valueColor={migrationStateColor(displayedMigrationState || 'pending')}
+                      isLast={!verifiedSnapshotId && !importedCountsSummary && !importedDetailSummary}
                     />
+                    {verifiedSnapshotId ? (
+                      <ValueRow
+                        icon={<Database size={18} color={colors.primary.DEFAULT} />}
+                        label="Imported Snapshot"
+                        value={verifiedSnapshotId}
+                        isLast={!importedCountsSummary && !importedDetailSummary}
+                      />
+                    ) : null}
+                    {importedCountsSummary ? (
+                      <ValueRow
+                        icon={<Database size={18} color={colors.primary.DEFAULT} />}
+                        label="Imported Counts"
+                        value={importedCountsSummary}
+                        isLast={!importedDetailSummary}
+                      />
+                    ) : null}
+                    {importedDetailSummary ? (
+                      <ValueRow
+                        icon={<Database size={18} color={colors.primary.DEFAULT} />}
+                        label="Imported Detail"
+                        value={importedDetailSummary}
+                        isLast
+                      />
+                    ) : null}
                   </View>
-                  <SectionFooter text="Imports your local AI learning data into the durable founder account." />
+                  <SectionFooter
+                    text={
+                      migrationError ||
+                      'Imports your local AI learning data into the durable founder account.'
+                    }
+                  />
                 </>
               )}
 
               {/* ── Actions ── */}
               <SectionHeader title="Actions" />
               <View style={s.card}>
-                {!isSignedIn && (
-                  <LinkRow
-                    icon={<LogIn size={18} color={colors.primary.DEFAULT} />}
-                    label="Sign In"
-                    onPress={handleSignIn}
-                  />
-                )}
                 <LinkRow
                   icon={
                     isRestoring
@@ -234,7 +494,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                 {isSignedIn && (
                   <LinkRow
                     icon={<Brain size={18} color={colors.primary.DEFAULT} />}
-                    label="Migrate Learning"
+                    label={isMigratingLearning ? 'Migrating Learning...' : 'Migrate Learning'}
                     onPress={handleMigrateLearning}
                   />
                 )}
@@ -307,6 +567,51 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontFamily: typography.fontFamily.regular,
     fontSize: 14,
+  },
+  inputLabel: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    fontFamily: typography.fontFamily.medium,
+    marginBottom: 8,
+  },
+  input: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    color: colors.text.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    fontFamily: typography.fontFamily.regular,
+  },
+  primaryButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: colors.primary.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  primaryButtonPressed: {
+    opacity: 0.9,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.55,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: typography.fontFamily.semibold,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+    fontFamily: typography.fontFamily.regular,
   },
   signOutLabel: {
     flex: 1,

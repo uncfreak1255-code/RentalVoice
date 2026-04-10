@@ -1,6 +1,9 @@
 import { useAppStore } from '../store';
 import type { AccountSession } from '../account-session';
-import { ensureCommercialLearningMigrationForAccount } from '../commercial-migration';
+import {
+  ensureCommercialLearningMigrationForAccount,
+  migrateLocalLearningToVerifiedFounderCommercial,
+} from '../commercial-migration';
 
 const mockFlushAllPending = jest.fn().mockResolvedValue(undefined);
 const mockLoadAllColdData = jest.fn().mockResolvedValue({
@@ -155,5 +158,279 @@ describe('ensureCommercialLearningMigrationForAccount', () => {
       status: 'skipped',
       reason: 'already_imported_for_account',
     });
+  });
+});
+
+describe('migrateLocalLearningToVerifiedFounderCommercial', () => {
+  it('returns the latest verified founder snapshot without re-importing on rerun', async () => {
+    mockGetLocalLearningMigrationStatus.mockResolvedValue({
+      hasSnapshot: true,
+      latestSnapshot: {
+        id: 'org-1:user-1:existing-snapshot',
+        source: 'personal_local_store_to_founder_account_v1',
+        stableAccountId: 'stable-1',
+        importedByUserId: 'founder-user-1',
+        importedAt: '2026-03-27T00:00:00.000Z',
+        stats: {
+          hostStyleProfilesReceived: 1,
+          hostStyleProfilesUpserted: 1,
+          learningEntriesReceived: 2,
+          editPatternsInserted: 2,
+          draftOutcomesReceived: 3,
+          replyDeltasReceived: 4,
+          calibrationEntriesReceived: 5,
+          conversationFlowsReceived: 6,
+        },
+      },
+      serverTotals: {
+        hostStyleProfiles: 11,
+        editPatterns: 22,
+      },
+    });
+
+    const result = await migrateLocalLearningToVerifiedFounderCommercial({
+      founderEmail: 'sawyerbeck25@gmail.com',
+      founderUserId: 'founder-user-1',
+    });
+
+    expect(mockGetLocalLearningMigrationStatus).toHaveBeenCalledTimes(1);
+    expect(mockImportLocalLearningSnapshot).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      status: 'verified',
+      importResponse: {
+        snapshotId: 'org-1:user-1:existing-snapshot',
+        source: 'personal_local_store_to_founder_account_v1',
+        stats: {
+          importedAt: '2026-03-27T00:00:00.000Z',
+          hostStyleProfilesReceived: 1,
+          hostStyleProfilesUpserted: 1,
+          learningEntriesReceived: 2,
+          editPatternsInserted: 2,
+          draftOutcomesReceived: 3,
+          replyDeltasReceived: 4,
+          calibrationEntriesReceived: 5,
+          conversationFlowsReceived: 6,
+        },
+        imported: {
+          hostStyleProfiles: 1,
+          editPatterns: 2,
+        },
+      },
+      verification: expect.objectContaining({
+        latestSnapshot: expect.objectContaining({
+          id: 'org-1:user-1:existing-snapshot',
+          importedByUserId: 'founder-user-1',
+        }),
+      }),
+    });
+  });
+
+  it('imports founder learning and verifies the imported snapshot against server status', async () => {
+    mockImportLocalLearningSnapshot.mockResolvedValue({
+      snapshotId: 'org-1:user-1:snapshot-1',
+      source: 'personal_local_store_to_founder_account_v1',
+      stats: {
+        importedAt: '2026-03-27T00:00:00.000Z',
+        hostStyleProfilesReceived: 1,
+        hostStyleProfilesUpserted: 1,
+        learningEntriesReceived: 2,
+        editPatternsInserted: 2,
+        draftOutcomesReceived: 3,
+        replyDeltasReceived: 4,
+        calibrationEntriesReceived: 5,
+        conversationFlowsReceived: 6,
+      },
+      imported: {
+        hostStyleProfiles: 1,
+        editPatterns: 2,
+      },
+    });
+    mockGetLocalLearningMigrationStatus
+      .mockResolvedValueOnce({
+        hasSnapshot: false,
+        latestSnapshot: null,
+        serverTotals: {
+          hostStyleProfiles: 10,
+          editPatterns: 20,
+        },
+      })
+      .mockResolvedValueOnce({
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:snapshot-1',
+          source: 'personal_local_store_to_founder_account_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'founder-user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {
+            hostStyleProfilesUpserted: 1,
+            editPatternsInserted: 2,
+          },
+        },
+        serverTotals: {
+          hostStyleProfiles: 11,
+          editPatterns: 22,
+        },
+      });
+
+    const result = await migrateLocalLearningToVerifiedFounderCommercial({
+      founderEmail: 'sawyerbeck25@gmail.com',
+      founderUserId: 'founder-user-1',
+      snapshotId: 'snapshot-1',
+    });
+
+    expect(mockImportLocalLearningSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        snapshotId: 'snapshot-1',
+        source: 'personal_local_store_to_founder_account_v1',
+        metadata: expect.objectContaining({
+          targetFounderEmail: 'sawyerbeck25@gmail.com',
+        }),
+      }),
+    );
+    expect(mockGetLocalLearningMigrationStatus).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      status: 'verified',
+      importResponse: expect.objectContaining({
+        snapshotId: 'org-1:user-1:snapshot-1',
+      }),
+      verification: expect.objectContaining({
+        latestSnapshot: expect.objectContaining({
+          id: 'org-1:user-1:snapshot-1',
+          importedByUserId: 'founder-user-1',
+        }),
+      }),
+    });
+  });
+
+  it('re-imports when the latest snapshot belongs to the founder user but is the wrong source', async () => {
+    mockImportLocalLearningSnapshot.mockResolvedValue({
+      snapshotId: 'org-1:user-1:snapshot-2',
+      source: 'personal_local_store_to_founder_account_v1',
+      stats: {
+        importedAt: '2026-03-27T00:00:00.000Z',
+        hostStyleProfilesReceived: 1,
+        hostStyleProfilesUpserted: 1,
+        learningEntriesReceived: 2,
+        editPatternsInserted: 2,
+        draftOutcomesReceived: 3,
+        replyDeltasReceived: 4,
+        calibrationEntriesReceived: 5,
+        conversationFlowsReceived: 6,
+      },
+      imported: {
+        hostStyleProfiles: 1,
+        editPatterns: 2,
+      },
+    });
+    mockGetLocalLearningMigrationStatus
+      .mockResolvedValueOnce({
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:other-snapshot',
+          source: 'mobile_local_store_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'founder-user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {},
+        },
+        serverTotals: {
+          hostStyleProfiles: 10,
+          editPatterns: 20,
+        },
+      })
+      .mockResolvedValueOnce({
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:snapshot-2',
+          source: 'personal_local_store_to_founder_account_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'founder-user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {
+            hostStyleProfilesUpserted: 1,
+            editPatternsInserted: 2,
+          },
+        },
+        serverTotals: {
+          hostStyleProfiles: 11,
+          editPatterns: 22,
+        },
+      });
+
+    const result = await migrateLocalLearningToVerifiedFounderCommercial({
+      founderEmail: 'sawyerbeck25@gmail.com',
+      founderUserId: 'founder-user-1',
+      snapshotId: 'snapshot-2',
+    });
+
+    expect(mockImportLocalLearningSnapshot).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      status: 'verified',
+      importResponse: expect.objectContaining({
+        snapshotId: 'org-1:user-1:snapshot-2',
+        source: 'personal_local_store_to_founder_account_v1',
+      }),
+      verification: expect.objectContaining({
+        latestSnapshot: expect.objectContaining({
+          id: 'org-1:user-1:snapshot-2',
+          source: 'personal_local_store_to_founder_account_v1',
+        }),
+      }),
+    });
+  });
+
+  it('fails verification when the server does not report the imported founder snapshot', async () => {
+    mockImportLocalLearningSnapshot.mockResolvedValue({
+      snapshotId: 'org-1:user-1:snapshot-1',
+      source: 'personal_local_store_to_founder_account_v1',
+      stats: {
+        importedAt: '2026-03-27T00:00:00.000Z',
+        hostStyleProfilesReceived: 0,
+        hostStyleProfilesUpserted: 0,
+        learningEntriesReceived: 0,
+        editPatternsInserted: 0,
+        draftOutcomesReceived: 0,
+        replyDeltasReceived: 0,
+        calibrationEntriesReceived: 0,
+        conversationFlowsReceived: 0,
+      },
+      imported: {
+        hostStyleProfiles: 0,
+        editPatterns: 0,
+      },
+    });
+    mockGetLocalLearningMigrationStatus
+      .mockResolvedValueOnce({
+        hasSnapshot: false,
+        latestSnapshot: null,
+        serverTotals: {
+          hostStyleProfiles: 0,
+          editPatterns: 0,
+        },
+      })
+      .mockResolvedValueOnce({
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:different-snapshot',
+          source: 'personal_local_store_to_founder_account_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'founder-user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {},
+        },
+        serverTotals: {
+          hostStyleProfiles: 0,
+          editPatterns: 0,
+        },
+      });
+
+    await expect(
+      migrateLocalLearningToVerifiedFounderCommercial({
+        founderEmail: 'sawyerbeck25@gmail.com',
+        founderUserId: 'founder-user-1',
+        snapshotId: 'snapshot-1',
+      }),
+    ).rejects.toThrow('Founder migration verification failed');
   });
 });

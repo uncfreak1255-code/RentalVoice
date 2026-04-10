@@ -1,6 +1,6 @@
 # Rental Voice current state
 
-Last updated: 2026-03-26
+Last updated: 2026-04-10
 
 ## Canonical source of truth
 
@@ -17,6 +17,8 @@ Last updated: 2026-03-26
 - Target durable identity architecture: Rental Voice account first, Hostaway connection second
 - Current visible UX must remain Hostaway-first until an explicit cutover
 - Commercial mode remains staged and non-default
+- Founder canary auth now exists inside the app without changing the default public flow
+- Verified founder sessions can now use managed server drafts in chat while the app still runs in personal mode by default
 
 ## Current Supabase truth
 
@@ -47,7 +49,12 @@ Last updated: 2026-03-26
 - Current founder backend identifiers:
   - founder user id: `502b3aa7-0793-458f-881d-3929a859ab6b`
   - founder org id: `600c7934-8e01-425f-a60c-14c5e7b5c36c`
-- Current app UX still does not use founder auth as the default visible login path
+- Founder Access screen now supports:
+  - passwordless email-code sign-in
+  - secure founder session restore with live validation
+  - verified personal-to-founder learning migration
+  - explicit founder sign-out
+- Founder auth is now app-ready as a canary path, not as the default visible login path
 - Future durable user path should be: `Sign in to Rental Voice` -> `Connect Hostaway` -> `Sync and learn`
 
 ## Safety / rollback truth
@@ -71,6 +78,8 @@ Last updated: 2026-03-26
 - Founder diagnostics surface environment truth and readiness state
 - Server-managed Hostaway paths for staged commercial flows exist
 - Local-to-commercial / personal-to-founder migration base exists
+- Founder canary migration now verifies the imported snapshot before marking the app-side state complete
+- Founder-managed draft generation now routes through the server runtime gate when a verified founder session exists
 - Founder bootstrap, live preflight, rehearsal preflight, and live-readiness checklist tooling exist
 - Founder bootstrap packet generator exists
 - Dedicated live founder project exists and now contains the real founder backend account

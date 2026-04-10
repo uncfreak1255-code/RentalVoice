@@ -34,19 +34,19 @@ export default function AppEntry() {
       let hasFounderSession = false;
 
       try {
-        if (!isDemoMode && !restoredAccountSession) {
-          restoredAccountSession = await restoreAccountSession();
-        }
-
         let hostawayMigrationPromise: Promise<string | undefined> = Promise.resolve(undefined);
 
         if (!isDemoMode) {
           const founderSession = await restoreFounderSession();
           hasFounderSession = !!founderSession;
+        }
 
-          if (!hasFounderSession) {
-            restoreResult = await restoreConnection();
-          }
+        if (!isDemoMode && !hasFounderSession && !restoredAccountSession) {
+          restoredAccountSession = await restoreAccountSession();
+        }
+
+        if (!isDemoMode && !hasFounderSession) {
+          restoreResult = await restoreConnection();
         }
 
         const destination = getAppEntryDestination({

@@ -45,6 +45,18 @@ function makeJwt(expSeconds: number): string {
   return `${header}.${payload}.fake-signature`;
 }
 
+function toBase64Url(value: string): string {
+  return value.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function makeBase64UrlJwt(expSeconds: number): string {
+  const header = toBase64Url(btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const payload = toBase64Url(
+    btoa(JSON.stringify({ sub: 'user-1', exp: expSeconds, probe: 'v', flag: false, txt: '?' })),
+  );
+  return `${header}.${payload}.fake-signature`;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockLoadFounderSession.mockResolvedValue(null);
@@ -143,6 +155,29 @@ describe('ensureFreshToken', () => {
       orgId: 'org-1',
       email: 'host@example.com',
       accessToken: makeJwt(futureExp),
+      refreshToken: 'rt-456',
+      validatedAt: new Date().toISOString(),
+      migrationState: 'pending',
+    });
+
+    const result = await ensureFreshToken();
+
+    expect(result).toBe(true);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid base64url JWT payload without rejecting it as invalid', async () => {
+    const futureExp = Math.floor(Date.now() / 1000) + 600;
+    const accessToken = makeBase64UrlJwt(futureExp);
+    const payloadSegment = accessToken.split('.')[1];
+
+    expect(payloadSegment).toMatch(/[-_]/);
+
+    mockLoadFounderSession.mockResolvedValueOnce({
+      userId: 'u-1',
+      orgId: 'org-1',
+      email: 'host@example.com',
+      accessToken,
       refreshToken: 'rt-456',
       validatedAt: new Date().toISOString(),
       migrationState: 'pending',

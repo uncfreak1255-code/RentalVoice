@@ -11,6 +11,7 @@ import {
 } from './api-client';
 
 const FOUNDER_MIGRATION_CONTRACT_VERSION = 'founder_account_v1';
+const FOUNDER_MIGRATION_SOURCE = 'personal_local_store_to_founder_account_v1';
 
 interface BuildLocalLearningMigrationSnapshotOptions {
   snapshotId?: string;
@@ -23,6 +24,52 @@ export interface CommercialLearningMigrationResult {
   status: 'imported' | 'skipped';
   reason?: string;
   response?: LocalLearningMigrationImportResponse;
+}
+
+export interface VerifiedFounderMigrationParams {
+  founderEmail: string;
+  founderUserId: string;
+  snapshotId?: string;
+}
+
+export interface VerifiedFounderMigrationResult {
+  status: 'verified';
+  importResponse: LocalLearningMigrationImportResponse;
+  verification: LocalLearningMigrationStatusResponse;
+}
+
+function readNumericStat(stats: Record<string, unknown>, key: string): number {
+  const value = stats[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function buildImportResponseFromVerification(
+  verification: LocalLearningMigrationStatusResponse,
+): LocalLearningMigrationImportResponse {
+  const snapshot = verification.latestSnapshot;
+  const stats = (snapshot?.stats as Record<string, unknown> | undefined) || {};
+  const hostStyleProfilesUpserted = readNumericStat(stats, 'hostStyleProfilesUpserted');
+  const editPatternsInserted = readNumericStat(stats, 'editPatternsInserted');
+
+  return {
+    snapshotId: snapshot?.id || 'verified-existing-snapshot',
+    source: snapshot?.source || FOUNDER_MIGRATION_SOURCE,
+    stats: {
+      importedAt: snapshot?.importedAt || new Date().toISOString(),
+      hostStyleProfilesReceived: readNumericStat(stats, 'hostStyleProfilesReceived') || hostStyleProfilesUpserted,
+      hostStyleProfilesUpserted,
+      learningEntriesReceived: readNumericStat(stats, 'learningEntriesReceived'),
+      editPatternsInserted,
+      draftOutcomesReceived: readNumericStat(stats, 'draftOutcomesReceived'),
+      replyDeltasReceived: readNumericStat(stats, 'replyDeltasReceived'),
+      calibrationEntriesReceived: readNumericStat(stats, 'calibrationEntriesReceived'),
+      conversationFlowsReceived: readNumericStat(stats, 'conversationFlowsReceived'),
+    },
+    imported: {
+      hostStyleProfiles: hostStyleProfilesUpserted,
+      editPatterns: editPatternsInserted,
+    },
+  };
 }
 
 export async function buildLocalLearningMigrationSnapshot(
@@ -80,7 +127,7 @@ export async function buildFounderLearningMigrationSnapshot(
 
   return {
     ...basePayload,
-    source: 'personal_local_store_to_founder_account_v1',
+    source: FOUNDER_MIGRATION_SOURCE,
     metadata: {
       ...(basePayload.metadata || {}),
       migrationContractVersion: FOUNDER_MIGRATION_CONTRACT_VERSION,
@@ -110,6 +157,51 @@ export async function migrateLocalLearningToFounderCommercial(
 ): Promise<LocalLearningMigrationImportResponse> {
   const payload = await buildFounderLearningMigrationSnapshot(founderEmail, snapshotId);
   return importLocalLearningSnapshot(payload);
+}
+
+export async function migrateLocalLearningToVerifiedFounderCommercial({
+  founderEmail,
+  founderUserId,
+  snapshotId,
+}: VerifiedFounderMigrationParams): Promise<VerifiedFounderMigrationResult> {
+  const preflightVerification = await getCommercialLearningMigrationVerification();
+  const latestPreflightSnapshot = preflightVerification.latestSnapshot;
+
+  if (
+    preflightVerification.hasSnapshot &&
+    latestPreflightSnapshot?.importedByUserId === founderUserId &&
+    latestPreflightSnapshot.source === FOUNDER_MIGRATION_SOURCE
+  ) {
+    return {
+      status: 'verified',
+      importResponse: buildImportResponseFromVerification(preflightVerification),
+      verification: preflightVerification,
+    };
+  }
+
+  const importResponse = await migrateLocalLearningToFounderCommercial(founderEmail, snapshotId);
+  const verification = await getCommercialLearningMigrationVerification();
+
+  const latestSnapshotId = verification.latestSnapshot?.id;
+  const latestImportedByUserId = verification.latestSnapshot?.importedByUserId;
+  const latestSnapshotSource = verification.latestSnapshot?.source;
+  const verified =
+    verification.hasSnapshot &&
+    latestSnapshotId === importResponse.snapshotId &&
+    latestImportedByUserId === founderUserId &&
+    latestSnapshotSource === importResponse.source;
+
+  if (!verified) {
+    throw new Error(
+      `Founder migration verification failed: expected snapshot ${importResponse.snapshotId} (${importResponse.source}) for ${founderUserId}, got ${latestSnapshotId || 'none'} (${latestSnapshotSource || 'none'}) for ${latestImportedByUserId || 'none'}`,
+    );
+  }
+
+  return {
+    status: 'verified',
+    importResponse,
+    verification,
+  };
 }
 
 export async function getCommercialLearningMigrationVerification():
