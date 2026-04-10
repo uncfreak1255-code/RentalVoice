@@ -73,6 +73,19 @@ const storedFounderSession = {
   migrationState: 'pending' as const,
 };
 
+const existingAccountSession = {
+  token: 'account-token-1',
+  refreshToken: 'account-refresh-1',
+  user: {
+    id: 'account-user',
+    email: 'account@example.com',
+    name: 'Account User',
+    plan: 'pro',
+    trialEndsAt: null,
+    createdAt: '2026-01-15T00:00:00.000Z',
+  },
+};
+
 const refreshedFounderSession = {
   ...storedFounderSession,
   accessToken: 'fresh-access-token',
@@ -125,6 +138,7 @@ describe('restoreFounderSession', () => {
     const restored = await useAppStore.getState().restoreFounderSession();
 
     expect(mockEnsureFreshToken).toHaveBeenCalledTimes(1);
+    expect(mockEnsureFreshToken).toHaveBeenCalledWith(storedFounderSession);
     expect(mockSetAuthTokens).toHaveBeenCalledWith('fresh-access-token', 'fresh-refresh-token');
     expect(mockGetCurrentUser).toHaveBeenCalledTimes(1);
     expect(restored).toEqual(
@@ -150,6 +164,7 @@ describe('restoreFounderSession', () => {
   });
 
   it('clears stored founder auth state when token refresh fails', async () => {
+    useAppStore.setState({ accountSession: existingAccountSession });
     mockLoadFounderSession.mockResolvedValueOnce(storedFounderSession);
     mockEnsureFreshToken.mockResolvedValueOnce(false);
 
@@ -158,12 +173,15 @@ describe('restoreFounderSession', () => {
     expect(restored).toBeNull();
     expect(mockGetCurrentUser).not.toHaveBeenCalled();
     expect(mockClearFounderSession).toHaveBeenCalledTimes(1);
-    expect(mockClearAccountSession).toHaveBeenCalledTimes(1);
-    expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
+    expect(mockClearAccountSession).not.toHaveBeenCalled();
+    expect(mockClearAuthTokens).not.toHaveBeenCalled();
+    expect(mockSetAuthTokens).toHaveBeenCalledWith('account-token-1', 'account-refresh-1');
     expect(useAppStore.getState().founderSession).toBeNull();
+    expect(useAppStore.getState().accountSession).toEqual(existingAccountSession);
   });
 
   it('clears stored founder auth state when /api/auth/me does not resolve to a user and org', async () => {
+    useAppStore.setState({ accountSession: existingAccountSession });
     mockLoadFounderSession
       .mockResolvedValueOnce(storedFounderSession)
       .mockResolvedValueOnce(refreshedFounderSession);
@@ -184,8 +202,11 @@ describe('restoreFounderSession', () => {
 
     expect(restored).toBeNull();
     expect(mockClearFounderSession).toHaveBeenCalledTimes(1);
-    expect(mockClearAccountSession).toHaveBeenCalledTimes(1);
-    expect(mockClearAuthTokens).toHaveBeenCalledTimes(1);
+    expect(mockClearAccountSession).not.toHaveBeenCalled();
+    expect(mockClearAuthTokens).not.toHaveBeenCalled();
+    expect(mockSetAuthTokens).toHaveBeenNthCalledWith(1, 'fresh-access-token', 'fresh-refresh-token');
+    expect(mockSetAuthTokens).toHaveBeenNthCalledWith(2, 'account-token-1', 'account-refresh-1');
     expect(useAppStore.getState().founderSession).toBeNull();
+    expect(useAppStore.getState().accountSession).toEqual(existingAccountSession);
   });
 });

@@ -41,7 +41,7 @@ export default function AppEntry() {
           hasFounderSession = !!founderSession;
         }
 
-        if (!restoredAccountSession) {
+        if (!isDemoMode && !restoredAccountSession) {
           restoredAccountSession = await restoreAccountSession();
         }
 

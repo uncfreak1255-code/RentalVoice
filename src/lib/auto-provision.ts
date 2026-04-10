@@ -83,9 +83,9 @@ export async function autoProvisionIdentity(
  * - Attempts refresh otherwise; returns true on success, false on failure.
  * - Never throws.
  */
-export async function ensureFreshToken(): Promise<boolean> {
+export async function ensureFreshToken(existingSession?: FounderSessionData | null): Promise<boolean> {
   try {
-    const session = await loadFounderSession();
+    const session = existingSession ?? await loadFounderSession();
     if (!session) {
       return false;
     }
