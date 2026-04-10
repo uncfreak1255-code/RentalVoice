@@ -345,16 +345,11 @@ describe('FounderAccessScreen', () => {
     fireEvent.press(getByText('Migrate Learning'));
 
     await waitFor(() => {
-      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ migrationState: 'in_progress' }),
-      );
       expect(mockMigrateLocalLearningToVerifiedFounderCommercial).toHaveBeenCalledWith({
         founderEmail: 'sawyerbeck25@gmail.com',
         founderUserId: 'user-1',
       });
-      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
-        2,
+      expect(mockSetFounderSession).toHaveBeenCalledWith(
         expect.objectContaining({ migrationState: 'completed' }),
       );
       expect(getByText('Imported Counts')).toBeTruthy();
@@ -391,15 +386,40 @@ describe('FounderAccessScreen', () => {
     fireEvent.press(getByText('Migrate Learning'));
 
     await waitFor(() => {
-      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ migrationState: 'in_progress' }),
-      );
-      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
-        2,
+      expect(mockSetFounderSession).toHaveBeenCalledWith(
         expect.objectContaining({ migrationState: 'failed' }),
       );
       expect(getByText('Founder migration verification failed: snapshot mismatch')).toBeTruthy();
+    });
+  });
+
+  it('does not downgrade a completed migration when rerun verification fails before import', async () => {
+    mockMigrateLocalLearningToVerifiedFounderCommercial.mockRejectedValue(
+      new Error('Network request failed'),
+    );
+
+    mockStoreState = {
+      ...mockStoreState,
+      founderSession: {
+        userId: 'user-1',
+        orgId: 'org-1',
+        email: 'sawyerbeck25@gmail.com',
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        validatedAt: '2026-01-01T00:00:00.000Z',
+        migrationState: 'completed',
+      },
+    };
+
+    const { getByText } = render(
+      <FounderAccessScreen onBack={jest.fn()} onNavigate={jest.fn()} />
+    );
+
+    fireEvent.press(getByText('Migrate Learning'));
+
+    await waitFor(() => {
+      expect(getByText('Network request failed')).toBeTruthy();
+      expect(mockSetFounderSession).not.toHaveBeenCalled();
     });
   });
 
@@ -436,10 +456,8 @@ describe('FounderAccessScreen', () => {
     fireEvent.press(getByText('Migrate Learning'));
 
     await waitFor(() => {
-      expect(mockSetFounderSession).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ migrationState: 'in_progress' }),
-      );
+      expect(mockMigrateLocalLearningToVerifiedFounderCommercial).toHaveBeenCalledTimes(1);
+      expect(getByText('In Progress')).toBeTruthy();
     });
 
     mockStoreState = {
@@ -496,7 +514,7 @@ describe('FounderAccessScreen', () => {
     });
 
     await waitFor(() => {
-      expect(mockSetFounderSession).toHaveBeenCalledTimes(1);
+      expect(mockSetFounderSession).not.toHaveBeenCalled();
       expect(queryByText('Imported Snapshot')).toBeNull();
     });
   });

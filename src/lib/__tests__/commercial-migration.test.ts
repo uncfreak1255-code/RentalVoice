@@ -303,6 +303,83 @@ describe('migrateLocalLearningToVerifiedFounderCommercial', () => {
     });
   });
 
+  it('re-imports when the latest snapshot belongs to the founder user but is the wrong source', async () => {
+    mockImportLocalLearningSnapshot.mockResolvedValue({
+      snapshotId: 'org-1:user-1:snapshot-2',
+      source: 'personal_local_store_to_founder_account_v1',
+      stats: {
+        importedAt: '2026-03-27T00:00:00.000Z',
+        hostStyleProfilesReceived: 1,
+        hostStyleProfilesUpserted: 1,
+        learningEntriesReceived: 2,
+        editPatternsInserted: 2,
+        draftOutcomesReceived: 3,
+        replyDeltasReceived: 4,
+        calibrationEntriesReceived: 5,
+        conversationFlowsReceived: 6,
+      },
+      imported: {
+        hostStyleProfiles: 1,
+        editPatterns: 2,
+      },
+    });
+    mockGetLocalLearningMigrationStatus
+      .mockResolvedValueOnce({
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:other-snapshot',
+          source: 'mobile_local_store_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'founder-user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {},
+        },
+        serverTotals: {
+          hostStyleProfiles: 10,
+          editPatterns: 20,
+        },
+      })
+      .mockResolvedValueOnce({
+        hasSnapshot: true,
+        latestSnapshot: {
+          id: 'org-1:user-1:snapshot-2',
+          source: 'personal_local_store_to_founder_account_v1',
+          stableAccountId: 'stable-1',
+          importedByUserId: 'founder-user-1',
+          importedAt: '2026-03-27T00:00:00.000Z',
+          stats: {
+            hostStyleProfilesUpserted: 1,
+            editPatternsInserted: 2,
+          },
+        },
+        serverTotals: {
+          hostStyleProfiles: 11,
+          editPatterns: 22,
+        },
+      });
+
+    const result = await migrateLocalLearningToVerifiedFounderCommercial({
+      founderEmail: 'sawyerbeck25@gmail.com',
+      founderUserId: 'founder-user-1',
+      snapshotId: 'snapshot-2',
+    });
+
+    expect(mockImportLocalLearningSnapshot).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      status: 'verified',
+      importResponse: expect.objectContaining({
+        snapshotId: 'org-1:user-1:snapshot-2',
+        source: 'personal_local_store_to_founder_account_v1',
+      }),
+      verification: expect.objectContaining({
+        latestSnapshot: expect.objectContaining({
+          id: 'org-1:user-1:snapshot-2',
+          source: 'personal_local_store_to_founder_account_v1',
+        }),
+      }),
+    });
+  });
+
   it('fails verification when the server does not report the imported founder snapshot', async () => {
     mockImportLocalLearningSnapshot.mockResolvedValue({
       snapshotId: 'org-1:user-1:snapshot-1',

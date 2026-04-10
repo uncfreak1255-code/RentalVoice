@@ -183,12 +183,6 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
       return;
     }
 
-    const inProgressSession: FounderSession = {
-      ...founderSession,
-      migrationState: 'in_progress',
-    };
-
-    setFounderSession(inProgressSession);
     setMigrationError(null);
     setMigrationImportResponse(null);
     setVerifiedSnapshotId(null);
@@ -200,12 +194,12 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
         founderUserId: founderSession.userId,
       });
 
-      if (!founderSessionMatchesCurrentStore(inProgressSession)) {
+      if (!founderSessionMatchesCurrentStore(founderSession)) {
         return;
       }
 
       setFounderSession({
-        ...inProgressSession,
+        ...founderSession,
         migrationState: 'completed',
       });
       setVerifiedSnapshotId(result.importResponse.snapshotId);
@@ -213,14 +207,16 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     } catch (error) {
       console.error('[FounderAccessScreen] Founder migration failed:', error);
 
-      if (!founderSessionMatchesCurrentStore(inProgressSession)) {
+      if (!founderSessionMatchesCurrentStore(founderSession)) {
         return;
       }
 
-      setFounderSession({
-        ...inProgressSession,
-        migrationState: 'failed',
-      });
+      if (founderSession.migrationState !== 'completed') {
+        setFounderSession({
+          ...founderSession,
+          migrationState: 'failed',
+        });
+      }
       setMigrationError(error instanceof Error ? error.message : 'Founder migration failed.');
     } finally {
       setIsMigratingLearning(false);
@@ -288,6 +284,9 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     : null;
   const importedDetailSummary = migrationImportResponse
     ? `${migrationImportResponse.stats.learningEntriesReceived} learning entries · ${migrationImportResponse.stats.draftOutcomesReceived} draft outcomes · ${migrationImportResponse.stats.replyDeltasReceived} reply deltas`
+    : null;
+  const displayedMigrationState: FounderSession['migrationState'] | null = founderSession
+    ? (isMigratingLearning ? 'in_progress' : founderSession.migrationState)
     : null;
 
   return (
@@ -440,10 +439,10 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                   <SectionHeader title="Learning Migration" />
                   <View style={s.card}>
                     <ValueRow
-                      icon={<Brain size={18} color={migrationStateColor(founderSession.migrationState)} />}
+                      icon={<Brain size={18} color={migrationStateColor(displayedMigrationState || 'pending')} />}
                       label="Migration State"
-                      value={migrationStateLabel(founderSession.migrationState)}
-                      valueColor={migrationStateColor(founderSession.migrationState)}
+                      value={migrationStateLabel(displayedMigrationState || 'pending')}
+                      valueColor={migrationStateColor(displayedMigrationState || 'pending')}
                       isLast={!verifiedSnapshotId && !importedCountsSummary && !importedDetailSummary}
                     />
                     {verifiedSnapshotId ? (

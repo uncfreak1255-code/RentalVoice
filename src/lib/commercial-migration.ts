@@ -11,6 +11,7 @@ import {
 } from './api-client';
 
 const FOUNDER_MIGRATION_CONTRACT_VERSION = 'founder_account_v1';
+const FOUNDER_MIGRATION_SOURCE = 'personal_local_store_to_founder_account_v1';
 
 interface BuildLocalLearningMigrationSnapshotOptions {
   snapshotId?: string;
@@ -52,7 +53,7 @@ function buildImportResponseFromVerification(
 
   return {
     snapshotId: snapshot?.id || 'verified-existing-snapshot',
-    source: snapshot?.source || 'personal_local_store_to_founder_account_v1',
+    source: snapshot?.source || FOUNDER_MIGRATION_SOURCE,
     stats: {
       importedAt: snapshot?.importedAt || new Date().toISOString(),
       hostStyleProfilesReceived: readNumericStat(stats, 'hostStyleProfilesReceived') || hostStyleProfilesUpserted,
@@ -126,7 +127,7 @@ export async function buildFounderLearningMigrationSnapshot(
 
   return {
     ...basePayload,
-    source: 'personal_local_store_to_founder_account_v1',
+    source: FOUNDER_MIGRATION_SOURCE,
     metadata: {
       ...(basePayload.metadata || {}),
       migrationContractVersion: FOUNDER_MIGRATION_CONTRACT_VERSION,
@@ -164,10 +165,12 @@ export async function migrateLocalLearningToVerifiedFounderCommercial({
   snapshotId,
 }: VerifiedFounderMigrationParams): Promise<VerifiedFounderMigrationResult> {
   const preflightVerification = await getCommercialLearningMigrationVerification();
+  const latestPreflightSnapshot = preflightVerification.latestSnapshot;
 
   if (
     preflightVerification.hasSnapshot &&
-    preflightVerification.latestSnapshot?.importedByUserId === founderUserId
+    latestPreflightSnapshot?.importedByUserId === founderUserId &&
+    latestPreflightSnapshot.source === FOUNDER_MIGRATION_SOURCE
   ) {
     return {
       status: 'verified',
@@ -181,14 +184,16 @@ export async function migrateLocalLearningToVerifiedFounderCommercial({
 
   const latestSnapshotId = verification.latestSnapshot?.id;
   const latestImportedByUserId = verification.latestSnapshot?.importedByUserId;
+  const latestSnapshotSource = verification.latestSnapshot?.source;
   const verified =
     verification.hasSnapshot &&
     latestSnapshotId === importResponse.snapshotId &&
-    latestImportedByUserId === founderUserId;
+    latestImportedByUserId === founderUserId &&
+    latestSnapshotSource === importResponse.source;
 
   if (!verified) {
     throw new Error(
-      `Founder migration verification failed: expected snapshot ${importResponse.snapshotId} for ${founderUserId}, got ${latestSnapshotId || 'none'} for ${latestImportedByUserId || 'none'}`,
+      `Founder migration verification failed: expected snapshot ${importResponse.snapshotId} (${importResponse.source}) for ${founderUserId}, got ${latestSnapshotId || 'none'} (${latestSnapshotSource || 'none'}) for ${latestImportedByUserId || 'none'}`,
     );
   }
 
