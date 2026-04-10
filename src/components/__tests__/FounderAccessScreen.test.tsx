@@ -283,6 +283,7 @@ describe('FounderAccessScreen', () => {
 
   it('marks migration completed only after founder verification succeeds', async () => {
     mockMigrateLocalLearningToVerifiedFounderCommercial.mockResolvedValue({
+      status: 'verified',
       importResponse: {
         snapshotId: 'org-1:user-1:snapshot-1',
         source: 'personal_local_store_to_founder_account_v1',
@@ -358,10 +359,12 @@ describe('FounderAccessScreen', () => {
         2,
         expect.objectContaining({ migrationState: 'completed' }),
       );
+      expect(getByText('Imported Counts')).toBeTruthy();
+      expect(getByText('1 style profiles · 2 edit patterns')).toBeTruthy();
+      expect(getByText('Imported Detail')).toBeTruthy();
+      expect(getByText('2 learning entries · 3 draft outcomes · 4 reply deltas')).toBeTruthy();
       expect(getByText('Imported Snapshot')).toBeTruthy();
       expect(getByText('org-1:user-1:snapshot-1')).toBeTruthy();
-      expect(getByText('Server Totals')).toBeTruthy();
-      expect(getByText('11 style profiles · 22 edit patterns')).toBeTruthy();
     });
   });
 

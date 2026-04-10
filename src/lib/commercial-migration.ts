@@ -32,6 +32,7 @@ export interface VerifiedFounderMigrationParams {
 }
 
 export interface VerifiedFounderMigrationResult {
+  status: 'verified';
   importResponse: LocalLearningMigrationImportResponse;
   verification: LocalLearningMigrationStatusResponse;
 }
@@ -145,6 +146,7 @@ export async function migrateLocalLearningToVerifiedFounderCommercial({
   }
 
   return {
+    status: 'verified',
     importResponse,
     verification,
   };

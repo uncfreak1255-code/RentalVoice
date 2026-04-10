@@ -218,6 +218,7 @@ describe('migrateLocalLearningToVerifiedFounderCommercial', () => {
     );
     expect(mockGetLocalLearningMigrationStatus).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
+      status: 'verified',
       importResponse: expect.objectContaining({
         snapshotId: 'org-1:user-1:snapshot-1',
       }),
@@ -226,10 +227,6 @@ describe('migrateLocalLearningToVerifiedFounderCommercial', () => {
           id: 'org-1:user-1:snapshot-1',
           importedByUserId: 'founder-user-1',
         }),
-        serverTotals: {
-          hostStyleProfiles: 11,
-          editPatterns: 22,
-        },
       }),
     });
   });

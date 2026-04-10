@@ -24,8 +24,8 @@ import {
   requestEmailCode,
   verifyEmailCode,
   type CurrentUserResponseData,
+  type LocalLearningMigrationImportResponse,
   type PasswordlessAuthResponseData,
-  type LocalLearningMigrationStatusResponse,
 } from '@/lib/api-client';
 import { migrateLocalLearningToVerifiedFounderCommercial } from '@/lib/commercial-migration';
 
@@ -52,7 +52,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
   const [isVerifyingCode, setIsVerifyingCode] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
-  const [migrationVerification, setMigrationVerification] = useState<LocalLearningMigrationStatusResponse | null>(null);
+  const [migrationImportResponse, setMigrationImportResponse] = useState<LocalLearningMigrationImportResponse | null>(null);
   const [verifiedSnapshotId, setVerifiedSnapshotId] = useState<string | null>(null);
 
   const isSignedIn = !!founderSession;
@@ -174,7 +174,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
 
     setFounderSession(inProgressSession);
     setMigrationError(null);
-    setMigrationVerification(null);
+    setMigrationImportResponse(null);
     setVerifiedSnapshotId(null);
     setIsMigratingLearning(true);
 
@@ -189,7 +189,7 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
         migrationState: 'completed',
       });
       setVerifiedSnapshotId(result.importResponse.snapshotId);
-      setMigrationVerification(result.verification);
+      setMigrationImportResponse(result.importResponse);
     } catch (error) {
       console.error('[FounderAccessScreen] Founder migration failed:', error);
       setFounderSession({
@@ -258,8 +258,11 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
     }
   };
 
-  const serverTotalsSummary = migrationVerification
-    ? `${migrationVerification.serverTotals.hostStyleProfiles} style profiles · ${migrationVerification.serverTotals.editPatterns} edit patterns`
+  const importedCountsSummary = migrationImportResponse
+    ? `${migrationImportResponse.imported.hostStyleProfiles} style profiles · ${migrationImportResponse.imported.editPatterns} edit patterns`
+    : null;
+  const importedDetailSummary = migrationImportResponse
+    ? `${migrationImportResponse.stats.learningEntriesReceived} learning entries · ${migrationImportResponse.stats.draftOutcomesReceived} draft outcomes · ${migrationImportResponse.stats.replyDeltasReceived} reply deltas`
     : null;
 
   return (
@@ -416,21 +419,29 @@ export function FounderAccessScreen({ onBack, onNavigate }: FounderAccessScreenP
                       label="Migration State"
                       value={migrationStateLabel(founderSession.migrationState)}
                       valueColor={migrationStateColor(founderSession.migrationState)}
-                      isLast={!verifiedSnapshotId && !serverTotalsSummary}
+                      isLast={!verifiedSnapshotId && !importedCountsSummary && !importedDetailSummary}
                     />
                     {verifiedSnapshotId ? (
                       <ValueRow
                         icon={<Database size={18} color={colors.primary.DEFAULT} />}
                         label="Imported Snapshot"
                         value={verifiedSnapshotId}
-                        isLast={!serverTotalsSummary}
+                        isLast={!importedCountsSummary && !importedDetailSummary}
                       />
                     ) : null}
-                    {serverTotalsSummary ? (
+                    {importedCountsSummary ? (
                       <ValueRow
                         icon={<Database size={18} color={colors.primary.DEFAULT} />}
-                        label="Server Totals"
-                        value={serverTotalsSummary}
+                        label="Imported Counts"
+                        value={importedCountsSummary}
+                        isLast={!importedDetailSummary}
+                      />
+                    ) : null}
+                    {importedDetailSummary ? (
+                      <ValueRow
+                        icon={<Database size={18} color={colors.primary.DEFAULT} />}
+                        label="Imported Detail"
+                        value={importedDetailSummary}
                         isLast
                       />
                     ) : null}
