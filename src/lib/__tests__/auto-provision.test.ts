@@ -52,7 +52,7 @@ function toBase64Url(value: string): string {
 function makeBase64UrlJwt(expSeconds: number): string {
   const header = toBase64Url(btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
   const payload = toBase64Url(
-    btoa(JSON.stringify({ sub: 'user-1', exp: expSeconds, urlSafe: true })),
+    btoa(JSON.stringify({ sub: 'user-1', exp: expSeconds, probe: 'v', flag: false, txt: '?' })),
   );
   return `${header}.${payload}.fake-signature`;
 }
@@ -168,11 +168,16 @@ describe('ensureFreshToken', () => {
 
   it('accepts a valid base64url JWT payload without rejecting it as invalid', async () => {
     const futureExp = Math.floor(Date.now() / 1000) + 600;
+    const accessToken = makeBase64UrlJwt(futureExp);
+    const payloadSegment = accessToken.split('.')[1];
+
+    expect(payloadSegment).toMatch(/[-_]/);
+
     mockLoadFounderSession.mockResolvedValueOnce({
       userId: 'u-1',
       orgId: 'org-1',
       email: 'host@example.com',
-      accessToken: makeBase64UrlJwt(futureExp),
+      accessToken,
       refreshToken: 'rt-456',
       validatedAt: new Date().toISOString(),
       migrationState: 'pending',
