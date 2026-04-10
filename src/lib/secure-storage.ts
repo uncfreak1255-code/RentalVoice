@@ -90,6 +90,18 @@ async function deleteItem(key: string): Promise<void> {
   }
 }
 
+async function purgeFounderSessionStorage(): Promise<void> {
+  await Promise.all([
+    deleteItem(STORAGE_KEYS.FOUNDER_ACCESS_TOKEN),
+    deleteItem(STORAGE_KEYS.FOUNDER_REFRESH_TOKEN),
+    deleteItem(STORAGE_KEYS.FOUNDER_USER_ID),
+    deleteItem(STORAGE_KEYS.FOUNDER_ORG_ID),
+    deleteItem(STORAGE_KEYS.FOUNDER_EMAIL),
+    deleteItem(STORAGE_KEYS.FOUNDER_SESSION_VALIDATED_AT),
+    deleteItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE),
+  ]);
+}
+
 /**
  * Securely store Hostaway credentials
  * Uses platform-native encrypted storage (Keychain on iOS, Keystore on Android)
@@ -447,7 +459,13 @@ export async function loadFounderSession(): Promise<FounderSessionData | null> {
         getItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE),
       ]);
 
+    const hasFounderSessionResidue =
+      !!accessToken || !!refreshToken || !!userId || !!orgId || !!email || !!validatedAt || !!migrationState;
+
     if (!accessToken || !refreshToken || !userId || !orgId || !email || !validatedAt) {
+      if (hasFounderSessionResidue) {
+        await purgeFounderSessionStorage();
+      }
       return null;
     }
 
@@ -471,15 +489,7 @@ export async function loadFounderSession(): Promise<FounderSessionData | null> {
  */
 export async function clearFounderSession(): Promise<void> {
   try {
-    await Promise.all([
-      deleteItem(STORAGE_KEYS.FOUNDER_ACCESS_TOKEN),
-      deleteItem(STORAGE_KEYS.FOUNDER_REFRESH_TOKEN),
-      deleteItem(STORAGE_KEYS.FOUNDER_USER_ID),
-      deleteItem(STORAGE_KEYS.FOUNDER_ORG_ID),
-      deleteItem(STORAGE_KEYS.FOUNDER_EMAIL),
-      deleteItem(STORAGE_KEYS.FOUNDER_SESSION_VALIDATED_AT),
-      deleteItem(STORAGE_KEYS.FOUNDER_MIGRATION_STATE),
-    ]);
+    await purgeFounderSessionStorage();
     console.log('[SecureStorage] Founder session cleared');
   } catch (error) {
     console.error('[SecureStorage] Failed to clear founder session:', error);

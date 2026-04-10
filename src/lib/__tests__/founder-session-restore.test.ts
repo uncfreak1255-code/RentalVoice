@@ -140,6 +140,13 @@ describe('founder session storage trust', () => {
     });
 
     await expect(actualSecureStorage.loadFounderSession()).resolves.toBeNull();
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_access_token');
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_refresh_token');
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_user_id');
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_org_id');
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_email');
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_session_validated_at');
+    expect(mockSecureDeleteItem).toHaveBeenCalledWith('rv_founder_migration_state');
   });
 });
 
@@ -163,6 +170,7 @@ describe('restoreFounderSession', () => {
         role: 'owner',
         name: 'Rental Voice',
       },
+      founderAccess: true,
     });
 
     const restored = await useAppStore.getState().restoreFounderSession();
@@ -226,6 +234,42 @@ describe('restoreFounderSession', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
       },
       organization: null,
+      founderAccess: true,
+    });
+
+    const restored = await useAppStore.getState().restoreFounderSession();
+
+    expect(restored).toBeNull();
+    expect(mockClearFounderSession).toHaveBeenCalledTimes(1);
+    expect(mockClearAccountSession).not.toHaveBeenCalled();
+    expect(mockClearAuthTokens).not.toHaveBeenCalled();
+    expect(mockSetAuthTokens).toHaveBeenNthCalledWith(1, 'fresh-access-token', 'fresh-refresh-token');
+    expect(mockSetAuthTokens).toHaveBeenNthCalledWith(2, 'account-token-1', 'account-refresh-1');
+    expect(useAppStore.getState().founderSession).toBeNull();
+    expect(useAppStore.getState().accountSession).toEqual(existingAccountSession);
+  });
+
+  it('clears stored founder auth state when founder access is not enabled for the restored user', async () => {
+    useAppStore.setState({ accountSession: existingAccountSession });
+    mockLoadFounderSession
+      .mockResolvedValueOnce(storedFounderSession)
+      .mockResolvedValueOnce(refreshedFounderSession);
+    mockEnsureFreshToken.mockResolvedValueOnce(true);
+    mockGetCurrentUser.mockResolvedValueOnce({
+      user: {
+        id: 'founder-user',
+        email: 'founder@example.com',
+        name: 'Sawyer',
+        plan: 'enterprise',
+        trialEndsAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      organization: {
+        id: 'founder-org',
+        role: 'owner',
+        name: 'Rental Voice',
+      },
+      founderAccess: false,
     });
 
     const restored = await useAppStore.getState().restoreFounderSession();

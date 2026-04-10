@@ -1486,7 +1486,12 @@ export const useAppStore = create<AppState>()(
           await setAuthTokens(refreshedSession.accessToken, refreshedSession.refreshToken);
 
           const currentUser = await getCurrentUser();
-          if (!currentUser?.user?.id || !currentUser.user.email || !currentUser.organization?.id) {
+          if (
+            !currentUser?.user?.id ||
+            !currentUser.user.email ||
+            !currentUser.organization?.id ||
+            currentUser.founderAccess !== true
+          ) {
             console.warn('[Store] Founder session validation failed; clearing founder restore state');
             await get().clearFounderRestoreSession();
             return null;
