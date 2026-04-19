@@ -41,7 +41,7 @@ jobs:
           bash ops/checkpoint/verify-checkpoint.sh --checkpoint-id nightly-${{ github.run_id }}
 
       - name: Upload checkpoint manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: checkpoint-manifest-${{ github.run_id }}
           path: ops/manifests/nightly-${{ github.run_id }}.json
