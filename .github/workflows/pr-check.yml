@@ -1,16 +1,48 @@
 name: PR Check
+
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - codex/**
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint --if-present
-      - run: npm run typecheck --if-present
+          node-version: 22
+          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install server dependencies
+        run: bun install --cwd server --frozen-lockfile
+
+      - name: Run lint
+        run: npm run lint --if-present
+
+      - name: Run typecheck
+        run: npm run typecheck --if-present
+
+      - name: Run server build
+        run: npm --prefix server run build --if-present

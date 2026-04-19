@@ -1,6 +1,8 @@
-# RentalReply AI
+# Rental Voice
 
 Smart guest communication app for vacation rental property managers. AI-powered messaging, automation, and analytics - similar to HostBuddy and Enso Connect.
+
+Contributor setup lives in [CONTRIBUTING.md](./CONTRIBUTING.md). Use that as the one true clean-machine path. The agent runbooks are for repo operations, not first-time setup.
 
 ## Features
 
@@ -553,33 +555,90 @@ Smart guest communication app for vacation rental property managers. AI-powered 
 
 ## Getting Started
 
-### Connecting Hostaway
-1. Open your Hostaway Dashboard
-2. Go to Settings > Hostaway API
-3. Copy your Account ID and API Key
-4. Enter both in the app during onboarding
+### Supported Contributor Target
 
-### Setting Up AI (Required for AI Features)
-1. Go to the ENV tab in Vibecode
-2. Your Anthropic API key should already be set as `EXPO_PUBLIC_VIBECODE_ANTHROPIC_API_KEY`
-3. Uses Claude Haiku for cost-effective AI responses (~$0.25/1M input, ~$1.25/1M output)
+The supported clean-machine target is iOS Simulator. `npm run web` is intentionally disabled right now because the current Expo web build white-screens before first render.
 
-### Configuring Property Knowledge
-1. Go to Settings > Property Knowledge
-2. Select a property
-3. Fill in WiFi, check-in instructions, house rules, etc.
-4. Choose communication tone preference
-5. Enable upsell options with pricing
+### Verified Local Toolchain
 
-### Setting Up Smart Automations
-1. Go to Settings > Automations
-2. Tap "Use Smart Template" or create custom
-3. Select a property and trigger timing
-4. Enable AI Personalization for automatic customization
-5. Add personalization instructions (optional)
+Verified on 2026-04-19:
+
+- macOS with Xcode 26.4.1 and iOS Simulator
+- Node `22.22.0`
+- npm `10.9.4`
+- Bun `1.3.9`
+- Maestro `2.2.0`
+
+### Clean-Machine Demo Path
+
+Install the app and server dependencies:
+
+```bash
+npm install
+cd server
+cp .env.example .env
+bun install
+cd ..
+```
+
+Build the iOS dev client once on a fresh machine:
+
+```bash
+npm run ios
+```
+
+After the native build is installed, start the deterministic contributor path:
+
+```bash
+npm run start:demo
+```
+
+Then press `i` in the Expo terminal if the simulator does not open automatically.
+
+`npm run start:demo` always routes to onboarding first, even if the machine already has saved Hostaway state. From there, tap `Try Demo` to load the canned inbox instead of entering real PMS credentials.
+
+Smoke-test that path with:
+
+```bash
+npm run maestro:demo
+```
+
+Keep `npm run start:demo` running in one terminal and run `npm run maestro:demo` from a second terminal.
+If Expo uses a non-default port, run `EXPO_DEV_CLIENT_PORT=<port> npm run maestro:demo`.
+
+### Server Environment Setup
+
+The demo-first path above does not require real Hostaway credentials or live API keys.
+
+If you are changing backend code, copy `server/.env.example` to `server/.env` and replace the placeholder values before booting the server. That file includes:
+
+- Supabase connection values
+- `ENCRYPTION_KEY`
+- AI provider keys
+- optional Langfuse tracing keys
+- optional Stripe keys
+- founder-only overrides
+- `AUTO_PROVISION_SECRET`
+- `PORT=3001`
+
+Run the server locally with:
+
+```bash
+npm --prefix server run dev
+```
+
+If the app should hit your local server instead of the hosted API, start Expo with:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3001 npm run start
+```
+
+### Canonical Contributor Guide
+
+Use [CONTRIBUTING.md](./CONTRIBUTING.md) for the full contributor path. You should not need `AGENTS.md`, `.agents/`, or the runbooks just to get the repo running.
 
 ## Tech Stack
-- Expo SDK 53 / React Native
+- Expo SDK 54 / React Native 0.81
 - NativeWind (TailwindCSS)
 - Zustand for state management with AsyncStorage persistence
 - Expo Secure Store for encrypted credential storage
@@ -587,7 +646,7 @@ Smart guest communication app for vacation rental property managers. AI-powered 
 - React Native Reanimated for animations
 - FlashList for performant lists
 - Hostaway API (OAuth 2.0)
-- **Claude Haiku (Anthropic)** for AI responses - ~10x cheaper than GPT-4o
+- Google Gemini, Claude Haiku, and local fallbacks for AI responses
 
 ### Security Features
 - **Encrypted Credential Storage**: Hostaway API credentials are stored using Expo SecureStore, which uses Keychain on iOS and Keystore on Android
@@ -1256,4 +1315,3 @@ Exported functions for other components to trigger learning:
 - `learnFromConversation()` - Learn flows and guest memory when conversation ends
 - `predictConversationFollowup()` - Get predicted next topics
 - `isReturningGuest()` - Check if guest has stayed before
-

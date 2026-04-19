@@ -1,12 +1,16 @@
 {
   "name": "rental-voice",
   "version": "1.0.0",
+  "packageManager": "npm@10.9.4",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
+    "start:demo": "EXPO_PUBLIC_FORCE_DEMO=1 expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "DARK_MODE=class expo start --web",
+    "web": "node scripts/web-disabled.mjs",
+    "web:debug": "DARK_MODE=class expo start --web",
+    "maestro:demo": "node scripts/maestro-demo.mjs",
     "lint": "expo lint",
     "typecheck": "npm run typecheck:app && npm run typecheck:server",
     "typecheck:app": "tsc --noEmit -p tsconfig.json",

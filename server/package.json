@@ -1,6 +1,7 @@
 {
   "name": "rental-voice-server",
   "version": "1.0.0",
+  "packageManager": "bun@1.3.9",
   "description": "Rental Voice — Commercial Backend API",
   "type": "module",
   "scripts": {

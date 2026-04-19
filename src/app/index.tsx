@@ -6,7 +6,7 @@ import { useAppStore } from '@/lib/store';
 import { restoreConnection } from '@/lib/hostaway';
 import { resolveStableAccountId } from '@/lib/stable-account-id';
 import { migrateAccountData, migrateLegacyUnscopedData } from '@/lib/account-data-migration';
-import { isCommercial } from '@/lib/config';
+import { isCommercial, isContributorDemoForced } from '@/lib/config';
 import {
   ensureCommercialLearningMigrationForAccount,
 } from '@/lib/commercial-migration';
@@ -35,6 +35,15 @@ export default function AppEntry() {
 
       try {
         let hostawayMigrationPromise: Promise<string | undefined> = Promise.resolve(undefined);
+        const contributorDemoForced = isContributorDemoForced();
+
+        if (contributorDemoForced) {
+          console.log('[AppEntry] Contributor demo forced; routing to onboarding');
+          if (mounted) {
+            router.replace('/onboarding');
+          }
+          return;
+        }
 
         if (!isDemoMode) {
           const founderSession = await restoreFounderSession();

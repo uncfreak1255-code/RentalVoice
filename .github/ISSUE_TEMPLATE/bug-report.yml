@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a reproducible defect in Rental Voice.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reproduce it first on the supported contributor path in `CONTRIBUTING.md`.
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: Which surface is broken?
+      placeholder: iOS app, demo onboarding, server, docs, CI
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Exact steps, starting from a clean state if possible.
+      placeholder: |
+        1. Run `npm run start:demo`
+        2. Press `i`
+        3. Tap `Try Demo Mode`
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include versions when relevant.
+      placeholder: macOS 15.x, Xcode 26.4.1, Node 22.22.0, Bun 1.3.9, Maestro 2.2.0
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste the relevant output or attach screenshots.
