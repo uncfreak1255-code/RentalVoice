@@ -11,13 +11,13 @@ import {
   Edit3,
   Check,
   X,
-  Gauge,
   ChevronDown,
   Paperclip,
   Trash2,
   MoreHorizontal,
   Zap,
 } from 'lucide-react-native';
+import { ConfidencePill } from '@/components/ui/ConfidencePill';
 import Animated, { FadeIn, FadeInDown, FadeOut, SlideInDown, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withDelay, withSequence } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import type { RegenerationOption, ConfidenceScore, SentimentAnalysis, ActionItem, KnowledgeConflict, HistoricalMatchInfo } from '@/lib/ai-enhanced';
@@ -238,13 +238,22 @@ export function MessageComposer({
     }
   }, [aiDraft]);
 
-  // Confidence-aware color theming for AI draft card
+  // Confidence-aware color theming for AI draft card (ai-lavender defaults).
   const draftConf = aiDraft?.confidence || 0;
   const isLowConfidence = draftConf > 0 && draftConf < 70;
   const isHighConfidence = draftConf >= 85;
-  const confColor = isLowConfidence ? '#D97706' : isHighConfidence ? '#059669' : '#6366F1'; // indigo default
-  const confColorLight = isLowConfidence ? '#D97706' : isHighConfidence ? '#059669' : '#818CF8'; // indigo-400
-  const sendBtnBg = isLowConfidence ? '#D97706' : '#6366F1'; // indigo send button
+  const confColor = isLowConfidence
+    ? colors.danger.DEFAULT
+    : isHighConfidence
+    ? colors.success.DEFAULT
+    : colors.ai.DEFAULT;
+  const sendBtnBg = isHighConfidence
+    ? colors.primary.DEFAULT
+    : isLowConfidence
+    ? colors.danger.DEFAULT
+    : colors.text.primary;
+
+  const [reasoningOpen, setReasoningOpen] = useState(false);
 
   const handleMessageChange = (text: string) => {
     setMessage(text);
@@ -417,22 +426,28 @@ export function MessageComposer({
             </View>
           ) : (
             <>
-              {/* 1. Header Row — "AI Draft Ready" + confidence + sentiment */}
+              {/* 1. Header Row — "AI draft" + confidence pill + why-this toggle */}
               <View style={mcStyles.v2HeaderRow}>
                 <View style={mcStyles.rowCenter}>
-                  <Sparkles size={18} color={confColor} />
-                  <Text style={[mcStyles.v2HeaderTitle, isLowConfidence && { color: '#92400E' }]}>
-                    {isLowConfidence ? 'AI Draft — Low Confidence' : 'AI Draft Ready'}
-                  </Text>
+                  <View style={mcStyles.v2AiChip}>
+                    <Sparkles size={12} color="#FFFFFF" />
+                  </View>
+                  <Text style={mcStyles.v2HeaderTitle}>AI draft</Text>
+                  <View style={{ marginLeft: 8 }}>
+                    <ConfidencePill value={aiDraft?.confidence ?? 0} size="sm" />
+                  </View>
                 </View>
                 <View style={mcStyles.rowCenter}>
-                  <Gauge size={14} color={confColorLight} />
-                  <Text style={[mcStyles.v2ConfidenceText, { color: confColor }]}>{aiDraft?.confidence}%</Text>
-                  {sentiment && (
-                    <View style={mcStyles.v2SentimentBadge}>
-                      <Text style={mcStyles.v2SentimentText}>{sentiment.primary}</Text>
-                    </View>
-                  )}
+                  <Pressable
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setReasoningOpen((v) => !v); }}
+                    hitSlop={8}
+                    style={mcStyles.v2WhyThisBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel={reasoningOpen ? 'Hide AI draft reasoning' : 'Show AI draft reasoning'}
+                  >
+                    <Text style={mcStyles.v2WhyThisText}>Why this?</Text>
+                    <ChevronDown size={14} color={colors.ai.DEFAULT} style={reasoningOpen ? { transform: [{ rotate: '180deg' }] } : undefined} />
+                  </Pressable>
                   <Pressable
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleClearSuggestion(); }}
                     hitSlop={12}
@@ -444,27 +459,64 @@ export function MessageComposer({
                 </View>
               </View>
 
-              {/* 2. Draft Text Card — themed card with readable text */}
-              <View style={[mcStyles.v2DraftCard, { backgroundColor: t.bg.card }, isLowConfidence && { borderColor: '#FDE68A' }]}>
+              {/* 2. Reasoning accordion — the "Why this answer" tag rows */}
+              {reasoningOpen && (
+                <Animated.View
+                  entering={FadeIn.duration(180)}
+                  exiting={FadeOut.duration(120)}
+                  style={mcStyles.v2Reasoning}
+                >
+                  {aiDraft?.learningProofSummary ? (
+                    <View style={mcStyles.v2ReasoningRow}>
+                      <Text style={mcStyles.v2ReasoningTag}>VOICE</Text>
+                      <Text style={mcStyles.v2ReasoningText}>{aiDraft.learningProofSummary}</Text>
+                    </View>
+                  ) : null}
+                  {sentiment?.primary ? (
+                    <View style={mcStyles.v2ReasoningRow}>
+                      <Text style={mcStyles.v2ReasoningTag}>TONE</Text>
+                      <Text style={mcStyles.v2ReasoningText}>
+                        Matched to guest tone: {sentiment.primary}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {(confidenceDetails?.warnings ?? []).slice(0, 2).map((w, i) => (
+                    <View key={`warn-${i}`} style={mcStyles.v2ReasoningRow}>
+                      <Text style={mcStyles.v2ReasoningTag}>RISK</Text>
+                      <Text style={mcStyles.v2ReasoningText}>⚠ {w}</Text>
+                    </View>
+                  ))}
+                  {(aiDraft?.knowledgeConflicts ?? []).slice(0, 1).map((k, i) => (
+                    <View key={`conf-${i}`} style={mcStyles.v2ReasoningRow}>
+                      <Text style={mcStyles.v2ReasoningTag}>POLICY</Text>
+                      <Text style={mcStyles.v2ReasoningText}>
+                        {k.suggestedFix || k.issue || `Property rule: ${k.field}`}
+                      </Text>
+                    </View>
+                  ))}
+                  {aiDraft?.learningProof?.similarExamplesCount ? (
+                    <View style={mcStyles.v2ReasoningRow}>
+                      <Text style={mcStyles.v2ReasoningTag}>KB</Text>
+                      <Text style={mcStyles.v2ReasoningText}>
+                        {aiDraft.learningProof.similarExamplesCount} similar reply{aiDraft.learningProof.similarExamplesCount === 1 ? '' : 'ies'} from your history
+                      </Text>
+                    </View>
+                  ) : null}
+                </Animated.View>
+              )}
+
+              {/* 3. Draft Text Card — readable text on lavender surface */}
+              <View style={[mcStyles.v2DraftCard, { backgroundColor: t.bg.card }, isLowConfidence && { borderColor: '#FCA5A5' }]}>
                 <Text style={[mcStyles.v2DraftText, { color: t.text.primary }]}>
                   {aiDraft?.content}
                 </Text>
               </View>
 
-              {/* Low-confidence nudge */}
+              {/* Low-confidence explicit warning — refund / risk language */}
               {isLowConfidence && (
-                <Text style={{ fontSize: 11.5, fontFamily: typography.fontFamily.medium, color: '#92400E', paddingHorizontal: 4, marginTop: -2 }}>
-                  Low confidence — consider editing before sending
+                <Text style={mcStyles.v2LowConfWarning}>
+                  ⚠ Low confidence — please review before sending
                 </Text>
-              )}
-
-              {aiDraft?.learningProofSummary && (
-                <View style={mcStyles.v2LearningProofRow}>
-                  <Sparkles size={12} color={t.text.secondary} />
-                  <Text style={[mcStyles.v2LearningProofText, { color: t.text.secondary }]}>
-                    {aiDraft.learningProofSummary}
-                  </Text>
-                </View>
               )}
 
               {/* 3. Action Row — Big Send + icon buttons */}
@@ -1023,110 +1075,122 @@ const mcStyles = StyleSheet.create({
     backgroundColor: '#CBD5E1',
   },
 
-  // ── V2 Premium AI Draft Styles (matching chat-premium-draft.html) ──
+  // ── AI Draft Surface — lavender panel, Claude-Design redesign ──
   v2GlassPanel: {
-    backgroundColor: '#FAFAFF',
-    borderRadius: 24,
-    padding: 16,
+    backgroundColor: colors.ai.soft,
+    borderRadius: 20,
+    padding: 14,
     marginHorizontal: 12,
     marginBottom: 8,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.10)',
+    borderColor: '#D8CEFF',
     overflow: 'hidden' as const,
   },
   v2HeaderRow: {
     flexDirection: 'row' as const,
     justifyContent: 'space-between' as const,
     alignItems: 'center' as const,
-    marginBottom: 16,
+    marginBottom: 10,
+  },
+  v2AiChip: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    backgroundColor: colors.ai.DEFAULT,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   v2HeaderTitle: {
-    fontSize: 16,
-    fontFamily: typography.fontFamily.bold,
-    color: '#4338CA', // indigo-700 — distinct AI identity
-    marginLeft: 8,
-    letterSpacing: -0.3,
-  },
-  v2ConfidenceText: {
     fontSize: 13,
     fontFamily: typography.fontFamily.bold,
-    color: colors.primary.DEFAULT,
-    marginLeft: 4,
-  },
-  v2SentimentBadge: {
-    backgroundColor: '#ECFDF5', // emerald-50
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: '#D1FAE5', // emerald-100
+    color: '#3D2F9F',
     marginLeft: 8,
+    letterSpacing: -0.1,
   },
-  v2SentimentText: {
-    fontSize: 12,
+  v2WhyThisBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 3,
+    padding: 4,
+  },
+  v2WhyThisText: {
+    fontSize: 11.5,
     fontFamily: typography.fontFamily.semibold,
-    color: '#047857', // emerald-700
-    textTransform: 'capitalize' as const,
+    color: colors.ai.DEFAULT,
+  },
+  v2Reasoning: {
+    marginBottom: 10,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4DEFF',
+    borderRadius: 10,
+    gap: 6,
+  },
+  v2ReasoningRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: 8,
+  },
+  v2ReasoningTag: {
+    fontSize: 9.5,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.ai.DEFAULT,
+    backgroundColor: colors.ai.soft,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    letterSpacing: 0.4,
+    overflow: 'hidden' as const,
+  },
+  v2ReasoningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#4B3E8F',
+    lineHeight: 17,
   },
   v2DraftCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.12)', // indigo border — AI content identity
-    shadowColor: 'rgba(99, 102, 241, 0.06)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 2,
-    marginBottom: 12,
-  },
-  v2LearningProofRow: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 8,
-    paddingHorizontal: 4,
-    marginTop: -2,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#D8CEFF',
     marginBottom: 10,
   },
-  v2LearningProofText: {
-    flex: 1,
-    fontSize: 11.5,
-    lineHeight: 16,
-    fontFamily: typography.fontFamily.medium,
-  },
   v2DraftText: {
-    color: '#000000',
-    fontSize: 16,
-    lineHeight: 23,
-    letterSpacing: -0.16,
-    fontFamily: typography.fontFamily.medium,
+    color: '#0F172A',
+    fontSize: 14.5,
+    lineHeight: 22,
+    letterSpacing: -0.1,
+    fontFamily: typography.fontFamily.regular,
+  },
+  v2LowConfWarning: {
+    fontSize: 11.5,
+    fontFamily: typography.fontFamily.semibold,
+    color: colors.danger.DEFAULT,
+    paddingHorizontal: 4,
+    marginTop: -4,
+    marginBottom: 6,
   },
   v2ActionRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     gap: 8,
-    marginBottom: 8,
-    marginTop: 4,
+    marginTop: 2,
   },
   v2SendBtn: {
     flex: 1,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-    backgroundColor: '#6366F1', // indigo — overridden inline by confidence-aware sendBtnBg
-    borderRadius: 12,
+    backgroundColor: colors.primary.DEFAULT,
+    borderRadius: 999,
     paddingVertical: 12,
     gap: 8,
-    shadowColor: '#6366F1',
+    shadowColor: colors.primary.DEFAULT,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 3,
   },
   v2SendBtnText: {
@@ -1149,18 +1213,5 @@ const mcStyles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
-  },
-  v2ReasoningToggle: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    paddingLeft: 4,
-    paddingTop: 4,
-    marginTop: 4,
-  },
-  v2ReasoningText: {
-    fontSize: 13,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.text.disabled,
   },
 });

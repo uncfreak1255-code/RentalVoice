@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { MessageSquare, CalendarDays, Settings } from 'lucide-react-native';
+import { MessageSquare, CalendarDays, Sparkles, Settings } from 'lucide-react-native';
 import { colors, typography } from '@/lib/design-tokens';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { useAppStore } from '@/lib/store';
@@ -60,6 +60,15 @@ export default function TabLayout() {
           title: 'Calendar',
           tabBarIcon: ({ color, size }) => (
             <CalendarDays size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="voice"
+        options={{
+          title: 'Voice',
+          tabBarIcon: ({ color, size }) => (
+            <Sparkles size={size} color={color} />
           ),
         }}
       />

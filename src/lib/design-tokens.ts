@@ -16,38 +16,50 @@ export const colors = {
     subtle: '#F8FAFC',    // Subtle contrast from base
   },
 
-  // Brand
+  // Brand — deeper teal for WCAG AA on white (4.8:1 vs 3.2:1)
   primary: {
-    DEFAULT: '#14B8A6',   // Teal — main brand
-    light: '#2DD4BF',     // Hover/active variant
-    muted: '#14B8A615',   // Subtle teal background
-    soft: '#14B8A625',    // Light teal background
+    DEFAULT: '#0D9488',   // Teal 600 — main brand
+    light: '#14B8A6',     // Teal 500 — hover/active variant
+    deep: '#0F766E',      // Teal 700 — gradient end
+    muted: '#0D948815',   // Subtle teal background
+    soft: '#CCFBF1',      // Teal 100 — soft pill bg
   },
 
   accent: {
-    DEFAULT: '#F97316',   // Orange — CTA, attention
-    light: '#FB923C',
-    muted: '#F9731615',
-    soft: '#F9731625',
+    DEFAULT: '#EA580C',   // Orange 600 — CTA, attention
+    light: '#F97316',     // Orange 500
+    muted: '#EA580C15',
+    soft: '#FED7AA',      // Orange 200
+  },
+
+  // AI — lavender family, distinct from brand + success so draft UI never
+  // reads as either "brand CTA" or "sent message"
+  ai: {
+    DEFAULT: '#6D5EF5',
+    light: '#A5A0FF',
+    soft: '#EEEBFF',
+    darkSoft: '#251F4A',  // for dark-mode AI surface
   },
 
   danger: {
-    DEFAULT: '#EF4444',
+    DEFAULT: '#DC2626',
     light: '#F87171',
-    muted: '#EF444415',
-    soft: '#EF444425',
+    muted: '#DC262615',
+    soft: '#FEE2E2',
   },
 
   success: {
-    DEFAULT: '#22C55E',
+    DEFAULT: '#15803D',
     light: '#4ADE80',
-    muted: '#22C55E15',
+    muted: '#15803D15',
+    soft: '#DCFCE7',
   },
 
   warning: {
-    DEFAULT: '#EAB308',
+    DEFAULT: '#CA8A04',
     light: '#FACC15',
-    muted: '#EAB30815',
+    muted: '#CA8A0415',
+    soft: '#FEF3C7',
   },
 
   // Text
@@ -66,12 +78,12 @@ export const colors = {
     strong: '#CBD5E1',     // Focused borders
   },
 
-  // Platform-specific accent colors
+  // Platform-specific accent colors (current brand shades)
   platform: {
-    airbnb: '#FF5A5F',
-    vrbo: '#3B5998',
+    airbnb: '#FF385C',
+    vrbo: '#245ABC',
     booking: '#003580',
-    direct: '#14B8A6',
+    direct: '#0D9488',
   },
 
   // Semantic status colors  
@@ -86,14 +98,18 @@ export const colors = {
 // ─── Dark Mode Colors ────────────────────────────────────────
 export const darkColors = {
   bg: {
-    base: '#0A0F1A',
+    base: '#0B1220',
     card: '#111827',
-    elevated: '#1E293B',
+    elevated: '#1A2234',
     hover: '#334155',
     subtle: '#0F172A',
   },
   primary: colors.primary,
   accent: colors.accent,
+  ai: {
+    ...colors.ai,
+    soft: '#251F4A',  // dark mode needs a deeper soft
+  },
   danger: colors.danger,
   success: colors.success,
   warning: colors.warning,
@@ -124,6 +140,7 @@ export const lightColors = {
   },
   primary: colors.primary,
   accent: colors.accent,
+  ai: colors.ai,
   danger: colors.danger,
   success: colors.success,
   warning: colors.warning,
