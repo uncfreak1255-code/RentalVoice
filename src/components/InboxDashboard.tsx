@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState, type AppStateStatus, FlatList } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, AppState, StyleSheet, type AppStateStatus, FlatList } from 'react-native';
 import { colors, typography, spacing, radius } from '@/lib/design-tokens';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,17 +15,14 @@ import { isRenderableUnreadConversation } from '@/lib/inbox-trust';
 import {
   Inbox,
   Archive,
-  Clock,
-  ListTodo,
   CheckCircle2,
-  DoorOpen,
-  LogOut,
   CheckSquare,
   Square,
   X,
   Search,
-  MessageSquarePlus,
   AlertTriangle,
+  Sparkles,
+  Bell,
   RefreshCw,
   Settings,
 } from 'lucide-react-native';
@@ -142,7 +139,10 @@ function formatSyncTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-type FilterTab = 'all' | 'unread' | 'inquiry' | 'check_in' | 'check_out';
+type FilterTab = 'needs-reply' | 'drafts' | 'urgent' | 'all';
+
+// Sentiments that indicate the conversation needs the host's attention now.
+const URGENT_SENTIMENTS: ReadonlySet<string> = new Set(['urgent', 'frustrated']);
 
 interface InboxDashboardProps {
   onSelectConversation: (id: string) => void;
@@ -153,7 +153,7 @@ interface InboxDashboardProps {
 // convertListingToProperty, getChannelPlatform, convertHostawayMessage imported from '@/lib/hostaway-utils'
 
 export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCalendar }: InboxDashboardProps) {
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('needs-reply');
   const t = useThemeColors();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -195,49 +195,41 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     !isDemoMode && (features.serverProxiedAI || Boolean(accountId && apiKey))
   );
 
+  // Compute sentiment once per conversation so rows and filters share the result.
+  const sentimentById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of conversations) {
+      map.set(c.id, analyzeConversationSentiment(c).currentSentiment);
+    }
+    return map;
+  }, [conversations]);
+
   const filteredConversations = useMemo(() => {
-    let result = [...conversations];
+    let result = conversations.filter(
+      (c) => c.status !== 'archived' && c.workflowStatus !== 'archived'
+    );
 
     if (selectedPropertyId) {
       result = result.filter((c) => c.property.id === selectedPropertyId);
     }
 
-    // Filter by active tab
     switch (activeFilter) {
-      case 'unread':
+      case 'needs-reply':
         result = result.filter((c) => isRenderableUnreadConversation(c));
         break;
-      case 'inquiry':
-        result = result.filter((c) => c.isInquiry === true);
+      case 'drafts':
+        result = result.filter((c) => c.hasAiDraft === true);
         break;
-      case 'check_in': {
-        const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 2);
-        result = result.filter((c) => {
-          if (!c.checkInDate) return false;
-          const checkIn = new Date(c.checkInDate);
-          return checkIn >= now && checkIn <= tomorrow;
-        });
+      case 'urgent':
+        result = result.filter(
+          (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) || '')
+        );
         break;
-      }
-      case 'check_out': {
-        const now2 = new Date();
-        const tomorrow2 = new Date(now2);
-        tomorrow2.setDate(tomorrow2.getDate() + 2);
-        result = result.filter((c) => {
-          if (!c.checkOutDate) return false;
-          const checkOut = new Date(c.checkOutDate);
-          return checkOut >= now2 && checkOut <= tomorrow2;
-        });
-        break;
-      }
+      case 'all':
       default:
-        result = result.filter((c) => c.status !== 'archived' && c.workflowStatus !== 'archived');
         break;
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((c) =>
@@ -248,35 +240,30 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     }
 
     return applySortPreference(result, inboxSortPreference);
-  }, [conversations, selectedPropertyId, activeFilter, inboxSortPreference, searchQuery]);
+  }, [conversations, selectedPropertyId, activeFilter, inboxSortPreference, searchQuery, sentimentById]);
 
   // Flat list — no Needs Reply/Responded sections (Rork style)
 
   const stats = useMemo(() => {
-    const active = conversations.filter((c) => c.status !== 'archived' && c.workflowStatus !== 'archived');
-    const now = new Date();
-    const soon = new Date(now);
-    soon.setDate(soon.getDate() + 2);
+    const active = conversations.filter(
+      (c) => c.status !== 'archived' && c.workflowStatus !== 'archived'
+    );
+    const filteredByProperty = selectedPropertyId
+      ? active.filter((c) => c.property.id === selectedPropertyId)
+      : active;
 
     return {
-      total: active.length,
-      unread: active.filter((c) => isRenderableUnreadConversation(c)).length,
-      inquiry: active.filter((c) => c.isInquiry === true).length,
-      checkIn: active.filter((c) => {
-        if (!c.checkInDate) return false;
-        const d = new Date(c.checkInDate);
-        return d >= now && d <= soon;
-      }).length,
-      checkOut: active.filter((c) => {
-        if (!c.checkOutDate) return false;
-        const d = new Date(c.checkOutDate);
-        return d >= now && d <= soon;
-      }).length,
+      total: filteredByProperty.length,
+      needsReply: filteredByProperty.filter((c) => isRenderableUnreadConversation(c)).length,
+      drafts: filteredByProperty.filter((c) => c.hasAiDraft === true).length,
+      urgent: filteredByProperty.filter(
+        (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) || '')
+      ).length,
     };
-  }, [conversations]);
+  }, [conversations, selectedPropertyId, sentimentById]);
 
   const dailyBriefing = useMemo(() => {
-    if (activeFilter !== 'all' || searchQuery.trim()) {
+    if (activeFilter !== 'needs-reply' || searchQuery.trim()) {
       return null;
     }
 
@@ -672,14 +659,19 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     setSelectedIds(new Set());
   }, [setActiveFilter, setIsSelectMode, setSelectedIds]);
 
-  // Rork-style filter tabs: All, Unread, Check-in, Check-out
-  const tabs: { id: FilterTab; label: string; icon: React.ComponentType<{ size: number; color: string }>; count?: number }[] = [
-    { id: 'all', label: 'All', icon: Inbox, count: stats.total },
-    { id: 'unread', label: 'Unread', icon: ListTodo, count: stats.unread },
-    { id: 'inquiry', label: 'Inquiry', icon: MessageSquarePlus, count: stats.inquiry },
-    { id: 'check_in', label: 'Check-in', icon: Clock, count: stats.checkIn },
-    { id: 'check_out', label: 'Check-out', icon: Clock, count: stats.checkOut },
+  const tabs: { id: FilterTab; label: string; count: number }[] = [
+    { id: 'needs-reply', label: 'Needs reply', count: stats.needsReply },
+    { id: 'drafts', label: 'AI drafts', count: stats.drafts },
+    { id: 'urgent', label: 'Urgent', count: stats.urgent },
+    { id: 'all', label: 'All', count: stats.total },
   ];
+
+  // Find the first urgent-sentiment conversation for the attention banner.
+  const urgentConversation = useMemo(() => {
+    return filteredConversations.find(
+      (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) || '')
+    );
+  }, [filteredConversations, sentimentById]);
 
   const showSyncBanner = !isDemoMode && (
     historySyncStatus.isSyncing
@@ -702,23 +694,106 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   return (
     <View style={{ flex: 1, backgroundColor: t.bg.base }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* ── Rork-style Header ── */}
-        <View style={{ paddingHorizontal: spacing['5'], paddingTop: 12, paddingBottom: 4, backgroundColor: t.bg.base }}>
-          <Text style={{ fontSize: 34, fontFamily: typography.fontFamily.bold, color: t.text.primary, letterSpacing: -0.5 }} accessibilityRole="header">
-            Inbox
-          </Text>
-        </View>
+        {/* ── Header ── */}
+        <View
+          style={{
+            paddingHorizontal: spacing['5'],
+            paddingTop: 12,
+            paddingBottom: spacing['2'],
+            backgroundColor: t.bg.card,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: t.border.subtle,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontFamily: typography.fontFamily.bold,
+                  color: t.text.primary,
+                  letterSpacing: -0.4,
+                }}
+                accessibilityRole="header"
+              >
+                Inbox
+              </Text>
+              <Text
+                style={{
+                  fontSize: 12.5,
+                  color: t.text.muted,
+                  marginTop: 1,
+                  fontFamily: typography.fontFamily.regular,
+                }}
+              >
+                {stats.drafts > 0
+                  ? `${stats.drafts} draft${stats.drafts === 1 ? '' : 's'} ready · AutoPilot paused`
+                  : 'AutoPilot paused'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={onOpenSettings}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              hitSlop={6}
+              style={({ pressed }) => ({
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: t.border.DEFAULT,
+                backgroundColor: t.bg.card,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Bell size={18} color={t.text.secondary} />
+              {stats.urgent > 0 ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 7,
+                    right: 7,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: colors.danger.DEFAULT,
+                    borderWidth: 2,
+                    borderColor: t.bg.card,
+                  }}
+                />
+              ) : null}
+            </Pressable>
+          </View>
 
-        {/* ── Search Bar ── */}
-        <View style={{ paddingHorizontal: spacing['5'], paddingBottom: 4, backgroundColor: t.bg.base }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: t.border.DEFAULT, borderRadius: 10, paddingHorizontal: 10, height: 36 }}>
-            <Search size={16} color={t.text.disabled} />
+          {/* ── Search Bar ── */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: t.bg.subtle,
+              borderWidth: 1,
+              borderColor: t.border.DEFAULT,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              height: 38,
+            }}
+          >
+            <Search size={16} color={t.text.muted} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search guests, properties..."
+              placeholder="Search guests, properties…"
               placeholderTextColor={t.text.disabled}
-              style={{ flex: 1, fontSize: 16, color: t.text.primary, marginLeft: 6, paddingVertical: 0 }}
+              style={{
+                flex: 1,
+                fontSize: 14,
+                color: t.text.primary,
+                marginLeft: 8,
+                paddingVertical: 0,
+                fontFamily: typography.fontFamily.regular,
+              }}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
@@ -726,19 +801,85 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               testID="inbox-search"
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')} hitSlop={12} accessible accessibilityRole="button" accessibilityLabel="Clear search">
-                <X size={16} color={t.text.disabled} />
+              <Pressable
+                onPress={() => setSearchQuery('')}
+                hitSlop={12}
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <X size={16} color={t.text.muted} />
               </Pressable>
             )}
           </View>
         </View>
 
-        {/* ── Filter Chips (mockup style) ── */}
-        <View style={{ paddingVertical: 8, backgroundColor: t.bg.base }}>
+        {/* ── Urgent attention banner ── */}
+        {urgentConversation ? (
+          <Pressable
+            onPress={() => onSelectConversation(urgentConversation.id)}
+            style={({ pressed }) => ({
+              marginHorizontal: spacing['4'],
+              marginTop: 12,
+              padding: 12,
+              borderRadius: 12,
+              backgroundColor: colors.accent.soft,
+              borderWidth: 1,
+              borderColor: colors.accent.soft,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              opacity: pressed ? 0.85 : 1,
+            })}
+            accessibilityRole="button"
+            accessibilityLabel={`Urgent: ${urgentConversation.guest.name} needs attention`}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: colors.danger.DEFAULT,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <AlertTriangle size={18} color={colors.text.inverse} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 13.5,
+                  fontFamily: typography.fontFamily.bold,
+                  color: colors.text.primary,
+                  letterSpacing: -0.1,
+                }}
+                numberOfLines={1}
+              >
+                {stats.urgent === 1
+                  ? '1 guest needs urgent attention'
+                  : `${stats.urgent} guests need urgent attention`}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: colors.text.muted,
+                  marginTop: 1,
+                }}
+                numberOfLines={1}
+              >
+                {urgentConversation.guest.name} · {urgentConversation.property?.name || 'Inbox'}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {/* ── Filter Chips ── */}
+        <View style={{ paddingVertical: 10, backgroundColor: t.bg.base }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}
+            contentContainerStyle={{ paddingHorizontal: spacing['4'], gap: 6 }}
             style={{ flexGrow: 0 }}
           >
             {tabs.map((tab) => {
@@ -751,24 +892,46 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                   accessibilityLabel={`${tab.label} filter${tab.count ? `, ${tab.count} conversations` : ''}`}
                   accessibilityState={{ selected: isActive }}
                   style={{
-                    paddingVertical: 8,
-                    paddingHorizontal: spacing['4'],
-                    borderRadius: 18,
-                    backgroundColor: isActive ? t.text.primary : t.bg.subtle,
-                    minHeight: spacing['8'],
-                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingVertical: 7,
+                    paddingHorizontal: 14,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: isActive ? t.text.primary : t.border.DEFAULT,
+                    backgroundColor: isActive ? t.text.primary : t.bg.card,
                   }}
                   testID={`inbox-filter-${tab.id}`}
                 >
                   <Text
                     style={{
-                      fontFamily: isActive ? typography.fontFamily.semibold : typography.fontFamily.medium,
+                      fontFamily: typography.fontFamily.semibold,
                       fontSize: 13,
                       color: isActive ? t.text.inverse : t.text.secondary,
+                      letterSpacing: -0.1,
                     }}
                   >
-                    {tab.label}{tab.count !== undefined && tab.count > 0 ? ` (${tab.count})` : ''}
+                    {tab.label}
                   </Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 0,
+                      borderRadius: 999,
+                      backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : t.bg.subtle,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontFamily: typography.fontFamily.bold,
+                        color: isActive ? t.text.inverse : t.text.muted,
+                      }}
+                    >
+                      {tab.count}
+                    </Text>
+                  </View>
                 </Pressable>
               );
             })}
@@ -934,6 +1097,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                         <View style={{ flex: 1 }}>
                           <ConversationItem
                             conversation={item}
+                            sentiment={sentimentById.get(item.id) as any}
                             onPress={() => {
                               if (isSelectMode) {
                                 setSelectedIds((prev) => {
@@ -1078,18 +1242,25 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                         width: 80,
                         height: 80,
                         borderRadius: 40,
-                        backgroundColor: activeFilter === 'unread' ? colors.primary.muted : colors.bg.elevated,
+                        backgroundColor:
+                          activeFilter === 'needs-reply'
+                            ? colors.primary.soft
+                            : activeFilter === 'drafts'
+                            ? colors.ai.soft
+                            : activeFilter === 'urgent'
+                            ? colors.accent.soft
+                            : colors.bg.elevated,
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginBottom: spacing['5'],
                       }}
                     >
-                      {activeFilter === 'unread' ? (
+                      {activeFilter === 'needs-reply' ? (
                         <CheckCircle2 size={36} color={colors.primary.DEFAULT} />
-                      ) : activeFilter === 'check_in' ? (
-                        <DoorOpen size={36} color={colors.primary.DEFAULT} />
-                      ) : activeFilter === 'check_out' ? (
-                        <LogOut size={36} color={colors.primary.DEFAULT} />
+                      ) : activeFilter === 'drafts' ? (
+                        <Sparkles size={36} color={colors.ai.DEFAULT} />
+                      ) : activeFilter === 'urgent' ? (
+                        <AlertTriangle size={36} color={colors.accent.DEFAULT} />
                       ) : (
                         <Inbox size={36} color={colors.text.muted} />
                       )}
@@ -1097,23 +1268,23 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                     <Text style={{ ...typography.styles.h2, color: colors.text.primary, textAlign: 'center' }}>
                       {selectedPropertyId
                         ? 'No conversations for this property'
-                        : activeFilter === 'unread'
+                        : activeFilter === 'needs-reply'
                         ? 'All caught up!'
-                        : activeFilter === 'check_in'
-                        ? 'No upcoming check-ins'
-                        : activeFilter === 'check_out'
-                        ? 'No upcoming check-outs'
+                        : activeFilter === 'drafts'
+                        ? 'No AI drafts waiting'
+                        : activeFilter === 'urgent'
+                        ? 'No urgent threads'
                         : 'No conversations yet'}
                     </Text>
                     <Text style={{ ...typography.styles.body, color: colors.text.muted, textAlign: 'center', marginTop: spacing['2'] }}>
                       {selectedPropertyId
                         ? 'Try selecting "All Properties" to see all conversations.'
-                        : activeFilter === 'unread'
+                        : activeFilter === 'needs-reply'
                         ? 'No unread messages to review.'
-                        : activeFilter === 'check_in'
-                        ? 'No guests arriving in the next 48 hours.'
-                        : activeFilter === 'check_out'
-                        ? 'No guests departing in the next 48 hours.'
+                        : activeFilter === 'drafts'
+                        ? 'Drafts appear here when the AI prepares a reply.'
+                        : activeFilter === 'urgent'
+                        ? 'Nothing needs your immediate attention right now.'
                         : 'Pull down to refresh, or new messages will appear automatically.'}
                     </Text>
                     {selectedPropertyId && (

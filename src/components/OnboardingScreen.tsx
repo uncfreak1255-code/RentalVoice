@@ -32,6 +32,7 @@ import {
   User,
   Zap,
 } from 'lucide-react-native';
+import { AccuracyChart } from '@/components/ui/AccuracyChart';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '@/lib/store';
 import { initializeConnection, validateCredentials } from '@/lib/hostaway';
@@ -299,6 +300,19 @@ export function OnboardingScreen({
                   </Animated.View>
                 ))}
               </View>
+
+              {/* Accuracy trajectory card — honesty beat from the Claude Design refresh */}
+              <Animated.View
+                entering={FadeInDown.delay(250 + FEATURE_CARDS.length * 120).duration(450)}
+                style={ob.accuracyCard}
+              >
+                <Text style={ob.accuracyEyebrow}>HOW GOOD IT GETS</Text>
+                <AccuracyChart />
+                <Text style={ob.accuracyCopy}>
+                  New AIs start around 40%. After two weeks of real messages and a few edits, most
+                  hosts reach 85%+. You stay in control until it earns trust.
+                </Text>
+              </Animated.View>
 
               <View style={ob.heroFooter}>
                 <Animated.View entering={FadeInUp.delay(700).duration(400)}>
@@ -601,6 +615,27 @@ const ob = StyleSheet.create({
   heroFooter: {
     paddingTop: spacing['8'],
     paddingBottom: spacing['8'],
+  },
+  accuracyCard: {
+    marginTop: spacing['4'],
+    padding: spacing['4'],
+    borderRadius: radius.xl,
+    backgroundColor: colors.success.soft,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  accuracyEyebrow: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.success.DEFAULT,
+    letterSpacing: 0.8,
+    marginBottom: spacing['2'],
+  },
+  accuracyCopy: {
+    fontSize: 13,
+    color: colors.text.muted,
+    lineHeight: 19,
+    marginTop: spacing['2'],
   },
   formShell: {
     flex: 1,
