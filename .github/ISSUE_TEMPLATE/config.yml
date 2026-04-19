@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contributor setup guide
+    url: https://github.com/uncfreak1255-code/RentalVoice/blob/main/CONTRIBUTING.md
+    about: Start here before filing setup or onboarding issues.

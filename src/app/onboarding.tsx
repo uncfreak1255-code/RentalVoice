@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { AuthExplainerScreen } from '@/components/AuthExplainerScreen';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { PasswordlessAuthScreen } from '@/components/PasswordlessAuthScreen';
+import { isContributorDemoForced } from '@/lib/config';
 import { useAppStore } from '@/lib/store';
 import type { PasswordlessAuthResponseData } from '@/lib/api-client';
 import { colors } from '@/lib/design-tokens';
@@ -25,6 +26,11 @@ export default function OnboardingRoute() {
     let mounted = true;
 
     async function resolveStep() {
+      if (isContributorDemoForced()) {
+        if (mounted) setStep('explainer');
+        return;
+      }
+
       if (accountSession) {
         if (mounted) setStep('connect');
         return;

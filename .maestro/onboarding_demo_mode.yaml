@@ -1,26 +1,16 @@
 appId: com.rentalvoice.app
 ---
-# Flow 1: Launch → Welcome → Get Started → Demo Mode → Inbox loads
-# Tests the complete onboarding flow using demo mode (no API creds needed)
+# Flow 1: Auth explainer -> demo mode -> inbox
+# `npm run maestro:demo` deep-links the booted simulator into the local dev client first.
 
-- launchApp:
-    clearState: true
-
-# Step 0: Welcome screen
-- assertVisible: "Rental Voice"
-- assertVisible: "Smart guest communication"
-
-# Tap "Get Started"
-- tapOn:
-    id: "onboarding-get-started"
-
-# Step 1: PMS connection screen
-- assertVisible: "Connect Your PMS"
-- assertVisible: "Hostaway"
+# Step 0: Auth explainer
+- assertVisible: "Your account comes first"
+- assertVisible:
+    id: "auth-explainer-try-demo"
 
 # Enter Demo Mode
 - tapOn:
-    id: "onboarding-demo-mode"
+    id: "auth-explainer-try-demo"
 
 # Wait for animations and data load
 - waitForAnimationToEnd

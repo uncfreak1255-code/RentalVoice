@@ -53,6 +53,7 @@ jest.mock('@/lib/account-data-migration', () => ({
 
 jest.mock('@/lib/config', () => ({
   isCommercial: false,
+  isContributorDemoForced: () => process.env.EXPO_PUBLIC_FORCE_DEMO === '1',
 }));
 
 jest.mock('@/lib/commercial-migration', () => ({
@@ -86,6 +87,7 @@ jest.mock('expo-status-bar', () => ({
 describe('AppEntry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.EXPO_PUBLIC_FORCE_DEMO;
     jest.spyOn(AppState, 'addEventListener').mockReturnValue({
       remove: jest.fn(),
     } as any);
@@ -130,6 +132,20 @@ describe('AppEntry', () => {
     });
 
     expect(mockRestoreFounderSession).toHaveBeenCalledTimes(1);
+    expect(mockRestoreAccountSession).not.toHaveBeenCalled();
+    expect(mockRestoreConnection).not.toHaveBeenCalled();
+  });
+
+  it('routes to onboarding immediately when contributor demo is forced', async () => {
+    process.env.EXPO_PUBLIC_FORCE_DEMO = '1';
+
+    render(<AppEntry />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/onboarding');
+    });
+
+    expect(mockRestoreFounderSession).not.toHaveBeenCalled();
     expect(mockRestoreAccountSession).not.toHaveBeenCalled();
     expect(mockRestoreConnection).not.toHaveBeenCalled();
   });

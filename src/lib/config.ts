@@ -23,6 +23,11 @@ export const isPersonal: boolean = (APP_MODE as string) === 'personal';
  */
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.rentalvoice.app';
 
+export function isContributorDemoForced(): boolean {
+  const value = process.env.EXPO_PUBLIC_FORCE_DEMO;
+  return value === '1' || value === 'true';
+}
+
 /**
  * Feature flags derived from mode.
  * Personal mode keeps ALL current behavior intact.
@@ -65,4 +70,5 @@ if (__DEV__) {
   console.log(`[Config] App mode: ${APP_MODE}`);
   console.log(`[Config] Server AI: ${features.serverProxiedAI}`);
   console.log(`[Config] Auth required: ${features.requireAuth}`);
+  console.log(`[Config] Contributor demo forced: ${isContributorDemoForced()}`);
 }
