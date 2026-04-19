@@ -196,10 +196,16 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   );
 
   // Compute sentiment once per conversation so rows and filters share the result.
+  // Wrapped so one malformed conversation can't blank the whole inbox.
   const sentimentById = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of conversations) {
-      map.set(c.id, analyzeConversationSentiment(c).currentSentiment);
+      try {
+        map.set(c.id, analyzeConversationSentiment(c).currentSentiment);
+      } catch (err) {
+        console.warn('[Inbox] sentiment analysis failed for conversation', c.id, err);
+        map.set(c.id, 'neutral');
+      }
     }
     return map;
   }, [conversations]);

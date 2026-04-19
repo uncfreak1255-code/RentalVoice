@@ -199,7 +199,9 @@ export function analyzeMessageSentiment(message: Message): SentimentResult {
       const matches = content.match(pattern);
       if (matches) {
         scores[sentiment].score += 10;
-        scores[sentiment].keywords.push(...matches.map(m => m.toLowerCase()));
+        // Patterns with optional capture groups can return undefined slots;
+        // filter before lowercasing so a single regex quirk doesn't throw.
+        scores[sentiment].keywords.push(...matches.filter((m): m is string => typeof m === 'string').map(m => m.toLowerCase()));
       }
     }
 
@@ -208,7 +210,7 @@ export function analyzeMessageSentiment(message: Message): SentimentResult {
       const matches = content.match(pattern);
       if (matches) {
         scores[sentiment].score += 15;
-        scores[sentiment].keywords.push(...matches.map(m => m.toLowerCase()));
+        scores[sentiment].keywords.push(...matches.filter((m): m is string => typeof m === 'string').map(m => m.toLowerCase()));
       }
     }
   }
