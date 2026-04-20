@@ -26,7 +26,6 @@ import {
   RefreshCw,
   Settings,
 } from 'lucide-react-native';
-import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import * as Haptics from 'expo-haptics';
 import {
   fetchListings,
@@ -1046,85 +1045,65 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
               initialNumToRender={10}
               removeClippedSubviews={false}
               renderItem={({ item }) => {
-                const renderRightActions = () => {
-                  return (
-                    <Pressable
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        archiveConversation(item.id);
-                      }}
-                      style={{
-                        backgroundColor: colors.danger.DEFAULT,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        width: 80,
-                      }}
-                    >
-                      <Archive size={22} color={colors.text.inverse} />
-                      <Text style={{ color: colors.text.inverse, fontSize: 12, fontFamily: typography.fontFamily.medium, marginTop: 4 }}>Archive</Text>
-                    </Pressable>
-                  );
-                };
-
+                // NOTE: ReanimatedSwipeable wrapper temporarily removed — it
+                // crashes on mount with `Value is null, expected an Object` in
+                // `global._measure` on new-arch iPhone 16e sim (gesture-handler
+                // 2.28.0 + reanimated 4.1.6). Long-press → multi-select →
+                // archive still works as the primary archive path. Restore the
+                // swipe after the gesture-handler/reanimated fix lands.
                 return (
-                  <ReanimatedSwipeable
-                    renderRightActions={renderRightActions}
-                    overshootRight={false}
-                    rightThreshold={40}
+                  <Pressable
+                    onPress={() => {
+                      if (isSelectMode) {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(item.id)) next.delete(item.id);
+                          else next.add(item.id);
+                          return next;
+                        });
+                      } else {
+                        onSelectConversation(item.id);
+                      }
+                    }}
+                    onLongPress={() => {
+                      if (!isSelectMode) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        setIsSelectMode(true);
+                        setSelectedIds(new Set([item.id]));
+                      }
+                    }}
+                    delayLongPress={400}
                   >
-                    <Pressable
-                      onPress={() => {
-                        if (isSelectMode) {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(item.id)) next.delete(item.id);
-                            else next.add(item.id);
-                            return next;
-                          });
-                        } else {
-                          onSelectConversation(item.id);
-                        }
-                      }}
-                      onLongPress={() => {
-                        if (!isSelectMode) {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          setIsSelectMode(true);
-                          setSelectedIds(new Set([item.id]));
-                        }
-                      }}
-                      delayLongPress={400}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg.base }}>
-                        {isSelectMode && (
-                          <View style={{ paddingLeft: spacing['3'], justifyContent: 'center' }}>
-                            {selectedIds.has(item.id) ? (
-                              <CheckSquare size={22} color={colors.primary.DEFAULT} />
-                            ) : (
-                              <Square size={22} color={colors.text.muted} />
-                            )}
-                          </View>
-                        )}
-                        <View style={{ flex: 1 }}>
-                          <ConversationItem
-                            conversation={item}
-                            sentiment={sentimentById.get(item.id)}
-                            onPress={() => {
-                              if (isSelectMode) {
-                                setSelectedIds((prev) => {
-                                  const next = new Set(prev);
-                                  if (next.has(item.id)) next.delete(item.id);
-                                  else next.add(item.id);
-                                  return next;
-                                });
-                              } else {
-                                onSelectConversation(item.id);
-                              }
-                            }}
-                          />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg.base }}>
+                      {isSelectMode && (
+                        <View style={{ paddingLeft: spacing['3'], justifyContent: 'center' }}>
+                          {selectedIds.has(item.id) ? (
+                            <CheckSquare size={22} color={colors.primary.DEFAULT} />
+                          ) : (
+                            <Square size={22} color={colors.text.muted} />
+                          )}
                         </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <ConversationItem
+                          conversation={item}
+                          sentiment={sentimentById.get(item.id)}
+                          onPress={() => {
+                            if (isSelectMode) {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(item.id)) next.delete(item.id);
+                                else next.add(item.id);
+                                return next;
+                              });
+                            } else {
+                              onSelectConversation(item.id);
+                            }
+                          }}
+                        />
                       </View>
-                    </Pressable>
-                  </ReanimatedSwipeable>
+                    </View>
+                  </Pressable>
                 );
               }}
               keyExtractor={(item) => item.id}
