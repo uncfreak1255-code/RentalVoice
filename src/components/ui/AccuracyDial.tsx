@@ -10,7 +10,7 @@ interface AccuracyDialProps {
 export function AccuracyDial({ value, size = 80 }: AccuracyDialProps) {
   const r = 32;
   const c = 2 * Math.PI * r;
-  const color = value >= 80 ? colors.success.DEFAULT : value >= 60 ? colors.warning.DEFAULT : colors.warning.DEFAULT;
+  const color = value >= 80 ? colors.success.DEFAULT : colors.warning.DEFAULT;
   return (
     <Svg width={size} height={size} viewBox="0 0 80 80">
       <Circle cx={40} cy={40} r={r} fill="none" stroke={colors.border.DEFAULT} strokeWidth={7} />

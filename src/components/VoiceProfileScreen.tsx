@@ -7,8 +7,10 @@ import { colors, spacing, typography, radius } from '@/lib/design-tokens';
 import { useThemeColors } from '@/lib/useThemeColors';
 import { AccuracyDial } from '@/components/ui/AccuracyDial';
 
-// Go-to phrase suggestions seeded from the redesigned spec — the host can edit
-// these later, but they have to be present on day one so the mirror feels real.
+// TODO(voice-profile): these three consts are placeholder seed data. The store
+// doesn't yet expose voice-profile phrases/boundaries/traits — they need to be
+// wired to real learning output before this screen goes past "mirror preview".
+// Until then, values shown are illustrative, not user data.
 const DEFAULT_GO_TO_PHRASES = [
   'Hope this helps!',
   'Looking forward to having you',
@@ -136,6 +138,9 @@ export function VoiceProfileScreen() {
             title="What you taught me this week"
             subtitle={editsThisWeek > 0 ? `${editsThisWeek} pattern${editsThisWeek === 1 ? '' : 's'} picked up from edits` : 'No edits this week yet'}
           >
+            {/* TODO(voice-profile): these three EditRow entries are placeholder
+                before/after copy. Wire to real host edits from the learning
+                pipeline before showing this as truth. */}
             <EditRow
               t={t}
               before="I can help with that."
