@@ -45,6 +45,7 @@ import {
 import {
   analyzeConversationSentiment,
   SENTIMENT_PRIORITY,
+  type SentimentType,
 } from '@/lib/sentiment-analysis';
 import { checkAndSendScheduledMessages } from '@/lib/automation-engine';
 import { convertListingToProperty, getChannelPlatform, convertHostawayMessage, parseHostawayTimestamp } from '@/lib/hostaway-utils';
@@ -142,7 +143,7 @@ function formatSyncTime(date: Date): string {
 type FilterTab = 'needs-reply' | 'drafts' | 'urgent' | 'all';
 
 // Sentiments that indicate the conversation needs the host's attention now.
-const URGENT_SENTIMENTS: ReadonlySet<string> = new Set(['urgent', 'frustrated']);
+const URGENT_SENTIMENTS: ReadonlySet<SentimentType> = new Set<SentimentType>(['urgent', 'frustrated']);
 
 interface InboxDashboardProps {
   onSelectConversation: (id: string) => void;
@@ -198,7 +199,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   // Compute sentiment once per conversation so rows and filters share the result.
   // Wrapped so one malformed conversation can't blank the whole inbox.
   const sentimentById = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, SentimentType>();
     for (const c of conversations) {
       try {
         map.set(c.id, analyzeConversationSentiment(c).currentSentiment);
@@ -228,7 +229,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         break;
       case 'urgent':
         result = result.filter(
-          (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) || '')
+          (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) ?? 'neutral')
         );
         break;
       case 'all':
@@ -263,7 +264,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
       needsReply: filteredByProperty.filter((c) => isRenderableUnreadConversation(c)).length,
       drafts: filteredByProperty.filter((c) => c.hasAiDraft === true).length,
       urgent: filteredByProperty.filter(
-        (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) || '')
+        (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) ?? 'neutral')
       ).length,
     };
   }, [conversations, selectedPropertyId, sentimentById]);
@@ -675,7 +676,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   // Find the first urgent-sentiment conversation for the attention banner.
   const urgentConversation = useMemo(() => {
     return filteredConversations.find(
-      (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) || '')
+      (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) ?? 'neutral')
     );
   }, [filteredConversations, sentimentById]);
 
@@ -1103,7 +1104,7 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                         <View style={{ flex: 1 }}>
                           <ConversationItem
                             conversation={item}
-                            sentiment={sentimentById.get(item.id) as any}
+                            sentiment={sentimentById.get(item.id)}
                             onPress={() => {
                               if (isSelectMode) {
                                 setSelectedIds((prev) => {
