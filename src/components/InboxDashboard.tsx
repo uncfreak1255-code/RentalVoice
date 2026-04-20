@@ -741,7 +741,8 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
             <Pressable
               onPress={onOpenSettings}
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={stats.urgent > 0 ? 'Open settings — 1 or more urgent conversations' : 'Open settings'}
+              accessibilityHint="Opens inbox and account settings"
               hitSlop={6}
               style={({ pressed }) => ({
                 width: 38,
@@ -921,14 +922,15 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                   >
                     {tab.label}
                   </Text>
-                  <View
-                    style={{
-                      paddingHorizontal: 6,
-                      paddingVertical: 0,
-                      borderRadius: 999,
-                      backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : t.bg.subtle,
-                    }}
-                  >
+                  {tab.count > 0 ? (
+                    <View
+                      style={{
+                        paddingHorizontal: 6,
+                        paddingVertical: 0,
+                        borderRadius: 999,
+                        backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : t.bg.subtle,
+                      }}
+                    >
                     <Text
                       style={{
                         fontSize: 11,
@@ -938,7 +940,8 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
                     >
                       {tab.count}
                     </Text>
-                  </View>
+                    </View>
+                  ) : null}
                 </Pressable>
               );
             })}

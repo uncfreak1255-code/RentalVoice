@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { colors, typography } from '@/lib/design-tokens';
 
@@ -12,6 +13,7 @@ export function AccuracyDial({ value, size = 80 }: AccuracyDialProps) {
   const c = 2 * Math.PI * r;
   const color = value >= 80 ? colors.success.DEFAULT : colors.warning.DEFAULT;
   return (
+    <View accessibilityRole="image" accessibilityLabel={`Voice accuracy ${value} percent`}>
     <Svg width={size} height={size} viewBox="0 0 80 80">
       <Circle cx={40} cy={40} r={r} fill="none" stroke={colors.border.DEFAULT} strokeWidth={7} />
       <Circle
@@ -38,5 +40,6 @@ export function AccuracyDial({ value, size = 80 }: AccuracyDialProps) {
         {`${value}%`}
       </SvgText>
     </Svg>
+    </View>
   );
 }

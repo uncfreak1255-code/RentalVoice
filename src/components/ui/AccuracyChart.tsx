@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 import { colors, typography } from '@/lib/design-tokens';
 
@@ -32,8 +33,14 @@ export function AccuracyChart({
 
   const last = segments[segments.length - 1];
   const firstY = segments[0].y;
+  const startValue = points[0];
+  const endValue = points[points.length - 1];
 
   return (
+    <View
+      accessibilityRole="image"
+      accessibilityLabel={`Accuracy trajectory chart. Starts at ${startValue} percent and rises to ${endValue} percent by week two.`}
+    >
     <Svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height}>
       <Defs>
         <LinearGradient id="accG" x1="0" y1="0" x2="0" y2="1">
@@ -71,5 +78,6 @@ export function AccuracyChart({
         Week 2 · 88%
       </SvgText>
     </Svg>
+    </View>
   );
 }

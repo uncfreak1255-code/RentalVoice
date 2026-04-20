@@ -407,7 +407,12 @@ export function MessageComposer({
         <Animated.View
           entering={SlideInDown.duration(300)}
           exiting={FadeOut.duration(200)}
-          style={[mcStyles.v2GlassPanel, { maxHeight: 280 }, isLowConfidence && { borderColor: 'rgba(217, 119, 6, 0.15)', backgroundColor: '#FFFBF5' }]}
+          style={[
+            mcStyles.v2GlassPanel,
+            { maxHeight: 280 },
+            isDark && { backgroundColor: '#1A1530', borderColor: '#2D254D' },
+            isLowConfidence && { borderColor: 'rgba(217, 119, 6, 0.15)', backgroundColor: isDark ? '#2A1510' : '#FFFBF5' },
+          ]}
           testID="chat-ai-draft"
         >
           <ScrollView
@@ -432,7 +437,7 @@ export function MessageComposer({
                   <View style={mcStyles.v2AiChip}>
                     <Sparkles size={12} color="#FFFFFF" />
                   </View>
-                  <Text style={mcStyles.v2HeaderTitle}>AI draft</Text>
+                  <Text style={[mcStyles.v2HeaderTitle, isDark && { color: '#CFC9FF' }]}>AI draft</Text>
                   <View style={{ marginLeft: 8 }}>
                     <ConfidencePill value={aiDraft?.confidence ?? 0} size="sm" />
                   </View>
@@ -464,18 +469,18 @@ export function MessageComposer({
                 <Animated.View
                   entering={FadeIn.duration(180)}
                   exiting={FadeOut.duration(120)}
-                  style={mcStyles.v2Reasoning}
+                  style={[mcStyles.v2Reasoning, isDark && { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: '#2D254D' }]}
                 >
                   {aiDraft?.learningProofSummary ? (
                     <View style={mcStyles.v2ReasoningRow}>
                       <Text style={mcStyles.v2ReasoningTag}>VOICE</Text>
-                      <Text style={mcStyles.v2ReasoningText}>{aiDraft.learningProofSummary}</Text>
+                      <Text style={[mcStyles.v2ReasoningText, isDark && { color: '#BCB3E6' }]}>{aiDraft.learningProofSummary}</Text>
                     </View>
                   ) : null}
                   {sentiment?.primary ? (
                     <View style={mcStyles.v2ReasoningRow}>
                       <Text style={mcStyles.v2ReasoningTag}>TONE</Text>
-                      <Text style={mcStyles.v2ReasoningText}>
+                      <Text style={[mcStyles.v2ReasoningText, isDark && { color: '#BCB3E6' }]}>
                         Matched to guest tone: {sentiment.primary}
                       </Text>
                     </View>
@@ -483,13 +488,13 @@ export function MessageComposer({
                   {(confidenceDetails?.warnings ?? []).slice(0, 2).map((w, i) => (
                     <View key={`warn-${i}`} style={mcStyles.v2ReasoningRow}>
                       <Text style={mcStyles.v2ReasoningTag}>RISK</Text>
-                      <Text style={mcStyles.v2ReasoningText}>⚠ {w}</Text>
+                      <Text style={[mcStyles.v2ReasoningText, isDark && { color: '#BCB3E6' }]}>⚠ {w}</Text>
                     </View>
                   ))}
                   {(aiDraft?.knowledgeConflicts ?? []).slice(0, 1).map((k, i) => (
                     <View key={`conf-${i}`} style={mcStyles.v2ReasoningRow}>
                       <Text style={mcStyles.v2ReasoningTag}>POLICY</Text>
-                      <Text style={mcStyles.v2ReasoningText}>
+                      <Text style={[mcStyles.v2ReasoningText, isDark && { color: '#BCB3E6' }]}>
                         {k.suggestedFix || k.issue || `Property rule: ${k.field}`}
                       </Text>
                     </View>
@@ -497,7 +502,7 @@ export function MessageComposer({
                   {aiDraft?.learningProof?.similarExamplesCount ? (
                     <View style={mcStyles.v2ReasoningRow}>
                       <Text style={mcStyles.v2ReasoningTag}>KB</Text>
-                      <Text style={mcStyles.v2ReasoningText}>
+                      <Text style={[mcStyles.v2ReasoningText, isDark && { color: '#BCB3E6' }]}>
                         {aiDraft.learningProof.similarExamplesCount} similar reply{aiDraft.learningProof.similarExamplesCount === 1 ? '' : 'ies'} from your history
                       </Text>
                     </View>
@@ -506,7 +511,7 @@ export function MessageComposer({
               )}
 
               {/* 3. Draft Text Card — readable text on lavender surface */}
-              <View style={[mcStyles.v2DraftCard, { backgroundColor: t.bg.card }, isLowConfidence && { borderColor: '#FCA5A5' }]}>
+              <View style={[mcStyles.v2DraftCard, { backgroundColor: t.bg.card }, isDark && { borderColor: '#2D254D' }, isLowConfidence && { borderColor: '#FCA5A5' }]}>
                 <Text style={[mcStyles.v2DraftText, { color: t.text.primary }]}>
                   {aiDraft?.content}
                 </Text>
