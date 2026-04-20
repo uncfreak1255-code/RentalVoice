@@ -77,27 +77,8 @@ jest.mock('lucide-react-native', () => {
 });
 
 // Mock design tokens
-jest.mock('@/lib/design-tokens', () => ({
-  colors: {
-    bg: { base: '#FFF', card: '#FFF', elevated: '#F8F', hover: '#F1F', subtle: '#F8F' },
-    primary: { DEFAULT: '#14B8A6', light: '#2DD', muted: '#14B15', soft: '#14B25' },
-    accent: { DEFAULT: '#F97316', light: '#FB9', muted: '#F9715', soft: '#F9725' },
-    danger: { DEFAULT: '#EF4444', light: '#F87', muted: '#EF415' },
-    success: { DEFAULT: '#22C55E' },
-    warning: { DEFAULT: '#EAB308' },
-    text: { primary: '#1E2', secondary: '#475', muted: '#647', disabled: '#6B7', inverse: '#FFF' },
-    border: { subtle: '#F1F', DEFAULT: '#E2E', strong: '#CBD' },
-    status: { online: '#22C', urgent: '#EF4' },
-  },
-  typography: {
-    fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
-    styles: {},
-  },
-  spacing: { '0': 0, '1': 4, '1.5': 6, '2': 8, '3': 12, '4': 16, '5': 20, '6': 24, '8': 32 },
-  radius: { none: 0, sm: 8, md: 12, lg: 16, xl: 20, full: 9999 },
-  elevation: { none: {}, shadows: { premium: { sm: {}, md: {}, lg: {} } } },
-  animation: { spring: { bouncy: {}, subtle: {}, snappy: {} }, duration: {} },
-}));
+// Use the real tokens so tests stay in sync with token additions.
+jest.mock('@/lib/design-tokens', () => jest.requireActual('@/lib/design-tokens'));
 
 // Mock privacy scanner
 jest.mock('@/lib/privacy-scanner', () => ({
@@ -235,7 +216,7 @@ describe('MessageComposer', () => {
       expect(getByText(/Thanks for reaching out/)).toBeTruthy();
     });
 
-    it('should show the learning proof summary when present', () => {
+    it('should expose the learning proof summary via the Why-this reasoning accordion', () => {
       const { getByText } = render(
         <MessageComposer
           {...defaultProps}
@@ -244,22 +225,26 @@ describe('MessageComposer', () => {
           })}
         />
       );
-
+      // The summary now lives inside the "Why this?" accordion rather than
+      // always-visible below the draft. Open it first, then assert.
+      fireEvent.press(getByText('Why this?'));
       expect(getByText('Using 2 similar examples and 1 recent correction')).toBeTruthy();
     });
 
-    it('should show "AI Draft Ready" header', () => {
+    it('should show the "AI draft" header', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft()} />
       );
-      expect(getByText('AI Draft Ready')).toBeTruthy();
+      expect(getByText('AI draft')).toBeTruthy();
     });
 
-    it('should show confidence percentage', () => {
+    it('should show confidence percentage inside the ConfidencePill', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft({ confidence: 92 })} />
       );
-      expect(getByText('92%')).toBeTruthy();
+      // Design refresh: the pill renders "<value>% confident|confidence" rather
+      // than a raw "<value>%". Match the high-confidence tier at 92.
+      expect(getByText('92% confident')).toBeTruthy();
     });
 
     it('should show generating state', () => {
@@ -271,7 +256,7 @@ describe('MessageComposer', () => {
 
     it('should not show draft panel when aiDraft is null', () => {
       const { queryByText } = render(<MessageComposer {...defaultProps} />);
-      expect(queryByText('AI Draft Ready')).toBeNull();
+      expect(queryByText('AI draft')).toBeNull();
     });
 
     it('should collapse the AI draft preview when typing a manual reply', async () => {
