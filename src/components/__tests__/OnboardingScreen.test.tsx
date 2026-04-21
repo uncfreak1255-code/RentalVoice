@@ -92,22 +92,6 @@ jest.mock('@/lib/mockData', () => ({
   demoProperties: [],
 }));
 
-jest.mock('@/lib/design-tokens', () => ({
-  colors: {
-    bg: { base: '#FFF', card: '#FFF', elevated: '#F6F7F9', hover: '#EEF1F5', subtle: '#FAFBFC' },
-    primary: { DEFAULT: '#14B8A6', light: '#2DD4BF', muted: '#DFF7F3' },
-    accent: { DEFAULT: '#F97316', light: '#FB923C', muted: '#FFF3E8' },
-    danger: { DEFAULT: '#EF4444', light: '#F87171', muted: '#FEE2E2' },
-    text: { primary: '#1F2937', muted: '#6B7280', disabled: '#9CA3AF' },
-    border: { subtle: '#E5E7EB' },
-  },
-  spacing: { '2': 8, '3': 12, '4': 16, '5': 20, '6': 24, '8': 32, '10': 40, '12': 48 },
-  typography: {
-    fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
-  },
-  radius: { md: 12, lg: 16, xl: 20, full: 9999 },
-}));
-
 jest.mock('@/lib/config', () => ({
   __esModule: true,
   features: mockFeatures,

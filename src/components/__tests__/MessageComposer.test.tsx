@@ -76,29 +76,6 @@ jest.mock('lucide-react-native', () => {
   };
 });
 
-// Mock design tokens
-jest.mock('@/lib/design-tokens', () => ({
-  colors: {
-    bg: { base: '#FFF', card: '#FFF', elevated: '#F8F', hover: '#F1F', subtle: '#F8F' },
-    primary: { DEFAULT: '#14B8A6', light: '#2DD', muted: '#14B15', soft: '#14B25' },
-    accent: { DEFAULT: '#F97316', light: '#FB9', muted: '#F9715', soft: '#F9725' },
-    danger: { DEFAULT: '#EF4444', light: '#F87', muted: '#EF415' },
-    success: { DEFAULT: '#22C55E' },
-    warning: { DEFAULT: '#EAB308' },
-    text: { primary: '#1E2', secondary: '#475', muted: '#647', disabled: '#6B7', inverse: '#FFF' },
-    border: { subtle: '#F1F', DEFAULT: '#E2E', strong: '#CBD' },
-    status: { online: '#22C', urgent: '#EF4' },
-  },
-  typography: {
-    fontFamily: { regular: 'System', medium: 'System', semibold: 'System', bold: 'System' },
-    styles: {},
-  },
-  spacing: { '0': 0, '1': 4, '1.5': 6, '2': 8, '3': 12, '4': 16, '5': 20, '6': 24, '8': 32 },
-  radius: { none: 0, sm: 8, md: 12, lg: 16, xl: 20, full: 9999 },
-  elevation: { none: {}, shadows: { premium: { sm: {}, md: {}, lg: {} } } },
-  animation: { spring: { bouncy: {}, subtle: {}, snappy: {} }, duration: {} },
-}));
-
 // Mock privacy scanner
 jest.mock('@/lib/privacy-scanner', () => ({
   scanForSensitiveData: jest.fn(() => null),
