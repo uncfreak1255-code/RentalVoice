@@ -17,6 +17,8 @@ interface RateLimitConfig {
   maxRequests: number;
   /** Window duration in milliseconds */
   windowMs: number;
+  /** Optional key resolver. Defaults to authenticated user or anonymous bucket. */
+  keyGenerator?: (c: Context) => string;
 }
 
 /**
@@ -25,7 +27,7 @@ interface RateLimitConfig {
 export function rateLimit(config: RateLimitConfig) {
   return async (c: Context, next: Next): Promise<Response | void> => {
     const userId = c.get('userId') as string | undefined;
-    const key = userId || 'unauthenticated';
+    const key = config.keyGenerator?.(c) || userId || 'unauthenticated';
     const storeKey = `${key}:${c.req.path}`;
 
     const now = Date.now();
@@ -77,6 +79,22 @@ export function rateLimit(config: RateLimitConfig) {
 export const aiRateLimit = rateLimit({ maxRequests: 100, windowMs: 60 * 60 * 1000 });
 export const apiRateLimit = rateLimit({ maxRequests: 1000, windowMs: 60 * 60 * 1000 });
 export const learnRateLimit = rateLimit({ maxRequests: 30, windowMs: 60 * 60 * 1000 });
+
+function getClientIp(c: Context): string {
+  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+  return (
+    forwardedFor ||
+    c.req.header('cf-connecting-ip') ||
+    c.req.header('x-real-ip') ||
+    'unknown-ip'
+  );
+}
+
+export const waitlistRateLimit = rateLimit({
+  maxRequests: 5,
+  windowMs: 60 * 60 * 1000,
+  keyGenerator: (c) => `ip:${getClientIp(c)}`,
+});
 
 // Periodic cleanup of expired entries to prevent unbounded memory growth
 setInterval(() => {
