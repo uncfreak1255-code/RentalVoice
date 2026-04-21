@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { AuthExplainerScreen } from '@/components/AuthExplainerScreen';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { PasswordlessAuthScreen } from '@/components/PasswordlessAuthScreen';
-import { isContributorDemoForced } from '@/lib/config';
+import { features, isContributorDemoForced } from '@/lib/config';
 import { useAppStore } from '@/lib/store';
 import type { PasswordlessAuthResponseData } from '@/lib/api-client';
 import { colors } from '@/lib/design-tokens';
@@ -26,27 +26,36 @@ export default function OnboardingRoute() {
     let mounted = true;
 
     async function resolveStep() {
-      if (isContributorDemoForced()) {
-        if (mounted) setStep('explainer');
-        return;
-      }
+      try {
+        if (isContributorDemoForced()) {
+          if (mounted) {
+            setStep('explainer');
+          }
+          return;
+        }
 
-      if (accountSession) {
-        if (mounted) setStep('connect');
-        return;
-      }
+        if (!features.publicAccountFirstOnboarding) {
+          if (mounted) setStep('connect');
+          return;
+        }
 
-      const restored = await restoreAccountSession();
-      if (!mounted) return;
-      setStep(restored ? 'connect' : 'explainer');
+        if (accountSession) {
+          if (mounted) setStep('connect');
+          return;
+        }
+
+        const restored = await restoreAccountSession();
+        if (!mounted) return;
+        setStep(restored ? 'connect' : 'explainer');
+      } catch (error) {
+        console.error('[OnboardingRoute] Failed to resolve account session:', error);
+        if (mounted) {
+          setStep(features.publicAccountFirstOnboarding ? 'explainer' : 'connect');
+        }
+      }
     }
 
-    resolveStep().catch((error) => {
-      console.error('[OnboardingRoute] Failed to resolve account session:', error);
-      if (mounted) {
-        setStep('explainer');
-      }
-    });
+    resolveStep();
 
     return () => {
       mounted = false;
