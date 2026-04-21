@@ -46,6 +46,7 @@ import {
   SENTIMENT_PRIORITY,
   type SentimentType,
 } from '@/lib/sentiment-analysis';
+import { findFirstUrgent, URGENT_SENTIMENTS } from '@/lib/inbox-urgent';
 import { checkAndSendScheduledMessages } from '@/lib/automation-engine';
 import { convertListingToProperty, getChannelPlatform, convertHostawayMessage, parseHostawayTimestamp } from '@/lib/hostaway-utils';
 import { UndoToast } from './UndoToast';
@@ -141,9 +142,6 @@ function formatSyncTime(date: Date): string {
 
 type FilterTab = 'needs-reply' | 'drafts' | 'urgent' | 'all';
 
-// Sentiments that indicate the conversation needs the host's attention now.
-const URGENT_SENTIMENTS: ReadonlySet<SentimentType> = new Set<SentimentType>(['urgent', 'frustrated']);
-
 interface InboxDashboardProps {
   onSelectConversation: (id: string) => void;
   onOpenSettings: () => void;
@@ -210,14 +208,21 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     return map;
   }, [conversations]);
 
-  const filteredConversations = useMemo(() => {
-    let result = conversations.filter(
+  // Active = unarchived, optionally property-scoped. Shared input for both
+  // filtered list AND the urgent banner, so banner urgency survives
+  // activeFilter changes (e.g. marked-read drops urgent convo out of Needs
+  // reply but the banner should still show).
+  const activeConversations = useMemo(() => {
+    const unarchived = conversations.filter(
       (c) => c.status !== 'archived' && c.workflowStatus !== 'archived'
     );
+    return selectedPropertyId
+      ? unarchived.filter((c) => c.property.id === selectedPropertyId)
+      : unarchived;
+  }, [conversations, selectedPropertyId]);
 
-    if (selectedPropertyId) {
-      result = result.filter((c) => c.property.id === selectedPropertyId);
-    }
+  const filteredConversations = useMemo(() => {
+    let result = [...activeConversations];
 
     switch (activeFilter) {
       case 'needs-reply':
@@ -246,27 +251,18 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
     }
 
     return applySortPreference(result, inboxSortPreference);
-  }, [conversations, selectedPropertyId, activeFilter, inboxSortPreference, searchQuery, sentimentById]);
+  }, [activeConversations, activeFilter, inboxSortPreference, searchQuery, sentimentById]);
 
   // Flat list — no Needs Reply/Responded sections (Rork style)
 
-  const stats = useMemo(() => {
-    const active = conversations.filter(
-      (c) => c.status !== 'archived' && c.workflowStatus !== 'archived'
-    );
-    const filteredByProperty = selectedPropertyId
-      ? active.filter((c) => c.property.id === selectedPropertyId)
-      : active;
-
-    return {
-      total: filteredByProperty.length,
-      needsReply: filteredByProperty.filter((c) => isRenderableUnreadConversation(c)).length,
-      drafts: filteredByProperty.filter((c) => c.hasAiDraft === true).length,
-      urgent: filteredByProperty.filter(
-        (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) ?? 'neutral')
-      ).length,
-    };
-  }, [conversations, selectedPropertyId, sentimentById]);
+  const stats = useMemo(() => ({
+    total: activeConversations.length,
+    needsReply: activeConversations.filter((c) => isRenderableUnreadConversation(c)).length,
+    drafts: activeConversations.filter((c) => c.hasAiDraft === true).length,
+    urgent: activeConversations.filter(
+      (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) ?? 'neutral')
+    ).length,
+  }), [activeConversations, sentimentById]);
 
   const dailyBriefing = useMemo(() => {
     if (activeFilter !== 'needs-reply' || searchQuery.trim()) {
@@ -673,11 +669,12 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
   ];
 
   // Find the first urgent-sentiment conversation for the attention banner.
-  const urgentConversation = useMemo(() => {
-    return filteredConversations.find(
-      (c) => c.status === 'urgent' || URGENT_SENTIMENTS.has(sentimentById.get(c.id) ?? 'neutral')
-    );
-  }, [filteredConversations, sentimentById]);
+  // Scoped to activeConversations, NOT filteredConversations — the banner must
+  // survive activeFilter changes. See src/lib/inbox-urgent.ts.
+  const urgentConversation = useMemo(
+    () => findFirstUrgent(activeConversations, sentimentById),
+    [activeConversations, sentimentById]
+  );
 
   const showSyncBanner = !isDemoMode && (
     historySyncStatus.isSyncing
@@ -822,20 +819,20 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
         </View>
 
         {/* ── Urgent attention banner ── */}
+        {/*
+          Layout owned by the outer View (flex-row + bg + padding). The
+          Pressable only covers tap + opacity feedback. Earlier version used
+          Pressable as the flex-row container with a style function — the
+          flex:1 text child collapsed to 0 width and the banner rendered as
+          icon-only with no visible background. Splitting layout / tap keeps
+          RN layout deterministic on both old and new arch.
+        */}
         {urgentConversation ? (
           <Pressable
             onPress={() => onSelectConversation(urgentConversation.id)}
             style={({ pressed }) => ({
               marginHorizontal: spacing['4'],
               marginTop: 12,
-              padding: 12,
-              borderRadius: 12,
-              backgroundColor: colors.accent.soft,
-              borderWidth: 1,
-              borderColor: colors.accent.soft,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
               opacity: pressed ? 0.85 : 1,
             })}
             accessibilityRole="button"
@@ -843,40 +840,53 @@ export function InboxDashboard({ onSelectConversation, onOpenSettings, onOpenCal
           >
             <View
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                backgroundColor: colors.danger.DEFAULT,
+                padding: 12,
+                borderRadius: 12,
+                backgroundColor: colors.accent.soft,
+                borderWidth: 1,
+                borderColor: colors.accent.soft,
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
               }}
             >
-              <AlertTriangle size={18} color={colors.text.inverse} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
+              <View
                 style={{
-                  fontSize: 13.5,
-                  fontFamily: typography.fontFamily.bold,
-                  color: colors.text.primary,
-                  letterSpacing: -0.1,
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: colors.danger.DEFAULT,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
                 }}
-                numberOfLines={1}
               >
-                {stats.urgent === 1
-                  ? '1 guest needs urgent attention'
-                  : `${stats.urgent} guests need urgent attention`}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: colors.text.muted,
-                  marginTop: 1,
-                }}
-                numberOfLines={1}
-              >
-                {urgentConversation.guest.name} · {urgentConversation.property?.name || 'Inbox'}
-              </Text>
+                <AlertTriangle size={18} color={colors.text.inverse} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  style={{
+                    fontSize: 13.5,
+                    fontFamily: typography.fontFamily.bold,
+                    color: colors.text.primary,
+                    letterSpacing: -0.1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {stats.urgent === 1
+                    ? '1 guest needs urgent attention'
+                    : `${stats.urgent} guests need urgent attention`}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: colors.text.muted,
+                    marginTop: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {urgentConversation.guest.name} · {urgentConversation.property?.name || 'Inbox'}
+                </Text>
+              </View>
             </View>
           </Pressable>
         ) : null}
