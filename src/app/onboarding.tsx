@@ -35,9 +35,7 @@ export default function OnboardingRoute() {
         }
 
         if (!features.publicAccountFirstOnboarding) {
-          await restoreAccountSession();
-          if (!mounted) return;
-          setStep('connect');
+          if (mounted) setStep('connect');
           return;
         }
 
