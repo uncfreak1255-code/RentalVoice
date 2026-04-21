@@ -96,6 +96,7 @@ const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // All AI calls route through the server proxy — no direct provider calls.
 import { API_BASE_URL } from './config';
+import { getAuthHeaders } from './api-client';
 
 async function callViaProxy(
   provider: 'google' | 'anthropic' | 'openai',
@@ -104,10 +105,12 @@ async function callViaProxy(
 ): Promise<Response> {
   const url = `${API_BASE_URL}/api/ai-proxy/generate`;
   console.log(`[AI Enhanced] Routing ${provider}/${model} through server proxy`);
+  const authHeaders = await getAuthHeaders();
   return fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders,
     },
     body: JSON.stringify({ provider, model, payload }),
   });

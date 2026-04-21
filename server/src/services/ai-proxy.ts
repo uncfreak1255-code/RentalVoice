@@ -166,10 +166,14 @@ export async function generateDraft(options: AICallOptions): Promise<AIGenerateR
 
 function getManagedApiKey(provider: AIProvider): string | null {
   const envMap: Record<AIProvider, string> = {
-    google: 'GOOGLE_API_KEY',
+    google: 'GOOGLE_AI_API_KEY',
     openai: 'OPENAI_API_KEY',
     anthropic: 'ANTHROPIC_API_KEY',
   };
+
+  if (provider === 'google') {
+    return process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY || null;
+  }
 
   return process.env[envMap[provider]] || null;
 }

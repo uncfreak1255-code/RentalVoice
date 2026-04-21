@@ -94,6 +94,11 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 /**
  * Store auth tokens after login
  */
@@ -135,9 +140,7 @@ async function request<T>(
     'Content-Type': 'application/json',
   };
   
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const url = `${API_BASE_URL}${path}`;
   
