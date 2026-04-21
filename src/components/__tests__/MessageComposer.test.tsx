@@ -83,8 +83,9 @@ jest.mock('@/lib/design-tokens', () => ({
     primary: { DEFAULT: '#14B8A6', light: '#2DD', muted: '#14B15', soft: '#14B25' },
     accent: { DEFAULT: '#F97316', light: '#FB9', muted: '#F9715', soft: '#F9725' },
     danger: { DEFAULT: '#EF4444', light: '#F87', muted: '#EF415' },
-    success: { DEFAULT: '#22C55E' },
+    success: { DEFAULT: '#22C55E', light: '#86EFAC', muted: '#DCFCE7', soft: '#DCFCE7' },
     warning: { DEFAULT: '#EAB308' },
+    ai: { DEFAULT: '#6D5EF5', light: '#A5A0FF', soft: '#EEEBFF', darkSoft: '#251F4A' },
     text: { primary: '#1E2', secondary: '#475', muted: '#647', disabled: '#6B7', inverse: '#FFF' },
     border: { subtle: '#F1F', DEFAULT: '#E2E', strong: '#CBD' },
     status: { online: '#22C', urgent: '#EF4' },
@@ -245,21 +246,22 @@ describe('MessageComposer', () => {
         />
       );
 
+      fireEvent.press(getByText('Why this?'));
       expect(getByText('Using 2 similar examples and 1 recent correction')).toBeTruthy();
     });
 
-    it('should show "AI Draft Ready" header', () => {
+    it('should show "AI draft" header', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft()} />
       );
-      expect(getByText('AI Draft Ready')).toBeTruthy();
+      expect(getByText('AI draft')).toBeTruthy();
     });
 
     it('should show confidence percentage', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft({ confidence: 92 })} />
       );
-      expect(getByText('92%')).toBeTruthy();
+      expect(getByText(/92%/i)).toBeTruthy();
     });
 
     it('should show generating state', () => {
@@ -271,7 +273,7 @@ describe('MessageComposer', () => {
 
     it('should not show draft panel when aiDraft is null', () => {
       const { queryByText } = render(<MessageComposer {...defaultProps} />);
-      expect(queryByText('AI Draft Ready')).toBeNull();
+      expect(queryByText('AI draft')).toBeNull();
     });
 
     it('should collapse the AI draft preview when typing a manual reply', async () => {
@@ -433,7 +435,7 @@ describe('MessageComposer', () => {
       // Edit panel should not be visible
       expect(queryByText('Editing AI Draft')).toBeNull();
       // Draft panel should not be visible
-      expect(queryByText('AI Draft Ready')).toBeNull();
+      expect(queryByText('AI draft')).toBeNull();
     });
   });
 });

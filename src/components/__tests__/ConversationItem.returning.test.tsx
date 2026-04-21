@@ -33,6 +33,7 @@ jest.mock('@/lib/design-tokens', () => ({
       vrbo: '#2557A7',
       booking: '#003580',
     },
+    accent: { DEFAULT: '#F97316', light: '#FB923C', muted: '#FFF3E8', soft: '#FFF3E8' },
     status: { online: '#22C55E' },
     text: {
       primary: '#111827',
@@ -41,7 +42,8 @@ jest.mock('@/lib/design-tokens', () => ({
       inverse: '#FFFFFF',
     },
     primary: { DEFAULT: '#14B8A6', muted: '#DFF7F3' },
-    success: { DEFAULT: '#22C55E', muted: '#DCFCE7' },
+    success: { DEFAULT: '#22C55E', muted: '#DCFCE7', soft: '#DCFCE7' },
+    ai: { DEFAULT: '#6D5EF5', light: '#A5A0FF', soft: '#EEEBFF', darkSoft: '#251F4A' },
     danger: { DEFAULT: '#EF4444' },
     border: { subtle: '#E5E7EB' },
     bg: { elevated: '#F6F7F9' },

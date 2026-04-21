@@ -28,6 +28,11 @@ export function isContributorDemoForced(): boolean {
   return value === '1' || value === 'true';
 }
 
+export function isPublicAccountFirstOnboardingEnabled(): boolean {
+  const value = process.env.EXPO_PUBLIC_ENABLE_ACCOUNT_FIRST_ONBOARDING;
+  return value === '1' || value === 'true';
+}
+
 /**
  * Feature flags derived from mode.
  * Personal mode keeps ALL current behavior intact.
@@ -53,6 +58,9 @@ export const features = {
   
   /** Show onboarding for new commercial users */
   commercialOnboarding: isCommercial,
+
+  /** Gate the public account-first onboarding path behind an explicit flag */
+  publicAccountFirstOnboarding: isPublicAccountFirstOnboardingEnabled(),
   
   /** Always available features (both modes) */
   aiDrafts: true,

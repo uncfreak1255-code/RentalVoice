@@ -104,19 +104,45 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 // ===== WAITLIST FORM =====
 const form = document.getElementById('waitlist-form');
 const successMsg = document.getElementById('form-success');
+const errorMsg = document.getElementById('form-error');
+const waitlistEndpoint = form.dataset.waitlistEndpoint || window.RV_WAITLIST_ENDPOINT || '';
+const fallbackEmail = form.dataset.waitlistFallbackEmail || 'hello@rentalvoice.app';
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
-  const email = form.querySelector('input[type="email"]').value;
+  const emailInput = form.querySelector('input[type="email"]');
+  const email = emailInput.value.trim();
 
-  // Store locally for now (replace with API call later)
-  const waitlist = JSON.parse(localStorage.getItem('rv-waitlist') || '[]');
-  waitlist.push({ email, timestamp: new Date().toISOString() });
-  localStorage.setItem('rv-waitlist', JSON.stringify(waitlist));
+  successMsg.style.display = 'none';
+  errorMsg.style.display = 'none';
 
-  // Show success
-  form.style.display = 'none';
-  successMsg.style.display = 'block';
+  if (!waitlistEndpoint) {
+    errorMsg.textContent = `The waitlist form is not connected yet. Email ${fallbackEmail} to join manually.`;
+    errorMsg.style.display = 'block';
+    return;
+  }
 
-  console.log('[Waitlist] New signup:', email);
+  fetch(waitlistEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      source: 'landing',
+    }),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Waitlist endpoint returned ${response.status}`);
+      }
+      form.style.display = 'none';
+      successMsg.textContent = "Thanks - we received your request.";
+      successMsg.style.display = 'block';
+    })
+    .catch((error) => {
+      console.error('[Waitlist] Submission failed:', error);
+      errorMsg.textContent = `We could not submit the waitlist form. Email ${fallbackEmail} to join manually.`;
+      errorMsg.style.display = 'block';
+    });
 });
