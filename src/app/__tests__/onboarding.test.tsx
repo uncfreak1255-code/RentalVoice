@@ -6,6 +6,9 @@ const mockRestoreAccountSession = jest.fn();
 const mockSetAccountSession = jest.fn();
 const mockEnterDemoMode = jest.fn();
 const mockReplace = jest.fn();
+const mockFeatures = { publicAccountFirstOnboarding: false };
+const mockIsContributorDemoForced = jest.fn(() => false);
+let mockAccountSession: unknown = null;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -46,34 +49,129 @@ jest.mock('@/components/PasswordlessAuthScreen', () => ({
 }));
 
 jest.mock('@/lib/config', () => ({
-  isContributorDemoForced: () => process.env.EXPO_PUBLIC_FORCE_DEMO === '1',
+  get features() {
+    return mockFeatures;
+  },
+  isContributorDemoForced: () => mockIsContributorDemoForced(),
 }));
 
 jest.mock('@/lib/store', () => ({
   useAppStore: (selector: (state: any) => unknown) =>
     selector({
-      accountSession: null,
+      accountSession: mockAccountSession,
       accountSessionLoading: false,
-      restoreAccountSession: (...args: unknown[]) => mockRestoreAccountSession(...args),
-      setAccountSession: (...args: unknown[]) => mockSetAccountSession(...args),
-      enterDemoMode: (...args: unknown[]) => mockEnterDemoMode(...args),
+      restoreAccountSession: mockRestoreAccountSession,
+      setAccountSession: mockSetAccountSession,
+      enterDemoMode: mockEnterDemoMode,
     }),
 }));
 
 describe('OnboardingRoute', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.EXPO_PUBLIC_FORCE_DEMO;
+    mockFeatures.publicAccountFirstOnboarding = false;
+    mockIsContributorDemoForced.mockImplementation(() => false);
+    mockAccountSession = null;
     mockRestoreAccountSession.mockResolvedValue(null);
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   it('shows the explainer and skips account-session restore when contributor demo is forced', async () => {
-    process.env.EXPO_PUBLIC_FORCE_DEMO = '1';
+    mockIsContributorDemoForced.mockImplementation(() => true);
 
     const screen = render(<OnboardingRoute />);
 
     await waitFor(() => {
       expect(screen.getByText('Auth Explainer Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).not.toHaveBeenCalled();
+  });
+
+  it('lands on connect and skips restore when the account-first flag is off (default)', async () => {
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Onboarding Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).not.toHaveBeenCalled();
+  });
+
+  it('lands on the explainer when the account-first flag is on and no stored session exists', async () => {
+    mockFeatures.publicAccountFirstOnboarding = true;
+    mockRestoreAccountSession.mockResolvedValueOnce(null);
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Auth Explainer Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('lands on connect without calling restore when the flag is on and accountSession is already in state', async () => {
+    mockFeatures.publicAccountFirstOnboarding = true;
+    mockAccountSession = {
+      token: 't',
+      refreshToken: 'r',
+      user: { id: 'u', email: 'e@example.com' },
+    };
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Onboarding Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).not.toHaveBeenCalled();
+  });
+
+  it('lands on connect when the flag is on and restoreAccountSession returns a session', async () => {
+    mockFeatures.publicAccountFirstOnboarding = true;
+    mockRestoreAccountSession.mockResolvedValueOnce({
+      token: 't',
+      refreshToken: 'r',
+      user: { id: 'u', email: 'e@example.com' },
+    });
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Onboarding Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the explainer when the flag is on and restoreAccountSession throws', async () => {
+    mockFeatures.publicAccountFirstOnboarding = true;
+    mockRestoreAccountSession.mockRejectedValueOnce(new Error('boom'));
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Auth Explainer Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays on connect when the flag is off even if restoreAccountSession would reject', async () => {
+    mockFeatures.publicAccountFirstOnboarding = false;
+    mockRestoreAccountSession.mockRejectedValueOnce(new Error('boom'));
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Onboarding Screen')).toBeTruthy();
     });
 
     expect(mockRestoreAccountSession).not.toHaveBeenCalled();

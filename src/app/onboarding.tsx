@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { AuthExplainerScreen } from '@/components/AuthExplainerScreen';
 import { OnboardingScreen } from '@/components/OnboardingScreen';
 import { PasswordlessAuthScreen } from '@/components/PasswordlessAuthScreen';
-import { isContributorDemoForced } from '@/lib/config';
+import { features, isContributorDemoForced } from '@/lib/config';
 import { useAppStore } from '@/lib/store';
 import type { PasswordlessAuthResponseData } from '@/lib/api-client';
 import { colors } from '@/lib/design-tokens';
@@ -31,6 +31,11 @@ export default function OnboardingRoute() {
         return;
       }
 
+      if (!features.publicAccountFirstOnboarding) {
+        if (mounted) setStep('connect');
+        return;
+      }
+
       if (accountSession) {
         if (mounted) setStep('connect');
         return;
@@ -44,7 +49,7 @@ export default function OnboardingRoute() {
     resolveStep().catch((error) => {
       console.error('[OnboardingRoute] Failed to resolve account session:', error);
       if (mounted) {
-        setStep('explainer');
+        setStep(features.publicAccountFirstOnboarding ? 'explainer' : 'connect');
       }
     });
 
