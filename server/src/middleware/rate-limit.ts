@@ -17,6 +17,8 @@ interface RateLimitConfig {
   maxRequests: number;
   /** Window duration in milliseconds */
   windowMs: number;
+  /** Optional key resolver. Defaults to authenticated user ID or client IP. */
+  keyGenerator?: (c: Context) => string;
 }
 
 /**
@@ -24,7 +26,7 @@ interface RateLimitConfig {
  */
 export function rateLimit(config: RateLimitConfig) {
   return async (c: Context, next: Next): Promise<Response | void> => {
-    const key = getRateLimitPrincipal(c);
+    const key = config.keyGenerator?.(c) ?? getRateLimitPrincipal(c);
     const storeKey = `${key}:${c.req.path}`;
 
     const now = Date.now();

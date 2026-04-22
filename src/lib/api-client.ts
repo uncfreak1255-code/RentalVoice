@@ -94,9 +94,40 @@ async function getAuthToken(): Promise<string | null> {
   }
 }
 
+// Dedupe concurrent auto-provision attempts triggered by parallel AI calls on
+// cold start. The first caller's promise is awaited by everyone else.
+let inFlightProvision: Promise<void> | null = null;
+
+async function tryAutoProvisionFromStore(): Promise<void> {
+  if (inFlightProvision) return inFlightProvision;
+  inFlightProvision = (async () => {
+    try {
+      const [{ useAppStore }, { autoProvisionIdentity }] = await Promise.all([
+        import('./store'),
+        import('./auto-provision'),
+      ]);
+      const { accountId, stableAccountId } = useAppStore.getState().settings;
+      if (!accountId || !stableAccountId) return;
+      await autoProvisionIdentity(accountId, stableAccountId);
+    } catch (error) {
+      console.warn('[API Client] Lazy auto-provision failed:', error);
+    } finally {
+      inFlightProvision = null;
+    }
+  })();
+  return inFlightProvision;
+}
+
 export async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  if (token) return { Authorization: `Bearer ${token}` };
+
+  // No session yet. The AI proxy now rejects unauthenticated requests, so try
+  // a lazy auto-provision before giving up. Safe to call repeatedly — the
+  // provisioner short-circuits when a session already exists.
+  await tryAutoProvisionFromStore();
+  const refreshed = await getAuthToken();
+  return refreshed ? { Authorization: `Bearer ${refreshed}` } : {};
 }
 
 /**
