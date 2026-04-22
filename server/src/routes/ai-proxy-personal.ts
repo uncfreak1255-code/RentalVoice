@@ -5,15 +5,41 @@
  * (with voice learning, few-shot examples, grounding, etc.), sends it here,
  * and the server just relays it to the LLM provider with the server-held API key.
  *
- * Auth: simple bearer token (AI_PROXY_TOKEN env var), NOT Supabase auth.
- * This keeps personal mode working without a full account system.
+ * Auth: Supabase account JWT or server-side bearer token (AI_PROXY_TOKEN env var).
+ * Generation requests fail closed when neither credential is present.
  *
  * For App Store / commercial mode, use the full ai-generate.ts routes instead.
  */
 
-import { Hono } from 'hono';
+import { createHash } from 'crypto';
+import { Hono, type Context, type Next } from 'hono';
+import type { AppEnv } from '../lib/env.js';
+import { requireAuth } from '../middleware/auth.js';
+import { aiRateLimit, apiRateLimit } from '../middleware/rate-limit.js';
 
-const aiProxyRouter = new Hono();
+const aiProxyRouter = new Hono<AppEnv>();
+
+async function requireAiProxyAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
+  const token = process.env.AI_PROXY_TOKEN;
+  const auth = c.req.header('Authorization');
+
+  if (token && auth === `Bearer ${token}`) {
+    const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 16);
+    c.set('userId', `ai-proxy:${tokenHash}`);
+    c.set('userEmail', '');
+    c.set('orgId', 'personal-ai-proxy');
+    c.set('orgRole', 'proxy');
+
+    await next();
+    return;
+  }
+
+  if (!auth?.startsWith('Bearer ')) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  return requireAuth(c, next);
+}
 
 /**
  * POST /api/ai-proxy/generate
@@ -22,16 +48,7 @@ const aiProxyRouter = new Hono();
  * Injects the server-held API key and forwards to Gemini.
  * Returns the raw Gemini response.
  */
-aiProxyRouter.post('/generate', async (c) => {
-  // Auth: accept either bearer token (legacy) or no auth (CORS-protected).
-  // The client no longer holds API secrets — CORS + rate limiting protect this endpoint.
-  const token = process.env.AI_PROXY_TOKEN;
-  const auth = c.req.header('Authorization');
-  if (token && auth && auth !== `Bearer ${token}`) {
-    // If a token IS provided but doesn't match, reject (prevents misuse)
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-
+aiProxyRouter.post('/generate', requireAiProxyAuth, aiRateLimit, async (c) => {
   try {
     const body = await c.req.json() as {
       provider: 'google' | 'anthropic' | 'openai';
@@ -49,7 +66,7 @@ aiProxyRouter.post('/generate', async (c) => {
 
     switch (provider) {
       case 'google': {
-        const apiKey = process.env.GOOGLE_AI_API_KEY;
+        const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY;
         if (!apiKey) {
           return c.json({ error: 'Google AI API key not configured on server' }, 500);
         }
@@ -108,8 +125,7 @@ aiProxyRouter.post('/generate', async (c) => {
     });
   } catch (err) {
     console.error('[AI Proxy Personal] Error:', err);
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    return c.json({ error: message }, 500);
+    return c.json({ error: 'AI proxy request failed' }, 500);
   }
 });
 
@@ -118,8 +134,9 @@ aiProxyRouter.post('/generate', async (c) => {
  *
  * Validates a user-provided API key against the real provider.
  * Used by the Settings UI key-test feature.
+ * This stays unauthenticated so the local settings flow works, but it is rate-limited.
  */
-aiProxyRouter.post('/test-key', async (c) => {
+aiProxyRouter.post('/test-key', apiRateLimit, async (c) => {
   try {
     const body = await c.req.json() as {
       provider: 'google' | 'anthropic' | 'openai';

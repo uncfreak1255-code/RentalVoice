@@ -8,6 +8,7 @@ import { generateCulturalToneInstructions, getCulturalAdaptationSummary } from '
 import { detectLanguage as detectLanguageEnhanced } from './language-detect';
 import { detectIntent } from './intent-detection';
 import { API_BASE_URL } from './config';
+import { getAuthHeaders } from './api-client';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
 
@@ -457,10 +458,12 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
     };
 
     console.log('[AI Service] Routing through server proxy');
+    const authHeaders = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
       },
       body: JSON.stringify({
         provider: 'google',

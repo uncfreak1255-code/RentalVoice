@@ -4,8 +4,9 @@
  * analytics, autopilot settings, and learning data.
  */
 
+import { waitFor } from '@testing-library/react-native';
 // Mock AsyncStorage to avoid window.localStorage crash in Node
-import { useAppStore } from '../store';
+import { stripApiKeyFromSettings, useAppStore } from '../store';
 import type { Message, Conversation } from '../store';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -26,8 +27,24 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+function getMockAsyncStorage() {
+  return jest.requireMock('@react-native-async-storage/async-storage').default as {
+    setItem: jest.Mock;
+    getItem: jest.Mock;
+    removeItem: jest.Mock;
+    multiGet: jest.Mock;
+    multiSet: jest.Mock;
+  };
+}
+
 // Reset store before each test to avoid state leakage
 beforeEach(() => {
+  const mockAsyncStorage = getMockAsyncStorage();
+  mockAsyncStorage.setItem.mockClear();
+  mockAsyncStorage.getItem.mockClear();
+  mockAsyncStorage.removeItem.mockClear();
+  mockAsyncStorage.multiGet.mockClear();
+  mockAsyncStorage.multiSet.mockClear();
   useAppStore.setState(useAppStore.getInitialState());
 });
 
@@ -148,12 +165,39 @@ describe('updateConversation', () => {
 // ── Credentials ──
 
 describe('setCredentials', () => {
-  it('should store account ID and API key', () => {
+  it('should keep the API key in memory but not persist it to AsyncStorage', async () => {
+    const mockAsyncStorage = getMockAsyncStorage();
     useAppStore.getState().setCredentials('acct-123', 'key-456');
 
     const settings = useAppStore.getState().settings;
     expect(settings.accountId).toBe('acct-123');
     expect(settings.apiKey).toBe('key-456');
+
+    await waitFor(() => {
+      expect(mockAsyncStorage.setItem).toHaveBeenCalled();
+    });
+
+    const persistedWrites = mockAsyncStorage.setItem.mock.calls.filter(
+      ([key]) => key === 'rental-reply-storage'
+    );
+    expect(persistedWrites.length).toBeGreaterThan(0);
+
+    const [, payload] = persistedWrites[persistedWrites.length - 1];
+    const parsed = JSON.parse(payload as string) as { state?: { settings?: { accountId?: string; apiKey?: string } } };
+
+    expect(parsed.state?.settings?.accountId).toBe('acct-123');
+    expect(parsed.state?.settings?.apiKey).toBeUndefined();
+  });
+
+  it('should strip apiKey from migrated persisted state', () => {
+    const migrated = stripApiKeyFromSettings({
+      ...useAppStore.getState().settings,
+      accountId: 'acct-123',
+      apiKey: 'old-secret',
+    });
+
+    expect(migrated.accountId).toBe('acct-123');
+    expect('apiKey' in migrated).toBe(false);
   });
 });
 

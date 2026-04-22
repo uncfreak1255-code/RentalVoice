@@ -17,6 +17,8 @@ interface RateLimitConfig {
   maxRequests: number;
   /** Window duration in milliseconds */
   windowMs: number;
+  /** Optional key resolver. Defaults to authenticated user ID or client IP. */
+  keyGenerator?: (c: Context) => string;
 }
 
 /**
@@ -24,8 +26,7 @@ interface RateLimitConfig {
  */
 export function rateLimit(config: RateLimitConfig) {
   return async (c: Context, next: Next): Promise<Response | void> => {
-    const userId = c.get('userId') as string | undefined;
-    const key = userId || 'unauthenticated';
+    const key = config.keyGenerator?.(c) ?? getRateLimitPrincipal(c);
     const storeKey = `${key}:${c.req.path}`;
 
     const now = Date.now();
@@ -67,6 +68,20 @@ export function rateLimit(config: RateLimitConfig) {
 
     await next();
   };
+}
+
+function getRateLimitPrincipal(c: Context): string {
+  const userId = c.get('userId') as string | undefined;
+  if (userId) return `user:${userId}`;
+
+  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+  const clientIp =
+    forwardedFor ||
+    c.req.header('x-real-ip') ||
+    c.req.header('cf-connecting-ip') ||
+    c.req.header('fly-client-ip');
+
+  return clientIp ? `ip:${clientIp}` : 'unauthenticated';
 }
 
 /**
