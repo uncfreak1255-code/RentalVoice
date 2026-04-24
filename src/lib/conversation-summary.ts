@@ -4,6 +4,7 @@
 
 import type { Conversation, Message } from './store';
 import { API_BASE_URL } from './config';
+import { getAuthHeaders } from './api-client';
 
 // Minimum messages before generating a summary
 export const MIN_MESSAGES_FOR_SUMMARY = 5;
@@ -366,10 +367,12 @@ Summary (one line, use → arrows):`;
       },
     };
 
+    const authHeaders = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
       },
       body: JSON.stringify({
         provider: 'google',

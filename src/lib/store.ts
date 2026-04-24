@@ -19,6 +19,8 @@ import { clearAuthTokens, getCurrentUser, setAuthTokens } from './api-client';
 import { getDemoConversations, getDemoProperties, getDemoPropertyKnowledge } from './demo-data';
 import { ensureFreshToken } from './auto-provision';
 
+const STORE_PERSIST_VERSION = 2;
+
 // Types
 export interface Guest {
   id: string;
@@ -692,6 +694,29 @@ interface AppState {
 
   // Reset
   resetStore: () => void;
+}
+
+type PersistedSettings = Omit<AppSettings, 'apiKey'>;
+
+type PersistedStoreShape = {
+  settings: PersistedSettings;
+  isDemoMode: boolean;
+  properties: Property[];
+  propertyKnowledge: Record<string, PropertyKnowledge>;
+  scheduledMessages: ScheduledMessage[];
+  analytics: AnalyticsData;
+  hostStyleProfiles: Record<string, HostStyleProfile>;
+  aiLearningProgress: AILearningProgress;
+  historySyncStatus: HistorySyncStatus;
+  quickReplyTemplates: QuickReplyTemplate[];
+  propertyAutoPilotSettings: Record<string, PropertyAutoPilotSettings>;
+  learnedLanguageStyles: Record<string, LearnedLanguageStyle>;
+  trackedUpsellOffers: TrackedUpsellOffer[];
+};
+
+export function stripApiKeyFromSettings(settings: AppSettings): PersistedSettings {
+  const { apiKey: _apiKey, ...persistedSettings } = settings;
+  return persistedSettings;
 }
 
 const initialSettings: AppSettings = {
@@ -1657,8 +1682,24 @@ export const useAppStore = create<AppState>()(
     {
       name: 'rental-reply-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      version: STORE_PERSIST_VERSION,
+      migrate: (persistedState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return persistedState;
+        }
+
+        const state = persistedState as Partial<PersistedStoreShape> & { settings?: AppSettings };
+        if (!state.settings) {
+          return persistedState;
+        }
+
+        return {
+          ...state,
+          settings: stripApiKeyFromSettings(state.settings),
+        };
+      },
       partialize: (state) => ({
-        settings: state.settings,
+        settings: stripApiKeyFromSettings(state.settings),
         isDemoMode: state.isDemoMode,
         properties: state.properties,
         propertyKnowledge: state.propertyKnowledge,

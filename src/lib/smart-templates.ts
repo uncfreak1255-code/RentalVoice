@@ -4,6 +4,7 @@
 import type { Conversation, PropertyKnowledge, HostStyleProfile } from './store';
 import { generateStyleInstructions } from './ai-learning';
 import { API_BASE_URL } from './config';
+import { getAuthHeaders } from './api-client';
 
 // Template Categories
 export type TemplateCategory =
@@ -340,10 +341,12 @@ Return ONLY the personalized message, no explanation.`;
       temperature: 0.7,
     };
 
+    const authHeaders = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
       },
       body: JSON.stringify({
         provider: 'openai',
@@ -478,10 +481,12 @@ Write a personalized thank-you message. Return ONLY the message.`;
       temperature: 0.8,
     };
 
+    const authHeaders = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/api/ai-proxy/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
       },
       body: JSON.stringify({
         provider: 'openai',
