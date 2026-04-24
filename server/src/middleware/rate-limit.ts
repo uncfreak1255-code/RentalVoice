@@ -93,6 +93,22 @@ export const aiRateLimit = rateLimit({ maxRequests: 100, windowMs: 60 * 60 * 100
 export const apiRateLimit = rateLimit({ maxRequests: 1000, windowMs: 60 * 60 * 1000 });
 export const learnRateLimit = rateLimit({ maxRequests: 30, windowMs: 60 * 60 * 1000 });
 
+function getClientIp(c: Context): string {
+  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+  return (
+    forwardedFor ||
+    c.req.header('cf-connecting-ip') ||
+    c.req.header('x-real-ip') ||
+    'unknown-ip'
+  );
+}
+
+export const waitlistRateLimit = rateLimit({
+  maxRequests: 5,
+  windowMs: 60 * 60 * 1000,
+  keyGenerator: (c) => `ip:${getClientIp(c)}`,
+});
+
 // Periodic cleanup of expired entries to prevent unbounded memory growth
 setInterval(() => {
   const now = Date.now();

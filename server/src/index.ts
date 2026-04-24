@@ -7,7 +7,7 @@
  * Used by: Deployed as Vercel serverless function or standalone Node.js
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { bodyLimit } from 'hono/body-limit';
@@ -32,8 +32,26 @@ import './adapters/guesty-adapter.js'; // Self-registers Guesty adapter
 import { lodgifyRouter } from './routes/lodgify.js';
 import './adapters/lodgify-adapter.js'; // Self-registers Lodgify adapter
 import { aiProxyRouter } from './routes/ai-proxy-personal.js';
+import { waitlistRouter } from './routes/waitlist.js';
 
 const app = new Hono().basePath('/api');
+
+const apiAllowedOrigins = new Set([
+  'http://localhost:8081',   // Expo dev
+  'http://localhost:3000',   // Web dev
+  'https://rentalvoice.app',
+  'https://app.rentalvoice.app',
+]);
+
+const waitlistAllowedOrigins = new Set([
+  'https://rentalvoice.app',
+]);
+
+function getAllowedCorsOrigin(origin: string, c: Context): string | null {
+  const isWaitlistPath = c.req.path === '/api/waitlist' || c.req.path.startsWith('/api/waitlist/');
+  const allowedOrigins = isWaitlistPath ? waitlistAllowedOrigins : apiAllowedOrigins;
+  return allowedOrigins.has(origin) ? origin : null;
+}
 
 // ============================================================
 // Global Middleware
@@ -41,12 +59,7 @@ const app = new Hono().basePath('/api');
 
 // CORS — allow mobile app and web billing portal
 app.use('*', cors({
-  origin: [
-    'http://localhost:8081',   // Expo dev
-    'http://localhost:3000',   // Web dev
-    'https://rentalvoice.app',
-    'https://app.rentalvoice.app',
-  ],
+  origin: getAllowedCorsOrigin,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -91,6 +104,7 @@ app.route('/webhooks', webhooksRouter);
 app.route('/guesty', guestyRouter);
 app.route('/lodgify', lodgifyRouter);
 app.route('/ai-proxy', aiProxyRouter);
+app.route('/waitlist', waitlistRouter);
 
 
 // ============================================================
