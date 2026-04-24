@@ -222,21 +222,22 @@ describe('MessageComposer', () => {
         />
       );
 
+      fireEvent.press(getByText('Why this?'));
       expect(getByText('Using 2 similar examples and 1 recent correction')).toBeTruthy();
     });
 
-    it('should show "AI Draft Ready" header', () => {
+    it('should show "AI draft" header', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft()} />
       );
-      expect(getByText('AI Draft Ready')).toBeTruthy();
+      expect(getByText('AI draft')).toBeTruthy();
     });
 
     it('should show confidence percentage', () => {
       const { getByText } = render(
         <MessageComposer {...defaultProps} aiDraft={makeDraft({ confidence: 92 })} />
       );
-      expect(getByText('92%')).toBeTruthy();
+      expect(getByText(/92%/i)).toBeTruthy();
     });
 
     it('should show generating state', () => {
@@ -248,7 +249,7 @@ describe('MessageComposer', () => {
 
     it('should not show draft panel when aiDraft is null', () => {
       const { queryByText } = render(<MessageComposer {...defaultProps} />);
-      expect(queryByText('AI Draft Ready')).toBeNull();
+      expect(queryByText('AI draft')).toBeNull();
     });
 
     it('should collapse the AI draft preview when typing a manual reply', async () => {
@@ -410,7 +411,7 @@ describe('MessageComposer', () => {
       // Edit panel should not be visible
       expect(queryByText('Editing AI Draft')).toBeNull();
       // Draft panel should not be visible
-      expect(queryByText('AI Draft Ready')).toBeNull();
+      expect(queryByText('AI draft')).toBeNull();
     });
   });
 });

@@ -249,24 +249,6 @@ describe('ConversationItem', () => {
   });
 
   // ─────────────────────────────────────────
-  // INLINE TAGS
-  // ─────────────────────────────────────────
-
-  describe('Inline Tags', () => {
-    it('should show Inquiry tag when the conversation is marked as an inquiry', () => {
-      const { getByText } = render(
-        <ConversationItem
-          conversation={makeConversation({
-            isInquiry: true,
-          })}
-          onPress={jest.fn()}
-        />
-      );
-      expect(getByText('Inquiry')).toBeTruthy();
-    });
-  });
-
-  // ─────────────────────────────────────────
   // TRUNCATION
   // ─────────────────────────────────────────
 

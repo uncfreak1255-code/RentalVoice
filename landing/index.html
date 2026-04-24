@@ -280,12 +280,13 @@
     <div class="cta-box reveal">
       <h2>Join the waitlist.<br>Be first in line.</h2>
       <p>We're opening access to a small group of hosts first. Get early access and help shape the product.</p>
-      <form class="waitlist-form" id="waitlist-form">
+      <form class="waitlist-form" id="waitlist-form" data-waitlist-endpoint="" data-waitlist-fallback-email="hello@rentalvoice.app">
         <input type="email" class="waitlist-input" placeholder="Enter your email" required>
         <button type="submit" class="btn-primary">Join Waitlist</button>
       </form>
+      <p id="form-error" style="display:none; color: var(--text-muted); margin-top: 16px; font-weight: 600;"></p>
       <p id="form-success" style="display:none; color: var(--accent); margin-top: 16px; font-weight: 600;">
-        ✓ You're on the list! We'll be in touch soon.
+        Thanks - we received your request.
       </p>
     </div>
   </section>
