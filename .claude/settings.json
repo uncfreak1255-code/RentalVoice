@@ -1,6 +1,39 @@
 {
   "permissions": {
     "defaultMode": "dontAsk",
+    "allow": [
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh api repos/*:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git status:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git fetch:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git worktree list:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm --prefix server run typecheck:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(npx jest:*)",
+      "Bash(python3 /Users/sawbeck/.codex/skills/repo-dev-setup/scripts/repo_inventory.py:*)",
+      "Bash(python3 /Users/sawbeck/.codex/skills/agent-surface-audit/scripts/audit_agent_surfaces.py:*)",
+      "Bash(/Users/sawbeck/bin/agent-start:*)",
+      "Bash(/Users/sawbeck/bin/agent-status:*)",
+      "Bash(/Users/sawbeck/bin/agent-finish:*)",
+      "Bash(/Users/sawbeck/bin/agent-clean:*)",
+      "Bash(/Users/sawbeck/bin/guardrail-preflight:*)",
+      "Bash(/Users/sawbeck/bin/guardrail-merge-check:*)"
+    ],
     "deny": [
       "Edit(**/credentials*)",
       "Edit(**/secrets/**)",
@@ -15,6 +48,19 @@
       "Bash(rm -rf:*)",
       "Bash(git push --force:*)",
       "Bash(git reset --hard:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f docs/status/current-state.md ]; then echo '--- docs/status/current-state.md ---'; head -60 docs/status/current-state.md; fi; if [ -f TODOS.md ]; then echo ''; echo '--- TODOS.md active ---'; sed -n '/^## Active/,/^## /p' TODOS.md | head -20; fi"
+          }
+        ]
+      }
     ]
   }
 }
