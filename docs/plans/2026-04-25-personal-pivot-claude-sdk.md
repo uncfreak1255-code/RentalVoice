@@ -1,9 +1,19 @@
 # Personal-use pivot — Claude Agent SDK swap
 
 Date: 2026-04-25
-Status: proposed, awaiting review
+Status: revised after codex review (2026-04-25 14:30)
 Branch: `claude/review-rental-voice-architecture-NvmTA`
 Save point: tag `savepoint/pre-claude-sdk-swap-2026-04-25` at commit `7233049`
+
+## Codex review absorbed
+
+A repo-truth review by codex flagged five things; all are reflected below.
+
+1. **Subscription-policy boundary.** Anthropic's policy restricts third-party products that *offer* `claude.ai` login or subscription rate limits to other users. This is single-user, owner-on-own-subscription, no other users — the canonical Claude Code use case. We are not redistributing access. Still: do not invite a second user, do not deploy this to a hosted service that fronts the subscription. If that ever changes, this whole plan is void; revert to API-key path.
+2. **Phase 1 is not "route-only".** The SDK does not return Anthropic Messages-API JSON. It streams SDK message objects ending in a `result`. Callers like `ai-enhanced.ts:1867` parse `data.content?.[0]?.text`. The diff *does* synthesize a faithful Anthropic-shaped response — but Phase 1 is "route + translate", not "route". Reframed below.
+3. **Server runtime conflict.** SDK 0.2.79 needs Node 18+ and peer `zod ^4`. `server/package.json` pins `zod ^3.23.0` and runs on Bun. Root `package.json` is already on `zod 4.1.11`. Two runtime decisions, not one diff.
+4. **Five client call sites, not four.** Confirmed: `ai-service.ts:462`, `ai-enhanced.ts:106` (callViaProxy with already-Anthropic-shaped payloads at 1848+), `conversation-summary.ts:371`, `smart-templates.ts:345`, `smart-templates.ts:485`.
+5. **Multi-tenant deletion misses.** Add to the follow-up deletion branch: `useChatDraftEngine.ts:76` (managed-draft gating), `managed-draft-gating.ts:3`, `api-client.ts:255` (`generateAIDraftViaServer`), `ai-keys.ts:243` (key-test surfaces), and `/api/ai-proxy/test-key`.
 
 ## Goal
 
@@ -59,45 +69,55 @@ Claude Sonnet 4.6 (subscription)
 - Tailscale running, MagicDNS name in hand.
 - Push savepoint tag: `git push origin savepoint/pre-claude-sdk-swap-2026-04-25`.
 
-### Phase 1 — Server: add Agent SDK behind a flag
+### Phase 1 — Server: add Agent SDK behind a flag (route + translate)
 
-Single-file change in `server/src/routes/ai-proxy-personal.ts` plus one dependency.
+Not a single-file change. Touches three things: dependency, runtime, and the proxy file.
 
-1. `cd server && bun add @anthropic-ai/claude-agent-sdk`.
-2. Edit `routes/ai-proxy-personal.ts`:
-   - Import `query` from the SDK.
-   - In the existing `case 'anthropic':` branch, branch on `process.env.USE_CLAUDE_SUBSCRIPTION === '1'`. If set, call new `callAnthropicViaSubscription(payload)`. Otherwise existing fetch stays untouched.
-   - Helper invokes `query()` with `{ systemPrompt, model, maxTurns: 1, allowedTools: [], permissionMode: 'bypassPermissions' }` — pure text generation, no tool loops.
-   - Helper extracts the last user message from the Anthropic-shaped payload (history is already baked into the system prompt by the client).
-   - Helper synthesizes an Anthropic `/v1/messages`-shaped response: `{ id, type: 'message', role: 'assistant', model, content: [{type: 'text', text}], stop_reason, usage: { input_tokens, output_tokens } }`. The client doesn't know the difference.
-3. Server `.env`:
-   ```
-   USE_CLAUDE_SUBSCRIPTION=1
-   CLAUDE_SUBSCRIPTION_MODEL=claude-sonnet-4-6
-   AI_PROXY_TOKEN=<openssl rand -hex 32>
-   ```
-4. Smoke test from terminal with curl (Anthropic-shaped payload). Expect a draft back.
+**1a. Resolve runtime conflict.** Pick one:
+- **Path A (preferred): bump server zod 3 → 4.** Run `cd server && bun add zod@^4`. Then `bun run typecheck` and `bunx vitest run` to surface breaks. Server zod usage is small (route input validation in `ai-proxy-personal.ts` and a few siblings); zod 3→4 has well-documented breaking changes but a narrow blast radius here.
+- **Path B (fallback): isolate the SDK to a Node-runtime sidecar.** Run a tiny Node process (just `query()` invocation) that the Hono server proxies to over a Unix socket. More moving parts; only do this if Path A causes test breakage we don't want to fix now.
 
-Risk gate: if SDK invocation fails (auth, Bun-vs-Node compat, model id), fix here. Don't proceed to client until curl works.
+**1b. Install the SDK.** `bun add @anthropic-ai/claude-agent-sdk@^0.2.79` (matching the version codex confirmed in the broader ecosystem).
+
+**1c. Edit `server/src/routes/ai-proxy-personal.ts`:**
+- Import `query` from the SDK.
+- In the existing `case 'anthropic':` branch, gate on `process.env.USE_CLAUDE_SUBSCRIPTION === '1'`. If set, call new `callAnthropicViaSubscription(payload)`. Otherwise the existing `fetch` to the Anthropic API stays untouched.
+- Helper invokes `query({ prompt, options: { systemPrompt, model, maxTurns: 1, allowedTools: [], permissionMode: 'bypassPermissions' } })` — single-shot text generation, no tool loops, no preview session APIs.
+- Helper iterates the SDK message stream, accumulating `text` from `assistant` blocks and capturing `usage` from the terminal `result` message.
+- **Helper translates SDK output back to Anthropic Messages-API JSON shape**: `{ id, type: 'message', role: 'assistant', model, content: [{type: 'text', text}], stop_reason, usage: { input_tokens, output_tokens } }`. Verified against `ai-enhanced.ts:1867` which reads `data.content?.[0]?.text`.
+
+**1d. Server `.env`:**
+```
+USE_CLAUDE_SUBSCRIPTION=1
+CLAUDE_SUBSCRIPTION_MODEL=claude-sonnet-4-6
+AI_PROXY_TOKEN=<openssl rand -hex 32>
+```
+
+**1e. Tests.** Add to `server/src/__tests__/ai-proxy-personal.test.ts` (already exists, already passes per codex): one test that mocks the SDK `query()` async iterator and asserts the synthesized response matches what `data.content?.[0]?.text` consumers expect.
+
+**1f. Smoke test.** `curl` with an Anthropic-shaped payload. Expect a draft back.
+
+**Risk gate:** if zod bump breaks anything in `server/`, fall back to Path B before proceeding to Phase 2.
 
 ### Phase 2 — Client: route Anthropic instead of Gemini
 
-Touches four call sites:
-- `src/lib/ai-service.ts:13, 444-473`
-- `src/lib/ai-enhanced.ts:95, callViaProxy invocations`
-- `src/lib/smart-templates.ts:345, 485`
-- `src/lib/conversation-summary.ts:371`
+Five call sites (codex correction). Treatment varies by what shape they already send:
 
-Change each to:
-- Send `provider: 'anthropic'` and `model: 'claude-sonnet-4-6'`.
-- Send Anthropic-shaped payload `{ system, messages: [{role, content}], max_tokens }` instead of Gemini-shaped `{ systemInstruction, contents, generationConfig }`.
-- Parse the response from `data.content[0].text` instead of `data.candidates[0].content.parts[0].text`.
+| File:line | Current shape | Work |
+|---|---|---|
+| `ai-enhanced.ts:106` (callViaProxy at 1858, payload at 1848) | Already Anthropic-shaped (`system`, `messages`, `max_tokens`, `temperature`); reads `data.content?.[0]?.text` | **Default-change only**: switch the default `CLAUDE_MODEL` constant at `ai-enhanced.ts:94` from `claude-3-5-haiku-20241022` to `claude-sonnet-4-6`. |
+| `smart-templates.ts:345` | OpenAI-shaped (per codex) | Re-shape to Anthropic, switch parser. |
+| `smart-templates.ts:485` | OpenAI-shaped (per codex) | Re-shape to Anthropic, switch parser. |
+| `ai-service.ts:462` | Gemini-shaped (`systemInstruction`, `contents`, `generationConfig`); reads `data.candidates[0].content.parts[0].text` | Re-shape to Anthropic, switch parser. |
+| `conversation-summary.ts:371` | Gemini-shaped | Re-shape to Anthropic, switch parser. |
 
-Estimate ~30 LOC per call site. The system prompt builder and conversation-context builder are unchanged.
+Verify each against the actual file before editing — codex said the smart-templates sites are OpenAI-shaped; my Phase 1 audit didn't read them, so confirm before swapping.
+
+Estimate: ~30 LOC for the four reshape-and-default sites; ~3 LOC for `ai-enhanced.ts`. The system prompt builder and conversation-context builder are unchanged.
 
 Also:
-- `src/lib/api-client.ts` — under a flag `EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN=1`, `getAuthHeaders()` returns the static `AI_PROXY_TOKEN` from `expo-secure-store` instead of attempting Supabase JWT refresh.
-- `.env` (or `app.json` extra): `EXPO_PUBLIC_API_BASE_URL=http://<tailscale-name>:3001`.
+- `src/lib/api-client.ts` — `getAuthHeaders()` (around line 121) currently tries founder session / lazy auto-provision. Under a flag `EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN=1`, short-circuit *before* those branches and return the static `AI_PROXY_TOKEN` read from `expo-secure-store`. The local-token branch must win, otherwise founder auth races us.
+- `.env` (or `app.json` extra): `EXPO_PUBLIC_API_BASE_URL=http://<tailscale-name>:3001`. Default in `src/lib/config.ts:24` is `https://api.rentalvoice.app` — without this override, real-device requests will hit the public domain, not your laptop.
 
 ### Phase 3 — Validate on real conversations
 
@@ -120,14 +140,22 @@ Also:
 
 | Risk | Mitigation |
 |---|---|
-| SDK depends on `claude` CLI on PATH; Bun spawns may not inherit the right env | Fallback: run server with `node --import tsx src/index.ts` instead of Bun. Tested before Phase 2. |
-| Subscription terms — programmatic batch use | Personal use, dozens of drafts/day, well within interactive subscription scope. Re-check Anthropic's usage policy at apply time. |
-| Server availability when laptop sleeps | Move to always-on box (Mac mini, Raspberry Pi, etc.) once validated. Tailscale stays the same. |
-| Rate limit on subscription | Sonnet 4.6 subscription rate limits are generous for single-user message drafting. Mitigate with the existing `aiRateLimit` middleware (already wired). |
-| Sonnet 4.6 voice quality drift vs Gemini | Phase 3 A/B is the gate. If worse, root-cause is almost certainly prompt formatting differences (Gemini-shaped → Anthropic-shaped), not model capability. |
-| Response shape synthesis bug breaks client parsing | Phase 1 curl test catches this before client touches it. |
+| **Subscription policy violation** | Single-user, owner-on-own-subscription only. Never expose this server beyond the owner's Tailnet. Never let a second human use it. Document in any future README that this branch is non-distributable. |
+| zod 3→4 server bump breaks tests | Path B fallback (Node sidecar). Decide at Phase 1a. |
+| SDK depends on `claude` CLI on PATH; Bun spawns may not inherit the right env | Run server with `node --import tsx src/index.ts` instead of Bun. Already part of Path B. |
+| Server availability when laptop sleeps | Move to always-on box (Mac mini, Raspberry Pi) once validated. Tailscale stays the same. |
+| Subscription rate limits | Generous for single-user drafting. Existing `aiRateLimit` middleware stays wired. |
+| Sonnet 4.6 voice quality drift vs Gemini | Phase 3 A/B is the gate. Likely root-cause if observed: prompt-shape differences, not model capability. |
+| Response shape synthesis bug breaks client parsing | Phase 1 unit test (1e) plus curl smoke test before any client edits. |
 
-## Open questions for codex review
+## Codex answers folded in
+
+- **SDK API correctness.** Use stable `query({ prompt, options })` and collect text from streamed messages, terminating on the `result` message. Do not use the preview `createSession`/`send`/`stream` V2 path — explicitly unstable.
+- **Multi-turn handling.** Phase 1 stays stateless. Conversation context is already inlined into prompts client-side. SDK `continue: true` would conflate unrelated guests on a shared local server; `resume` would require explicit per-conversation session storage. Not worth it for this swap.
+- **Response shape fidelity.** Synthesized `{ content: [{type, text}], usage: {input_tokens, output_tokens}, ... }` matches `data.content?.[0]?.text` consumers. Unit test in 1e locks this contract.
+- **Subscription policy.** Single-user-on-own-subscription is permitted. Distribution (offering subscription-backed access to other humans) is not. This branch must never be deployed publicly. If that changes, revert to API-key path.
+
+## Remaining open questions for the next reviewer
 
 These are the things I'd most like a second pair of eyes on:
 
