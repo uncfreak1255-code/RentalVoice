@@ -125,8 +125,14 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   // This must run before getAuthToken so the static token isn't shadowed by a
   // stale founder session that the local proxy would reject.
   if (process.env.EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN === '1') {
-    const localToken = await getItem(LOCAL_PROXY_TOKEN_KEY);
-    if (localToken) return { Authorization: `Bearer ${localToken}` };
+    const stored = await getItem(LOCAL_PROXY_TOKEN_KEY);
+    if (stored) return { Authorization: `Bearer ${stored}` };
+    // Fallback for first-run dev builds before a paste-UI exists: read the
+    // token straight from the build-time env. Build-baked, never logged, never
+    // sent to a remote service. Stays out of secure-store on purpose so the
+    // user can override later by pasting a fresh token.
+    const baked = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN;
+    if (baked) return { Authorization: `Bearer ${baked}` };
   }
 
   const token = await getAuthToken();
