@@ -91,7 +91,7 @@ function getCalibrationAdjustment(primaryIntent?: string): {
 }
 
 // API Configuration
-const CLAUDE_MODEL = 'claude-3-5-haiku-20241022';
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
 const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // All AI calls route through the server proxy — no direct provider calls.

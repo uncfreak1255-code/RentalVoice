@@ -10,8 +10,6 @@ import { detectIntent } from './intent-detection';
 import { API_BASE_URL } from './config';
 import { getAuthHeaders } from './api-client';
 
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-05-20';
-
 // PropertyKnowledge is imported from store.ts
 
 export interface AIResponse {
@@ -441,20 +439,11 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
   console.log('[AI Service] Generating response for intent:', detectedIntent);
 
   try {
-    const geminiPayload = {
-      systemInstruction: {
-        parts: [{ text: systemPrompt }],
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: userPrompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 500,
-      },
+    const anthropicPayload = {
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
+      max_tokens: 500,
+      temperature: 0.7,
     };
 
     console.log('[AI Service] Routing through server proxy');
@@ -466,24 +455,23 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
         ...authHeaders,
       },
       body: JSON.stringify({
-        provider: 'google',
-        model: GEMINI_MODEL,
-        payload: geminiPayload,
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        payload: anthropicPayload,
       }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('[AI Service] Gemini API error:', error);
+      console.error('[AI Service] Anthropic API error:', error);
       throw new Error(`AI generation failed: ${response.status}`);
     }
 
     const data = await response.json();
-    const generatedContent =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const generatedContent = data.content?.[0]?.text || '';
 
     if (!generatedContent) {
-      throw new Error('Empty response from Gemini');
+      throw new Error('Empty response from Anthropic');
     }
 
     // Calculate confidence based on various factors

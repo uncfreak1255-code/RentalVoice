@@ -331,13 +331,10 @@ ${conversation.guest.previousStays ? `Returning guest (${conversation.guest.prev
 Personalize this template to sound natural and appropriate for this specific guest and conversation.
 Return ONLY the personalized message, no explanation.`;
 
-    const openaiPayload = {
-      model: 'gpt-4o-mini',
+    const anthropicPayload = {
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 500,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
       temperature: 0.7,
     };
 
@@ -349,9 +346,9 @@ Return ONLY the personalized message, no explanation.`;
         ...authHeaders,
       },
       body: JSON.stringify({
-        provider: 'openai',
-        model: 'gpt-4o-mini',
-        payload: openaiPayload,
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        payload: anthropicPayload,
       }),
     });
 
@@ -360,7 +357,7 @@ Return ONLY the personalized message, no explanation.`;
     }
 
     const data = await response.json();
-    const personalizedContent = data.choices?.[0]?.message?.content || populatedContent;
+    const personalizedContent = data.content?.[0]?.text || populatedContent;
 
     return {
       originalTemplate: template,
@@ -471,13 +468,10 @@ Host name: ${hostName || 'The Host'}
 
 Write a personalized thank-you message. Return ONLY the message.`;
 
-    const openaiPayload = {
-      model: 'gpt-4o-mini',
+    const anthropicPayload = {
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 300,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
       temperature: 0.8,
     };
 
@@ -489,9 +483,9 @@ Write a personalized thank-you message. Return ONLY the message.`;
         ...authHeaders,
       },
       body: JSON.stringify({
-        provider: 'openai',
-        model: 'gpt-4o-mini',
-        payload: openaiPayload,
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        payload: anthropicPayload,
       }),
     });
 
@@ -500,7 +494,7 @@ Write a personalized thank-you message. Return ONLY the message.`;
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
+    return data.content?.[0]?.text || '';
   } catch (error) {
     console.error('[SmartTemplates] Post-stay generation error:', error);
     return `Thank you so much for staying at ${conversation.property.name}, ${conversation.guest.name}! We hope you had a wonderful experience and would love to host you again. Safe travels!`;
