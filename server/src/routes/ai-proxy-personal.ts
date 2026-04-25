@@ -12,6 +12,7 @@
  */
 
 import { createHash } from 'crypto';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import { Hono, type Context, type Next } from 'hono';
 import type { AppEnv } from '../lib/env.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -81,6 +82,10 @@ aiProxyRouter.post('/generate', requireAiProxyAuth, aiRateLimit, async (c) => {
       }
 
       case 'anthropic': {
+        if (process.env.USE_CLAUDE_SUBSCRIPTION === '1') {
+          result = await callAnthropicViaSubscription(payload as AnthropicPayload);
+          break;
+        }
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
           return c.json({ error: 'Anthropic API key not configured on server' }, 500);
@@ -128,6 +133,102 @@ aiProxyRouter.post('/generate', requireAiProxyAuth, aiRateLimit, async (c) => {
     return c.json({ error: 'AI proxy request failed' }, 500);
   }
 });
+
+// ============================================================
+// Claude Agent SDK (subscription) helper
+// ============================================================
+
+interface AnthropicPayload {
+  system?: string;
+  messages?: { role: 'user' | 'assistant'; content: string }[];
+  max_tokens?: number;
+  model?: string;
+}
+
+async function callAnthropicViaSubscription(payload: AnthropicPayload): Promise<Response> {
+  const systemPrompt = payload.system ?? '';
+  const messages = payload.messages ?? [];
+
+  // The client already inlines conversation context into the prompts (see
+  // src/lib/ai-service.ts buildConversationContext). Send only the latest user
+  // turn through the SDK; do not replay assistant turns.
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  if (!lastUser) {
+    return jsonResponse(400, {
+      type: 'error',
+      error: { type: 'invalid_request_error', message: 'No user message in payload' },
+    });
+  }
+
+  const model = process.env.CLAUDE_SUBSCRIPTION_MODEL || payload.model || 'claude-sonnet-4-6';
+
+  let resultText = '';
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cacheCreationInputTokens = 0;
+  let cacheReadInputTokens = 0;
+  let stopReason: string | null = 'end_turn';
+
+  try {
+    for await (const message of query({
+      prompt: lastUser.content,
+      options: {
+        systemPrompt,
+        model,
+        maxTurns: 1,
+        tools: [],                // pure text generation — no tool access at all
+        permissionMode: 'default', // moot when tools is empty
+      },
+    })) {
+      if (message.type === 'result') {
+        if (message.subtype === 'success') {
+          resultText = message.result;
+          inputTokens = message.usage.input_tokens;
+          outputTokens = message.usage.output_tokens;
+          cacheCreationInputTokens = message.usage.cache_creation_input_tokens;
+          cacheReadInputTokens = message.usage.cache_read_input_tokens;
+          stopReason = message.stop_reason;
+        } else {
+          return jsonResponse(502, {
+            type: 'error',
+            error: { type: 'api_error', message: `Claude SDK returned ${message.subtype}` },
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[AI Proxy Personal] Claude SDK error:', err);
+    return jsonResponse(502, {
+      type: 'error',
+      error: { type: 'api_error', message: err instanceof Error ? err.message : 'SDK error' },
+    });
+  }
+
+  // Synthesize an Anthropic /v1/messages response shape so existing client
+  // parsers (data.content?.[0]?.text) work unchanged.
+  return jsonResponse(200, {
+    id: `msg_subscription_${Date.now()}`,
+    type: 'message',
+    role: 'assistant',
+    model,
+    content: [{ type: 'text', text: resultText }],
+    stop_reason: stopReason,
+    stop_sequence: null,
+    usage: {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cache_creation_input_tokens: cacheCreationInputTokens,
+      cache_read_input_tokens: cacheReadInputTokens,
+    },
+  });
+}
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 /**
  * POST /api/ai-proxy/test-key

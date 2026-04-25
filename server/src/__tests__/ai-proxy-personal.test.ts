@@ -146,6 +146,61 @@ describe('personal AI proxy security', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('key=legacy-google-key');
   });
 
+  it('routes anthropic through the Claude SDK when USE_CLAUDE_SUBSCRIPTION=1 and synthesizes Anthropic-shape JSON', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+    vi.stubEnv('CLAUDE_SUBSCRIPTION_MODEL', 'claude-sonnet-4-6');
+
+    const queryMock = vi.fn(async function* () {
+      yield {
+        type: 'result' as const,
+        subtype: 'success' as const,
+        result: 'Check-in is at 3pm.',
+        stop_reason: 'end_turn' as const,
+        usage: {
+          input_tokens: 42,
+          output_tokens: 7,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      };
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const app = await buildApp();
+    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+
+    const res = await app.request('/api/ai-proxy/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer proxy-secret',
+      },
+      body: JSON.stringify({
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        payload: {
+          system: 'You are a vacation rental host assistant.',
+          messages: [{ role: 'user', content: 'What time is checkin?' }],
+          max_tokens: 200,
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as { content: { type: string; text: string }[]; usage: { input_tokens: number; output_tokens: number }; model: string };
+
+    // Contract: client parsers read data.content?.[0]?.text — see src/lib/ai-enhanced.ts:1867.
+    expect(body.content?.[0]?.text).toBe('Check-in is at 3pm.');
+    expect(body.content[0].type).toBe('text');
+    expect(body.usage.input_tokens).toBe(42);
+    expect(body.usage.output_tokens).toBe(7);
+    expect(body.model).toBe('claude-sonnet-4-6');
+
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled(); // SDK path, not API key path
+  });
+
   it('rate-limits unauthenticated test-key requests per client IP', async () => {
     vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
     const app = await buildApp();
