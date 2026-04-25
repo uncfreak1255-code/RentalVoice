@@ -7,7 +7,12 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN": "1",
+        "EXPO_PUBLIC_API_BASE_URL": "http://mac-studio-1.tail251e71.ts.net:3001"
+      }
     },
     "preview": {
       "distribution": "internal",
