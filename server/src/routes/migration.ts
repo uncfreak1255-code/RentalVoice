@@ -18,14 +18,14 @@ const importLocalLearningSchema = z.object({
   snapshotId: z.string().min(1).max(120).optional(),
   stableAccountId: z.string().min(1).max(120).optional(),
   source: z.string().min(1).max(80).optional(),
-  hostStyleProfiles: z.record(z.any()).optional(),
-  aiLearningProgress: z.record(z.any()).optional(),
+  hostStyleProfiles: z.record(z.string(), z.any()).optional(),
+  aiLearningProgress: z.record(z.string(), z.any()).optional(),
   learningEntries: z.array(z.any()).optional(),
   draftOutcomes: z.array(z.any()).optional(),
   replyDeltas: z.array(z.any()).optional(),
   calibrationEntries: z.array(z.any()).optional(),
   conversationFlows: z.array(z.any()).optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 }).passthrough();
 
 function toIsoDate(value: unknown): string {

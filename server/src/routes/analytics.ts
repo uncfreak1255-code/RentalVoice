@@ -28,7 +28,7 @@ const analyticsEventSchema = z.object({
   ]),
   category: z.literal('billing'),
   source: z.string().max(100).optional(),
-  properties: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  properties: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
   occurredAt: z.string().datetime().optional(),
 });
 

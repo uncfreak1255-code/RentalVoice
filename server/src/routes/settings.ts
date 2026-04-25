@@ -65,7 +65,7 @@ settingsRouter.put('/', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
@@ -113,7 +113,7 @@ settingsRouter.put('/ai', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
