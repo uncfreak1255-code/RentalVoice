@@ -160,4 +160,31 @@ describe('OnboardingRoute', () => {
       errorSpy.mockRestore();
     }
   });
+
+  it('routes to the explainer for forced demo even when the account-first flag is on', async () => {
+    process.env.EXPO_PUBLIC_FORCE_DEMO = '1';
+    mockFeatures.publicAccountFirstOnboarding = true;
+    mockStoreState.accountSession = { token: 't', refreshToken: 'r', user: { id: 'u' } };
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Auth Explainer Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).not.toHaveBeenCalled();
+  });
+
+  it('routes flag-off to connect even when an account session is already in state', async () => {
+    mockFeatures.publicAccountFirstOnboarding = false;
+    mockStoreState.accountSession = { token: 't', refreshToken: 'r', user: { id: 'u' } };
+
+    const screen = render(<OnboardingRoute />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Onboarding Screen')).toBeTruthy();
+    });
+
+    expect(mockRestoreAccountSession).not.toHaveBeenCalled();
+  });
 });
