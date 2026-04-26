@@ -4,15 +4,27 @@
  * for the owner's Tailscale tailnet.
  *
  * Production builds (APP_VARIANT unset) are byte-identical to app.json.
- * Set APP_VARIANT=development in eas.json or local env for the dev variant.
+ *
+ * Required env for the dev variant (set as EAS secrets, never committed):
+ *   APP_VARIANT=development
+ *   RENTAL_VOICE_TAILNET_DOMAIN=<your-tailnet>.ts.net
+ *   EXPO_PUBLIC_API_BASE_URL=http://<host>.<your-tailnet>.ts.net:3001
+ *
+ * Set with: eas secret:create --scope project --name <NAME> --value <VAL>
  */
 const baseConfig = require('./app.json').expo;
-
-const TAILNET_DOMAIN = 'tail251e71.ts.net';
 
 module.exports = () => {
   const isDev = process.env.APP_VARIANT === 'development';
   if (!isDev) return baseConfig;
+
+  const tailnetDomain = process.env.RENTAL_VOICE_TAILNET_DOMAIN;
+  if (!tailnetDomain) {
+    throw new Error(
+      'RENTAL_VOICE_TAILNET_DOMAIN must be set for the development variant. ' +
+        'Run: eas secret:create --scope project --name RENTAL_VOICE_TAILNET_DOMAIN --value <your-tailnet>.ts.net'
+    );
+  }
 
   return {
     ...baseConfig,
@@ -24,7 +36,7 @@ module.exports = () => {
         ...baseConfig.ios.infoPlist,
         NSAppTransportSecurity: {
           NSExceptionDomains: {
-            [TAILNET_DOMAIN]: {
+            [tailnetDomain]: {
               NSIncludesSubdomains: true,
               NSExceptionAllowsInsecureHTTPLoads: true,
             },
