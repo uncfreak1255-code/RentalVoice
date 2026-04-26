@@ -1,38 +1,45 @@
 # Rental Voice next batch
 
-Last updated: 2026-04-10
+Last updated: 2026-04-26
 
 ## Approved next engineering batch
 
-Move from founder-only canary to public account-first onboarding proof without breaking the current Hostaway-first default path before cutover is approved.
+Validate the personal-pivot architecture (PR #59) on real Hostaway conversations, then delete the multi-tenant infrastructure that the pivot replaces.
+
+This batch supersedes the 2026-04-10 batch ("public account-first onboarding proof"), which is now off the table per the strategic decision recorded in PR #59.
 
 ## Scope
 
-1. Define the public account-first app entry contract: `Create account / Sign in` before `Connect Hostaway`
-2. Design the cold-start onboarding wedge so a brand-new account can reach useful drafts without Sawyer-specific history
-3. Expose voice-readiness and coverage state in a way a new user can understand during early learning
-4. Add eval coverage for first-session and first-week quality, not just founder replay quality
-5. Keep founder canary as the protected proving lane while the public path is staged behind explicit gates
+1. **Validate the SDK swap end to end.** Owner runs the dev variant build on their phone over Tailscale, generates 3-5 real drafts using `USE_CLAUDE_SUBSCRIPTION=1`, compares quality against the prior Gemini path. Validation done = pivot real.
+2. **Execute the multi-tenant deletion plan** (`docs/plans/2026-04-26-multi-tenant-deletion.md`). Removes billing, entitlements, waitlist, dual-PMS adapters, server-managed Hostaway routes, the `commercial` mode flag, and App Store submission tooling. One PR, deletion-only, no behavior change to the personal path.
+3. **Decide what to do about the existing waitlist signups.** Open question. Options include: a one-time email explaining the pivot, a redirect to a "shutting down" landing page, or just letting the form go dormant. No code work blocks on this; it's a comms decision.
+4. **Document the local operating model.** A README section or runbook explaining how to start the local server, set EAS secrets, install the dev build, and rotate the proxy token. Targets the owner's own future self in 6 months.
+5. **Resume voice-accuracy work.** With the AI provider question settled, the bottleneck shifts back to draft quality. The promptfoo baseline is 47.92%; the goal of >55% on the existing eval suite is still the right next target.
 
 ## Constraints
 
-- Keep the current visible personal-mode UX stable until the public cutover is explicitly approved
-- Do not treat founder canary success as proof that a new user experience is ready
-- Do not relink `/Users/sawbeck/Projects/RentalVoice/server/.env` away from the linked `test` project
-- Do not use `Rental Voice Live` as a casual dev sandbox
-- Do not wipe or recreate the live founder account/data during implementation
-- Do not claim production-quality voice performance without fresh live evals and a working Google AI key
+- Keep the personal-mode UX functional throughout. No hard breaks during the deletion pass.
+- Keep the rollback flag (`USE_CLAUDE_SUBSCRIPTION=0`) working until validation confirms the SDK path is reliable in real use.
+- Do not relink `server/.env` away from `test`.
+- Do not casually rerun bootstrap against the live personal account in `zsitbuwzxtsgfqzhtged`.
+- Do not delete code paths the personal flow still uses. The deletion plan must explicitly trace each removed file/route to "no personal-mode caller."
 
-## Definition of done
+## Definition of done for this batch
 
-- The public account-first entry path is explicit and staged behind a controlled gate
-- A brand-new user can understand what the system knows, what it is learning, and what is still weak
-- Cold-start evals exist for onboarding, early drafts, and readiness transitions
-- Founder canary remains intact as a protected comparison lane while the public path hardens
+- PR #59 merges with all `/review` issues resolved and validation evidence in the PR body.
+- The multi-tenant deletion PR merges cleanly with the personal flow still functional.
+- A short operator runbook exists for "how I run my own copy of this."
+- Voice accuracy work has a fresh baseline run on the SDK path.
+
+## Out of scope
+
+- Re-opening any path toward public distribution.
+- Building infrastructure for hypothetical other users.
+- App Store / TestFlight submissions of any kind.
+- Multi-PMS support (still parked).
+- Stripe billing (no longer relevant).
 
 ## Execution docs
 
-- `/Users/sawbeck/.codex/worktrees/rentalvoice-codex-founder-server-canary-plan/docs/superpowers/plans/2026-04-09-founder-server-canary-implementation.md`
-- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-founder-app-path-design.md`
-- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-user-app-hardening-queue.md`
-- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-03-09-app-store-readiness-roadmap.md`
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-04-25-personal-pivot-claude-sdk.md` (the plan that describes the pivot)
+- `/Users/sawbeck/Projects/RentalVoice/docs/plans/2026-04-26-multi-tenant-deletion.md` (the deletion plan, written alongside this status update)

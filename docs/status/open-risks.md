@@ -1,70 +1,60 @@
 # Rental Voice open risks
 
-Last updated: 2026-04-10
+Last updated: 2026-04-26
 
 ## Highest risks
 
-1. Durable app identity is still missing from the default app architecture
-- Users still enter Hostaway credentials as the visible first-step path
-- That is a PMS connection flow, not a durable Rental Voice account identity
-- Without account-backed identity, learning and recovery remain fragile
+1. **The personal-pivot is unvalidated on real conversations.**
+   - PR #59 ships the architecture; it has not been A/B tested on real Hostaway threads against the prior Gemini path.
+   - Until the owner generates 3-5 real drafts on the SDK path and confirms quality is at least as good as Gemini, "we pivoted" and "it works" are different claims.
+   - Risk: SDK output drifts from Gemini behavior in subtle ways (banned phrases, length, tone) and quality regresses without anyone noticing because the user is the only QA.
 
-2. Founder canary is real, but the public account-first path is still missing
-- The real founder backend account now exists in `Rental Voice Live`
-- Founder Access now works in-app for sign-in, restore, migration, and managed drafts
-- None of that is the same thing as a production-ready public account onboarding path
+2. **Existing waitlist signups have no comms plan.**
+   - The landing page collected emails on the assumption Rental Voice was launching publicly.
+   - As of the pivot, those signups go nowhere. No email has been sent. The form is still live.
+   - Risk: integrity / trust if anyone notices and asks. Low blast radius (small N, niche audience), but a real open loop.
+   - Decision needed: send a one-time "we pivoted, sorry" email, redirect the form, or let it die quietly.
 
-3. Durable account-backed AI learning is still founder-canary only
-- Verified founder migration now exists in the app, but the default user path is still local-first
-- Cold-start users still do not get an account-first learning experience or clear coverage guidance
-- Server-canonical generation must be the only eval target; founder-only prompt scores are not proof that onboarding works for a new account
+3. **The Tailscale + local-server runtime introduces new failure modes single-user-only.**
+   - If the owner's host machine is off, AI drafts fail.
+   - If Tailscale ACLs change, the phone can't reach the server.
+   - If `claude` logs out on the host, the SDK call fails silently.
+   - Mitigation: `USE_CLAUDE_SUBSCRIPTION=0` flips back to the API-key path. But the API key isn't currently set in prod env, so the rollback isn't actually wired through.
 
-4. Current linked Supabase project is still the default local runtime
-- `/Users/sawbeck/Projects/RentalVoice/server/.env` still points at `gqnocsoouudbogwislsl` by design
-- Agents can accidentally run the wrong Supabase workflow if they do not separate `test` from `live`
+4. **Multi-tenant code is still live and reachable until the deletion PR lands.**
+   - Billing, entitlements, founder-canary multi-tenancy, waitlist, dual-PMS adapters, `/api/ai-proxy/test-key`, etc. are all still in `main`.
+   - Risk: code paths that should be dead are still callable. Surface area for bugs nobody is looking at.
+   - Mitigation: deletion plan exists at `docs/plans/2026-04-26-multi-tenant-deletion.md`; execution is the next batch.
 
-5. The live founder account is now persistent state and must be protected
-- `sawyerbeck25@gmail.com` in `zsitbuwzxtsgfqzhtged` is no longer disposable bootstrap target state
-- Casual reruns or destructive founder tests can damage the real canary account
+5. **The live personal-account project is now persistent state, not disposable canary.**
+   - `sawyerbeck25@gmail.com` in `zsitbuwzxtsgfqzhtged` is the owner's real working data.
+   - Casual reruns of bootstrap or destructive tests against this project would damage real state.
+   - Mitigation: bootstrap targets remain forbidden in code; documented in `current-state.md` and `CLAUDE.md`.
 
-6. Personal-mode and founder/commercial assumptions can still drift
-- Current product must remain Hostaway-first and personal-mode default
-- Future sessions can accidentally optimize for staged founder/commercial paths before the app-side cutover work is approved
+6. **Status documentation drifts faster than code.**
+   - Pre-pivot: `current-state.md`, `next-batch.md`, `open-risks.md` were 16 days behind reality at the time of the 2026-04-26 retro.
+   - Risk: future strategic ambiguity. New sessions read stale docs and head in the wrong direction.
+   - Mitigation: include status doc updates in the same PR as direction-changing work (this PR is the example).
 
-7. Sawyer-only evals are still easy to misread as product proof
-- Founder canary coverage is useful, but it only measures whether the system can still sound like Sawyer
-- Cold-start onboarding quality needs its own eval gate built around account creation, history import, and early-learning usability
-
-8. Local environment metadata is intentionally local-only
-- `/Users/sawbeck/Projects/RentalVoice/server/.env` and `/Users/sawbeck/Projects/RentalVoice/server/.env.live.local` are not committed truth
-- The committed runbooks and status docs must stay aligned with those local files
+7. **Sawyer-only evals can still be misread as product proof.**
+   - The eval suite was originally framed for product validation. It only measures "can the system sound like Sawyer."
+   - In the personal-pivot world that's actually the right metric — but it would have been wrong if the public direction had stayed.
+   - Note: this risk is now category-correct, not category-wrong.
 
 ## Operational mitigations in place
 
-- protected baseline tooling
-- explicit environment classification in runtime manifests
-- live founder preflight
-- rehearsal preflight with forbidden project-ref gating
-- dedicated live founder project `zsitbuwzxtsgfqzhtged`
-- local live founder env file
-- founder live-readiness checklist
-- founder bootstrap packet generator
-- founder bootstrap dry run manifest
-- founder bootstrap execute manifest
-- dedicated Supabase environment workflow runbook
-- fresh protected baseline `protected-local-baseline-20260309-founder-live-execute`
+- Protected baseline tooling
+- Explicit environment classification in runtime manifests
+- Live preflight + rehearsal preflight with forbidden project-ref gating
+- Dedicated live personal-account project `zsitbuwzxtsgfqzhtged`
+- Local live env file (`.env.live.local`)
+- `USE_CLAUDE_SUBSCRIPTION=0` rollback flag
+- EAS secrets for tailnet identifiers (no longer committed)
 
-## Resolved risks
+## Closed risks (post-pivot)
 
-- **(2026-03-16)** Stuck sync banner — `onError` in auto-import.ts now clears `isSyncing` flag. OTA deployed.
-- **(2026-03-14)** Voice pipeline bugs from 2026-03-12 audit — all 6 resolved (few-shot truncation, quality threshold, temporal weights, calibration bucketing, server confidence, MultiPass consumption)
+The following risks tracked the public-product direction and are now obsolete:
 
-## What remains blocked
-
-- **Google AI API key expired** — blocks Gemini draft generation, semantic voice queries, and promptfoo eval suite. Need fresh key from Google AI Studio.
-- public account-first onboarding path for non-founder users
-- cold-start coverage/readiness UX that explains strength, weakness, and learning state to a new account
-- founder billing-bypass validation from an app session
-- personal-to-founder migration rehearsal on a distinct rehearsal target
-- any real commercial cutover
-- real founder and cold-start eval runs with a fresh Google AI API key
+- ~~Durable app identity is missing from the default app architecture~~ — single-user; identity is the host machine.
+- ~~Public account-first onboarding path is missing~~ — public path no longer the goal.
+- ~~Durable account-backed AI learning is founder-canary only~~ — there is only one user; "founder-canary" is now "the user."
