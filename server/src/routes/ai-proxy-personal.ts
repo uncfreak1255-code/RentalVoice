@@ -16,7 +16,7 @@
  * Generation requests fail closed when neither credential is present.
  */
 
-import { createHash } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { Hono, type Context, type Next } from 'hono';
 import type { AppEnv } from '../lib/env.js';
@@ -29,7 +29,7 @@ async function requireAiProxyAuth(c: Context<AppEnv>, next: Next): Promise<Respo
   const token = process.env.AI_PROXY_TOKEN;
   const auth = c.req.header('Authorization');
 
-  if (token && auth === `Bearer ${token}`) {
+  if (token && auth?.startsWith('Bearer ') && constantTimeBearerMatch(auth, token)) {
     const tokenHash = createHash('sha256').update(token).digest('hex').slice(0, 16);
     c.set('userId', `ai-proxy:${tokenHash}`);
     c.set('userEmail', '');
@@ -45,6 +45,23 @@ async function requireAiProxyAuth(c: Context<AppEnv>, next: Next): Promise<Respo
   }
 
   return requireAuth(c, next);
+}
+
+/**
+ * Constant-time compare of an Authorization: Bearer header against the
+ * configured AI_PROXY_TOKEN. Returns false rather than throwing on length
+ * mismatch (Buffer-based timingSafeEqual requires equal lengths). Avoids
+ * the timing side-channel of `auth === \`Bearer ${token}\``.
+ */
+function constantTimeBearerMatch(authHeader: string, token: string): boolean {
+  const expected = Buffer.from(`Bearer ${token}`);
+  const received = Buffer.from(authHeader);
+  if (received.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(received, expected);
+  } catch {
+    return false;
+  }
 }
 
 /**
