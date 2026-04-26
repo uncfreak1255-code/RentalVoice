@@ -1,14 +1,19 @@
 /**
  * AI Proxy for Personal Mode
  *
- * Lightweight "dumb proxy" — the client builds the full intelligent prompt
- * (with voice learning, few-shot examples, grounding, etc.), sends it here,
- * and the server just relays it to the LLM provider with the server-held API key.
+ * Lightweight relay — the client builds the full intelligent prompt
+ * (with voice learning, few-shot examples, grounding, etc.) and the server
+ * routes it to one of:
+ *   - Google Gemini API (with server-held GOOGLE_AI_API_KEY)
+ *   - Anthropic Messages API (with server-held ANTHROPIC_API_KEY)
+ *   - OpenAI Chat Completions (with server-held OPENAI_API_KEY)
+ *   - Claude Agent SDK on the Anthropic path when USE_CLAUDE_SUBSCRIPTION=1,
+ *     which uses the host machine's Claude Code OAuth login. The SDK helper
+ *     synthesizes an Anthropic /v1/messages-shape response so existing
+ *     clients (data.content?.[0]?.text) work unchanged.
  *
  * Auth: Supabase account JWT or server-side bearer token (AI_PROXY_TOKEN env var).
  * Generation requests fail closed when neither credential is present.
- *
- * For App Store / commercial mode, use the full ai-generate.ts routes instead.
  */
 
 import { createHash } from 'crypto';
@@ -45,9 +50,10 @@ async function requireAiProxyAuth(c: Context<AppEnv>, next: Next): Promise<Respo
 /**
  * POST /api/ai-proxy/generate
  *
- * Accepts the same body format as the Gemini generateContent API.
- * Injects the server-held API key and forwards to Gemini.
- * Returns the raw Gemini response.
+ * Body: { provider, model?, payload }. Payload shape matches the upstream
+ * provider's expected request body. The server injects credentials and
+ * forwards. Response is forwarded raw, except on the Claude Agent SDK path
+ * where the SDK output is synthesized into an Anthropic-shape response.
  */
 aiProxyRouter.post('/generate', requireAiProxyAuth, aiRateLimit, async (c) => {
   try {
@@ -176,8 +182,8 @@ async function callAnthropicViaSubscription(payload: AnthropicPayload): Promise<
         systemPrompt,
         model,
         maxTurns: 1,
-        tools: [],                // pure text generation — no tool access at all
-        permissionMode: 'default', // moot when tools is empty
+        tools: [],                       // pure text generation — no tool access at all
+        permissionMode: 'bypassPermissions', // safe with tools=[]; matches the plan doc spec
       },
     })) {
       if (message.type === 'result') {
