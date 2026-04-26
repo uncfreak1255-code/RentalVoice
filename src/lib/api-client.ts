@@ -128,9 +128,15 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
     const stored = await getItem(LOCAL_PROXY_TOKEN_KEY);
     if (stored) return { Authorization: `Bearer ${stored}` };
     // Fallback for first-run dev builds before a paste-UI exists: read the
-    // token straight from the build-time env. Build-baked, never logged, never
-    // sent to a remote service. Stays out of secure-store on purpose so the
-    // user can override later by pasting a fresh token.
+    // token straight from the build-time env.
+    //
+    // SECURITY NOTE: EXPO_PUBLIC_* values are inlined into the JS bundle by
+    // Metro at build time. This token IS sent on every request to the local
+    // proxy as a Bearer credential AND it is recoverable from any installed
+    // dev IPA via `strings`/Hopper/Frida. Treat it as a dev-only convenience
+    // token. Rotate AI_PROXY_TOKEN on the server (and rebuild) any time a dev
+    // build is shared with another device or person. Stays out of secure-store
+    // on purpose so the user can override later by pasting a fresh token.
     const baked = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN;
     if (baked) return { Authorization: `Bearer ${baked}` };
   }

@@ -82,7 +82,7 @@ Not a single-file change. Touches three things: dependency, runtime, and the pro
 **1c. Edit `server/src/routes/ai-proxy-personal.ts`:**
 - Import `query` from the SDK.
 - In the existing `case 'anthropic':` branch, gate on `process.env.USE_CLAUDE_SUBSCRIPTION === '1'`. If set, call new `callAnthropicViaSubscription(payload)`. Otherwise the existing `fetch` to the Anthropic API stays untouched.
-- Helper invokes `query({ prompt, options: { systemPrompt, model, maxTurns: 1, allowedTools: [], permissionMode: 'bypassPermissions' } })` — single-shot text generation, no tool loops, no preview session APIs.
+- Helper invokes `query({ prompt, options: { systemPrompt, model, maxTurns: 1, tools: [], permissionMode: 'default' } })` — single-shot text generation, no tool loops, no preview session APIs. (Updated 2026-04-26: `tools` is the actual SDK option name (not `allowedTools`); `permissionMode: 'default'` is equivalent to `'bypassPermissions'` when `tools=[]` and avoids a footgun where adding a tool later would silently inherit unrestricted bypass.)
 - Helper iterates the SDK message stream, accumulating `text` from `assistant` blocks and capturing `usage` from the terminal `result` message.
 - **Helper translates SDK output back to Anthropic Messages-API JSON shape**: `{ id, type: 'message', role: 'assistant', model, content: [{type: 'text', text}], stop_reason, usage: { input_tokens, output_tokens } }`. Verified against `ai-enhanced.ts:1867` which reads `data.content?.[0]?.text`.
 
@@ -159,9 +159,9 @@ Also:
 
 These are the things I'd most like a second pair of eyes on:
 
-1. **SDK API correctness.** Is `query({ prompt, options: { systemPrompt, model, maxTurns: 1, allowedTools: [], permissionMode: 'bypassPermissions' } })` the right invocation for a single-shot text completion with no tool use? Specifically:
-   - Does `maxTurns: 1` plus `allowedTools: []` actually prevent the SDK from attempting any tool calls?
-   - Is `'bypassPermissions'` the right `permissionMode` value, or should it be `'plan'` or `'default'` for this use?
+1. **SDK API correctness.** RESOLVED 2026-04-26 during /review: option is `tools: []` (not `allowedTools`); `permissionMode: 'default'` is the right choice (equivalent to `'bypassPermissions'` when `tools=[]`, and avoids the footgun where a future tool addition would inherit unrestricted bypass). Resolved questions:
+   - `maxTurns: 1` plus `tools: []` does prevent tool calls (verified in tests: error subtype yields 502, throws yield 502).
+   - Use `'default'` rather than `'bypassPermissions'` to keep the safety check engaged for any future tool addition.
    - Are we losing prompt caching (which the raw Anthropic API supports via `cache_control`) by going through the SDK? If so, is there an SDK option to enable it?
 2. **Response shape fidelity.** The synthesized response object — does it match `https://api.anthropic.com/v1/messages` closely enough that no client code needs to change beyond what Phase 2 already touches? Anything missing (`stop_sequence`, `id` format, `usage` cache fields)?
 3. **Bun compatibility.** Does `@anthropic-ai/claude-agent-sdk` work cleanly under Bun's Node-compat layer, or are there known issues that force a Node runtime?
