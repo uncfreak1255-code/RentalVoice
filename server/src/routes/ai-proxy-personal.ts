@@ -192,6 +192,13 @@ async function callAnthropicViaSubscription(payload: AnthropicPayload): Promise<
   let cacheReadInputTokens = 0;
   let stopReason: string | null = 'end_turn';
 
+  // Wall-clock guard: if the SDK stalls (network hang, OAuth refresh deadlock,
+  // upstream slowdown), the for-await loop has no built-in timeout and would
+  // pin a Hono request indefinitely. Abort + return 504 after SDK_TIMEOUT_MS.
+  const timeoutMs = Number(process.env.CLAUDE_SUBSCRIPTION_TIMEOUT_MS) || 30_000;
+  const abortController = new AbortController();
+  const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
+
   try {
     for await (const message of query({
       prompt: lastUser.content,
@@ -204,6 +211,7 @@ async function callAnthropicViaSubscription(payload: AnthropicPayload): Promise<
                             // RECONSIDER permissionMode — do NOT switch to 'bypassPermissions'
                             // (that requires allowDangerouslySkipPermissions:true and gives
                             // unrestricted host access on prompt-injection).
+        abortController,
       },
     })) {
       if (message.type === 'result') {
@@ -223,11 +231,20 @@ async function callAnthropicViaSubscription(payload: AnthropicPayload): Promise<
       }
     }
   } catch (err) {
+    if (abortController.signal.aborted) {
+      console.error(`[AI Proxy Personal] Claude SDK timeout after ${timeoutMs}ms`);
+      return jsonResponse(504, {
+        type: 'error',
+        error: { type: 'api_error', message: `Claude SDK timed out after ${timeoutMs}ms` },
+      });
+    }
     console.error('[AI Proxy Personal] Claude SDK error:', err);
     return jsonResponse(502, {
       type: 'error',
       error: { type: 'api_error', message: err instanceof Error ? err.message : 'SDK error' },
     });
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   // Synthesize an Anthropic /v1/messages response shape so existing client

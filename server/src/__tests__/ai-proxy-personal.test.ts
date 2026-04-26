@@ -336,6 +336,50 @@ describe('personal AI proxy security', () => {
     expect(queryMock).not.toHaveBeenCalled();
   });
 
+  it('returns 504 when the SDK stalls past CLAUDE_SUBSCRIPTION_TIMEOUT_MS', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+    vi.stubEnv('CLAUDE_SUBSCRIPTION_TIMEOUT_MS', '50');
+
+    const queryMock = vi.fn((args: { options?: { abortController?: AbortController } }) => {
+      return (async function* () {
+        // Hang until the wall-clock guard aborts. Mirrors what a stalled
+        // SDK call (network hang, OAuth refresh deadlock) would look like.
+        await new Promise<void>((_resolve, reject) => {
+          const signal = args.options?.abortController?.signal;
+          if (!signal) return; // safety: caller must wire abortController
+          signal.addEventListener('abort', () => reject(new Error('aborted')));
+        });
+        yield { type: 'result' as const, subtype: 'success' as const };
+      })();
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const app = await buildApp();
+      const res = await app.request('/api/ai-proxy/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer proxy-secret',
+        },
+        body: JSON.stringify({
+          provider: 'anthropic',
+          payload: { messages: [{ role: 'user', content: 'Hi' }] },
+        }),
+      });
+
+      expect(res.status).toBe(504);
+      const body = await res.json() as { type: string; error: { type: string; message: string } };
+      expect(body.type).toBe('error');
+      expect(body.error.type).toBe('api_error');
+      expect(body.error.message).toContain('timed out');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('rate-limits unauthenticated test-key requests per client IP', async () => {
     vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
     const app = await buildApp();
