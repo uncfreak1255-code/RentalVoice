@@ -182,8 +182,11 @@ async function callAnthropicViaSubscription(payload: AnthropicPayload): Promise<
         systemPrompt,
         model,
         maxTurns: 1,
-        tools: [],                       // pure text generation — no tool access at all
-        permissionMode: 'bypassPermissions', // safe with tools=[]; matches the plan doc spec
+        tools: [],          // pure text generation — no tool access at all
+        permissionMode: 'default', // INVARIANT: keep paired with tools=[]. If a tool is ever added,
+                            // RECONSIDER permissionMode — do NOT switch to 'bypassPermissions'
+                            // (that requires allowDangerouslySkipPermissions:true and gives
+                            // unrestricted host access on prompt-injection).
       },
     })) {
       if (message.type === 'result') {
