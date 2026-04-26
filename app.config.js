@@ -25,6 +25,16 @@ module.exports = () => {
         'Run: eas secret:create --scope project --name RENTAL_VOICE_TAILNET_DOMAIN --value <your-tailnet>.ts.net'
     );
   }
+  // Guard against misconfiguration: the ATS exception below disables HTTPS for
+  // ALL subdomains of this domain (NSIncludesSubdomains: true). If the value is
+  // ever set to a public TLD or domain, the dev variant would silently allow
+  // plaintext HTTP to that whole zone. Tailscale MagicDNS names always end in
+  // `.ts.net`, so anchor on that.
+  if (!/^[a-z0-9-]+\.ts\.net$/.test(tailnetDomain)) {
+    throw new Error(
+      `RENTAL_VOICE_TAILNET_DOMAIN must be a Tailscale MagicDNS name ending in .ts.net (got: ${tailnetDomain})`
+    );
+  }
 
   return {
     ...baseConfig,
