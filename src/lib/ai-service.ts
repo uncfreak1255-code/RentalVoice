@@ -440,6 +440,7 @@ ${culturalToneEnabled ? `5. Uses culturally appropriate tone, greetings, and exp
 
   try {
     const anthropicPayload = {
+      model: 'claude-sonnet-4-6',
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 500,

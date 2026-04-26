@@ -332,6 +332,7 @@ Personalize this template to sound natural and appropriate for this specific gue
 Return ONLY the personalized message, no explanation.`;
 
     const anthropicPayload = {
+      model: 'claude-sonnet-4-6',
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 500,
@@ -469,6 +470,7 @@ Host name: ${hostName || 'The Host'}
 Write a personalized thank-you message. Return ONLY the message.`;
 
     const anthropicPayload = {
+      model: 'claude-sonnet-4-6',
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
       max_tokens: 300,

@@ -360,6 +360,7 @@ Summary (one line, use → arrows):`;
 
   try {
     const anthropicPayload = {
+      model: 'claude-sonnet-4-6',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 100,
       temperature: 0.3,
