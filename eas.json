@@ -10,7 +10,8 @@
       "channel": "development",
       "env": {
         "APP_VARIANT": "development",
-        "EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN": "1"
+        "EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN": "1",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
