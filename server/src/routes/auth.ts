@@ -78,7 +78,7 @@ authRouter.post('/signup', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
@@ -201,7 +201,7 @@ authRouter.post('/login', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
@@ -260,7 +260,7 @@ authRouter.post('/request-code', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
@@ -283,7 +283,7 @@ authRouter.post('/verify-code', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
@@ -306,7 +306,7 @@ authRouter.post('/consume-link', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }
@@ -489,7 +489,7 @@ authRouter.post('/auto-provision', async (c) => {
 
     if (!parsed.success) {
       return c.json(
-        { message: parsed.error.errors[0].message, code: 'VALIDATION_ERROR', status: 400 },
+        { message: parsed.error.issues[0].message, code: 'VALIDATION_ERROR', status: 400 },
         400
       );
     }

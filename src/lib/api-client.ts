@@ -24,6 +24,7 @@ import { loadFounderSession } from './secure-storage';
 
 const AUTH_TOKEN_KEY = 'rv-auth-token';
 const REFRESH_TOKEN_KEY = 'rv-refresh-token';
+const LOCAL_PROXY_TOKEN_KEY = 'rv-local-proxy-token';
 
 let secureStoreAvailable: boolean | null = null;
 async function isSecureStoreAvailable(): Promise<boolean> {
@@ -119,6 +120,27 @@ async function tryAutoProvisionFromStore(): Promise<void> {
 }
 
 export async function getAuthHeaders(): Promise<Record<string, string>> {
+  // Personal-use local-proxy mode: a static AI_PROXY_TOKEN minted on the host
+  // machine and stashed in expo-secure-store wins over Supabase/founder auth.
+  // This must run before getAuthToken so the static token isn't shadowed by a
+  // stale founder session that the local proxy would reject.
+  if (process.env.EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN === '1') {
+    const stored = await getItem(LOCAL_PROXY_TOKEN_KEY);
+    if (stored) return { Authorization: `Bearer ${stored}` };
+    // Fallback for first-run dev builds before a paste-UI exists: read the
+    // token straight from the build-time env.
+    //
+    // SECURITY NOTE: EXPO_PUBLIC_* values are inlined into the JS bundle by
+    // Metro at build time. This token IS sent on every request to the local
+    // proxy as a Bearer credential AND it is recoverable from any installed
+    // dev IPA via `strings`/Hopper/Frida. Treat it as a dev-only convenience
+    // token. Rotate AI_PROXY_TOKEN on the server (and rebuild) any time a dev
+    // build is shared with another device or person. Stays out of secure-store
+    // on purpose so the user can override later by pasting a fresh token.
+    const baked = process.env.EXPO_PUBLIC_AI_PROXY_TOKEN;
+    if (baked) return { Authorization: `Bearer ${baked}` };
+  }
+
   const token = await getAuthToken();
   if (token) return { Authorization: `Bearer ${token}` };
 
@@ -128,6 +150,20 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   await tryAutoProvisionFromStore();
   const refreshed = await getAuthToken();
   return refreshed ? { Authorization: `Bearer ${refreshed}` } : {};
+}
+
+/**
+ * Store the static AI_PROXY_TOKEN for personal-use local-proxy mode.
+ * The user pastes their server's AI_PROXY_TOKEN into a settings screen once;
+ * that flow calls this. Reads use it via getAuthHeaders() under the
+ * EXPO_PUBLIC_USE_LOCAL_PROXY_TOKEN flag.
+ */
+export async function setLocalProxyToken(token: string): Promise<void> {
+  await setItem(LOCAL_PROXY_TOKEN_KEY, token);
+}
+
+export async function clearLocalProxyToken(): Promise<void> {
+  await deleteItem(LOCAL_PROXY_TOKEN_KEY);
 }
 
 /**

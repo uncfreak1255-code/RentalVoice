@@ -359,12 +359,11 @@ ${messages}
 Summary (one line, use → arrows):`;
 
   try {
-    const geminiPayload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 100,
-      },
+    const anthropicPayload = {
+      model: 'claude-sonnet-4-6',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 100,
+      temperature: 0.3,
     };
 
     const authHeaders = await getAuthHeaders();
@@ -375,9 +374,9 @@ Summary (one line, use → arrows):`;
         ...authHeaders,
       },
       body: JSON.stringify({
-        provider: 'google',
-        model: 'gemini-2.0-flash',
-        payload: geminiPayload,
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        payload: anthropicPayload,
       }),
     });
 
@@ -386,7 +385,7 @@ Summary (one line, use → arrows):`;
     }
 
     const data = await response.json();
-    const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const summary = data.content?.[0]?.text || '';
 
     return summary.trim().replace(/^["']|["']$/g, ''); // Remove quotes if present
   } catch (error) {

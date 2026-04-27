@@ -19,15 +19,15 @@ learningSyncRouter.use('*', requireAuth);
 // ─── Schema ────────────────────────────────────────────
 
 const syncProfileSchema = z.object({
-  styleProfiles: z.record(z.any()).default({}),
-  trainingProgress: z.record(z.any()).default({}),
-  incrementalState: z.record(z.any()).default({}),
-  temporalWeights: z.record(z.any()).default({}),
-  trainingQuality: z.record(z.any()).default({}),
-  conversationFlows: z.record(z.any()).default({}),
-  guestMemory: z.record(z.any()).default({}),
-  negativeExamples: z.record(z.any()).default({}),
-  draftOutcomes: z.record(z.any()).default({}),
+  styleProfiles: z.record(z.string(), z.any()).default({}),
+  trainingProgress: z.record(z.string(), z.any()).default({}),
+  incrementalState: z.record(z.string(), z.any()).default({}),
+  temporalWeights: z.record(z.string(), z.any()).default({}),
+  trainingQuality: z.record(z.string(), z.any()).default({}),
+  conversationFlows: z.record(z.string(), z.any()).default({}),
+  guestMemory: z.record(z.string(), z.any()).default({}),
+  negativeExamples: z.record(z.string(), z.any()).default({}),
+  draftOutcomes: z.record(z.string(), z.any()).default({}),
   totalExamplesSynced: z.number().int().min(0).default(0),
   syncVersion: z.number().int().min(1).default(1),
 });

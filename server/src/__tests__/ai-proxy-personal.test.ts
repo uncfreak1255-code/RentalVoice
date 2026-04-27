@@ -146,6 +146,240 @@ describe('personal AI proxy security', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('key=legacy-google-key');
   });
 
+  it('routes anthropic through the Claude SDK when USE_CLAUDE_SUBSCRIPTION=1 and synthesizes Anthropic-shape JSON', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+    vi.stubEnv('CLAUDE_SUBSCRIPTION_MODEL', 'claude-sonnet-4-6');
+
+    const queryMock = vi.fn(async function* () {
+      yield {
+        type: 'result' as const,
+        subtype: 'success' as const,
+        result: 'Check-in is at 3pm.',
+        stop_reason: 'end_turn' as const,
+        usage: {
+          input_tokens: 42,
+          output_tokens: 7,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      };
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const app = await buildApp();
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+
+    const res = await app.request('/api/ai-proxy/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer proxy-secret',
+      },
+      body: JSON.stringify({
+        provider: 'anthropic',
+        model: 'claude-sonnet-4-6',
+        payload: {
+          system: 'You are a vacation rental host assistant.',
+          messages: [{ role: 'user', content: 'What time is checkin?' }],
+          max_tokens: 200,
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as { content: { type: string; text: string }[]; usage: { input_tokens: number; output_tokens: number }; model: string };
+
+    // Contract: client parsers read data.content?.[0]?.text — see src/lib/ai-enhanced.ts:1867.
+    expect(body.content?.[0]?.text).toBe('Check-in is at 3pm.');
+    expect(body.content[0].type).toBe('text');
+    expect(body.usage.input_tokens).toBe(42);
+    expect(body.usage.output_tokens).toBe(7);
+    expect(body.model).toBe('claude-sonnet-4-6');
+
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled(); // SDK path, not API key path
+  });
+
+  it('returns 502 when the SDK yields a non-success result', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+
+    const queryMock = vi.fn(async function* () {
+      yield { type: 'result' as const, subtype: 'error_max_turns' as const };
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const app = await buildApp();
+      const res = await app.request('/api/ai-proxy/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer proxy-secret',
+        },
+        body: JSON.stringify({
+          provider: 'anthropic',
+          payload: { messages: [{ role: 'user', content: 'Hi' }] },
+        }),
+      });
+
+      expect(res.status).toBe(502);
+      const body = await res.json() as { type: string; error: { type: string } };
+      expect(body.type).toBe('error');
+      expect(body.error.type).toBe('api_error');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('returns 502 and logs when the SDK throws', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+
+    const queryMock = vi.fn(async function* () {
+      throw new Error('Claude Code session expired');
+      yield { type: 'result' as const, subtype: 'success' as const };
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const app = await buildApp();
+      const res = await app.request('/api/ai-proxy/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer proxy-secret',
+        },
+        body: JSON.stringify({
+          provider: 'anthropic',
+          payload: { messages: [{ role: 'user', content: 'Hi' }] },
+        }),
+      });
+
+      expect(res.status).toBe(502);
+      const body = await res.json() as { type: string; error: { message: string } };
+      expect(body.error.message).toContain('Claude Code session expired');
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('forwards only the latest user turn to the SDK and drops prior turns', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+
+    let capturedPrompt: unknown;
+    const queryMock = vi.fn((args: { prompt: unknown }) => {
+      capturedPrompt = args.prompt;
+      return (async function* () {
+        yield {
+          type: 'result' as const,
+          subtype: 'success' as const,
+          result: 'ok',
+          stop_reason: 'end_turn' as const,
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        };
+      })();
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const app = await buildApp();
+    const res = await app.request('/api/ai-proxy/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer proxy-secret',
+      },
+      body: JSON.stringify({
+        provider: 'anthropic',
+        payload: {
+          messages: [
+            { role: 'user', content: 'first turn (should be dropped)' },
+            { role: 'assistant', content: 'mid reply (should be dropped)' },
+            { role: 'user', content: 'latest turn (should be sent)' },
+          ],
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(capturedPrompt).toBe('latest turn (should be sent)');
+  });
+
+  it('returns 400 when the anthropic payload has no user message on the SDK path', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+
+    const queryMock = vi.fn();
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const app = await buildApp();
+    const res = await app.request('/api/ai-proxy/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer proxy-secret',
+      },
+      body: JSON.stringify({
+        provider: 'anthropic',
+        payload: {
+          messages: [{ role: 'assistant', content: 'no user turn here' }],
+        },
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(queryMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 504 when the SDK stalls past CLAUDE_SUBSCRIPTION_TIMEOUT_MS', async () => {
+    vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
+    vi.stubEnv('USE_CLAUDE_SUBSCRIPTION', '1');
+    vi.stubEnv('CLAUDE_SUBSCRIPTION_TIMEOUT_MS', '50');
+
+    const queryMock = vi.fn((args: { options?: { abortController?: AbortController } }) => {
+      return (async function* () {
+        // Hang until the wall-clock guard aborts. Mirrors what a stalled
+        // SDK call (network hang, OAuth refresh deadlock) would look like.
+        await new Promise<void>((_resolve, reject) => {
+          const signal = args.options?.abortController?.signal;
+          if (!signal) return; // safety: caller must wire abortController
+          signal.addEventListener('abort', () => reject(new Error('aborted')));
+        });
+        yield { type: 'result' as const, subtype: 'success' as const };
+      })();
+    });
+    vi.doMock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }));
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const app = await buildApp();
+      const res = await app.request('/api/ai-proxy/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer proxy-secret',
+        },
+        body: JSON.stringify({
+          provider: 'anthropic',
+          payload: { messages: [{ role: 'user', content: 'Hi' }] },
+        }),
+      });
+
+      expect(res.status).toBe(504);
+      const body = await res.json() as { type: string; error: { type: string; message: string } };
+      expect(body.type).toBe('error');
+      expect(body.error.type).toBe('api_error');
+      expect(body.error.message).toContain('timed out');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('rate-limits unauthenticated test-key requests per client IP', async () => {
     vi.stubEnv('AI_PROXY_TOKEN', 'proxy-secret');
     const app = await buildApp();
